@@ -11,12 +11,15 @@ function default(defaultsTable, argTable)
 end
 
 function extract(t, ...)
+  man(extract, '')
   local result = {}
   for unused, key in ipairs(arg) do
     table.insert(result, t[key])
   end
   return unpack(result)
 end
+
+
 
 -- function arguments(argTable, orderedDefaults)
 --   local result = {}

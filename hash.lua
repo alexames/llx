@@ -1,23 +1,6 @@
---------------------------------------------------------------------------------
--- ugh I hate it
--- https://stackoverflow.com/a/32389020/63791
+local bit = require 'numberlua'
 
-local OR, XOR, AND = 1, 3, 4
-function bitoper(a, b, oper)
-  local r, m, s = 0, 2^7
-  repeat
-    s,a,b = a+b+m, a%m, b%m
-    r,m = r + m*oper%(s-a-b), m/2
-  until m < 1
-  return r%256
-end
-
-local bit8 = {
-  band = function(a, b) return bitoper(a, b, AND) end,
-  bor  = function(a, b) return bitoper(a, b, OR) end,
-  bxor = function(a, b) return bitoper(a, b, XOR) end,
-}
-
+----[[
 --------------------------------------------------------------------------------
 
 function extend(a, b)
@@ -26,16 +9,28 @@ function extend(a, b)
   end
 end
 
---------------------------------------------------------------------------------
-
-FNV_offset_basis = 0xcbf29ce484222325
-FNV_prime = 0x100000001b3
-
-function hash_byte(hash, byte)
-  return bit8.bxor(hash, byte) * FNV_prime
+function p(s)
+  print(debug.getinfo(2).currentline, s)
+  return s
 end
 
-function hash_nil(hash, value)
+
+--------------------------------------------------------------------------------
+
+FNV_offset_basis = 0x811c9dc5
+FNV_prime = 0x01000193
+
+print(string.format('>>> 0x%X', FNV_offset_basis))
+print(string.format('>>> 0x%X', FNV_prime))
+
+function hash_byte(hash, byte)
+  hash = bit.bit32.bxor(hash, byte)
+  hash = hash * FNV_prime
+  hash = bit.bit32.band(hash, 0xFFFFFFFF)
+end
+
+function hash_nil(hash)
+  p(hash)
   return hash
 end
 
@@ -115,7 +110,12 @@ function hash_type(hash, value)
 end
 
 function fnv1a(value)
+  p(value)
   return hash_type(FNV_offset_basis, value)
 end
 
+print(string.format("0x%X", fnv1a(nil)))
+print(string.format("0x%X", fnv1a({b=2,c=3,a=1})))
+
 return { hash=fnv1a }
+--]]
