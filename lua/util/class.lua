@@ -1,6 +1,4 @@
-require 'printValue'
-
-function class(name)
+local function class(name)
   local classTable = {}
   local classTableMetatable = {}
   classTable.__name = name
@@ -10,7 +8,7 @@ function class(name)
   function classTableMetatable:__call(...)
     local object = setmetatable({}, classTable)
     if classTable.__init then
-      classTable.__init(object, unpack(arg))
+      classTable.__init(object, ...)
     end
     return object
   end
@@ -32,7 +30,7 @@ function class(name)
   classTable.__index = classTable.__defaultindex
 
   setmetatable(classTable, classTableMetatable)
-  _G[name] = classTable
+  -- _G[name] = classTable
 
   -- By returning this class definer object, we can do these things:
   --   class 'foo' { ... }
@@ -40,7 +38,8 @@ function class(name)
   --   class 'foo' : extends(bar) { ... }
   local classDefiner = {}
   function classDefiner:extends(...)
-    for i=1, arg.n do
+    local arg = {...}
+    for i=1, #arg do
       local base = arg[i]
       classTable.__extends[i] = base
       if base.__name then
@@ -55,12 +54,13 @@ function class(name)
     for k, v in pairs(metatable) do
       classTable[k] = v
     end
+    return classTable
   end
 
   return setmetatable(classDefiner, classDefinerMetatable)
 end
 
-function test()
+local function test()
   require 'unit'
 
   class "Base" {
@@ -127,3 +127,7 @@ function test()
   EXPECT_EQ(anotherDerived:getStuff(), {100, 200, 300, 400, 500, 'f'})
 end
 
+return {
+  class=class,
+  test=test
+}

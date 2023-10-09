@@ -1,4 +1,4 @@
-function default(defaultsTable, argTable)
+local function default(defaultsTable, argTable)
   return setmetatable({}, {
     __index = function(key)
       if type(argTable[key]) ~= "nil" then
@@ -10,7 +10,7 @@ function default(defaultsTable, argTable)
   })
 end
 
-function extract(t, ...)
+local function extract(t, ...)
   man(extract, '')
   local result = {}
   for unused, key in ipairs(arg) do
@@ -19,7 +19,10 @@ function extract(t, ...)
   return unpack(result)
 end
 
-
+return {
+  extract=extract,
+  default=default,
+}
 
 -- function arguments(argTable, orderedDefaults)
 --   local result = {}

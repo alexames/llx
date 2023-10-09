@@ -1,4 +1,3 @@
-require 'class'
 
 function EXPECT_THAT(actual, condition)
   result, message = condition(actual)
