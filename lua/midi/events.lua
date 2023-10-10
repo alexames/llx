@@ -1,7 +1,4 @@
-require 'strict'
-local from = require 'util/import'
-local class = from 'util/class' : import 'class'
-local dump_value = require 'util/dump_value'
+local class = require 'util/class'
 local midi_io = require 'midi/io'
 
 -- A midi event represents one of many commands a midi file can run. The Event

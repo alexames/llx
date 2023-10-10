@@ -1,7 +1,5 @@
-require 'strict'
 
-local from = require 'util/import'
-local class = from 'util/class' : import 'class'
+local class = require 'util/class'
 
 local list = class 'list' : extends(table) {}
 
@@ -92,37 +90,4 @@ end
 list.__call = list.slice
 list.ipairs = ipairs
 
-local function test()
-  l1 = list.generate{lambda=function(n) return n * 100 end,
-                     list=list{1, 2, 3, 4},
-                     filter=function(n) return n % 2 == 0 end}
-  print("pairs(l1)")
-  for k, v in pairs(l1) do
-    print("l1:", k, v)
-  end
-  print("1:ipairs()")
-  for i, v in l1:ipairs() do
-    print("l1:", i, v)
-  end
-  print("l1:ivalues()")
-  for v in l1:ivalues() do
-    print("l1:", v)
-  end
-
-  print("pairs(l2)")
-  l2 = list{10, 11, 12, 13}
-  for i, v in pairs(l2) do
-    print("l2:", i, v)
-  end
-  print("list{} comprehension")
-  l3 = list{iterable=range(10),
-            value=function(n) return n * 100 end}
-  for v in l3:ivalues() do
-    print("l3:", v)
-  end
-end
-
-return {
-  list=list,
-  test=test,
-}
+return list

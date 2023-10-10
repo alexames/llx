@@ -4,7 +4,7 @@ local FNV_prime = 0x01000193
 local function hash_integer(hash, byte)
   hash = hash ^ byte
   hash = hash * FNV_prime
-  hash = hash & 0xFFFFFFFF)
+  hash = hash & 0xFFFFFFFF
   return hash
 end
 
@@ -99,14 +99,4 @@ local function fnv1a(value)
   return hash_value(FNV_offset_basis, value)
 end
 
-local function test()
-  print(string.format("0x%X", fnv1a(nil)))
-  print(string.format("0x%X", fnv1a('test')))
-  print(string.format("0x%X", fnv1a('te'..'st')))
-  print(string.format("0x%X", fnv1a({b=2,c=3,a=1})))
-  print(string.format("0x%X", fnv1a({c=3,b=2,a=1})))
-  print(string.format("0x%X", fnv1a({c=3,b=2,a=1,d=nil})))
-  print(string.format("0x%X", fnv1a({b=3,c=2,a=1,d=true,e={},f='a'})))
-end
-
-return { hash=fnv1a, test=test }
+return fnv1a

@@ -1,11 +1,9 @@
-local from = require 'util/import'
-require 'ext/string'
+require 'ext'
 
-local class = from 'util/class' : import 'class'
-local type_check_decorator = from 'types/type_check_decorator'
-                           : import 'type_check_decorator'
+local class = require 'util/class'
+local type_check_decorator = require 'types/type_check_decorator'
 
-local Function = class 'Function' {
+local method = class 'method' {
   __init = function(self, function_args)
     local underlying_function = function_args[1]
     for _, decorator in ipairs(function_args.decorators or {}) do
@@ -19,29 +17,7 @@ local Function = class 'Function' {
   end;
 }
 
-local function test()
-  local Any, List, Number, Optional, String, Union = types.Any, types.List, types.Number, types.Optional, types.String, types.Union
-
-  local f = Function{
-    decorators={cache.lru(10)};
-    types={
-      args={Number, List{Union{String, Number}}, Optional{Any}},
-      returns={Number}};
-    function(i)
-      print('hello')
-      return 10
-    end
-  }
-
-  print(f(10, {'false'}))
-  print(f(10, {'safdsdf', 'sfsf', 10, 'false'}, 3))
-end
-
-
-return {
-  Function=Function,
-  test=test,
-}
+return method
 
 -- TODO:
 -- Move join to common utility file

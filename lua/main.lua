@@ -1,11 +1,6 @@
-require 'strict'
-
-local from = require 'util/import'
-local class = from 'util/class' : import 'class'
-local method = from 'util/function' : import 'Function'
+require 'lx'
 
 local midi = require 'midi'
-local list = from 'util/list' : import 'list'
 
 local composition = midi.MidiFile()
 local ticks = 192
@@ -14,8 +9,8 @@ composition.ticks = ticks
 local track = midi.Track()
 
 function midi.Track:note(number, length)
-  self.events:insert(midi.event.NoteBeginEvent(0 * ticks, 0, number, 100))
-  self.events:insert(midi.event.NoteEndEvent(length * ticks, 0, 72, 100))
+  self.events:insert(midi.events.NoteBeginEvent(0 * ticks, 0, number, 100))
+  self.events:insert(midi.events.NoteEndEvent(length * ticks, 0, 72, 100))
 end
 
 track:note(76, 1)      -- Ma

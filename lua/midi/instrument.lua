@@ -160,6 +160,4 @@ local instruments = {
   Gunshot = 127
 }
 
-return {
-  instrument=instrument
-}
+return instrument

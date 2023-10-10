@@ -1,8 +1,7 @@
 require 'strict'
 
-local from = require 'util/import'
-local class = from 'util/class' : import 'class'
-local list = from 'util/list' : import 'list'
+local class = require 'util/class'
+local list = require 'util/list'
 local midi_io = require 'midi/io'
 local events = require 'midi/events'
 

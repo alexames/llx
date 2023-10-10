@@ -1,5 +1,3 @@
-local dump_value = require 'util/dump_value'
-
 local function class(name)
   local classTable = {}
   local classTableMetatable = {}
@@ -12,12 +10,6 @@ local function class(name)
       classTable.__new and classTable.__new(...) or {},
       classTable)
     if classTable.__init then
-      -- print('classTableMetatable.__call', object, '{')
-      -- for i, v in pairs({...}) do
-      --   print('', i, dump_value(v))
-      -- end
-      -- print('}')
-
       classTable.__init(object, ...)
     end
     return object
@@ -67,74 +59,4 @@ local function class(name)
   return setmetatable(classDefiner, classDefinerMetatable)
 end
 
-local function test()
-  require 'unit'
-
-  class "Base" {
-    __init = function(self, a, b, c)
-      self.a = a
-      self.b = b
-      self.c = c
-    end;
-
-    getStuff = function(self)
-      return {self.a, self.b, self.c}
-    end;
-
-    staticValue = 100;
-  }
-
-  class "Derived" : extends(Base) {
-    __init = function(self, a, b, c, d, e)
-      self.Base.__init(self, a, b, c)
-      self.d = d
-      self.e = e
-      self.f = "f"
-    end;
-
-    getStuff = function(self)
-      local result = self.Base.getStuff(self)
-      table.insert(result, self.d)
-      table.insert(result, self.e)
-      table.insert(result, self.f)
-      return result
-    end;
-
-    staticValue = 200;
-  }
-
-  class "AnotherDerived" : extends(Base)
-
-  function AnotherDerived:__init(a, b, c, d, e)
-    self.Base.__init(self, a, b, c)
-    self.d = d
-    self.e = e
-    self.f = "f"
-  end
-
-  function AnotherDerived:getStuff()
-    local result = self.Base.getStuff(self)
-    table.insert(result, self.d)
-    table.insert(result, self.e)
-    table.insert(result, self.f)
-    return result
-  end;
-
-  base1 = Base(1, 2, 3)
-  EXPECT_EQ(base1:getStuff(), {1, 2, 3})
-
-  base2 = Base(6, 7, 8)
-  EXPECT_EQ(base1:getStuff(), {1, 2, 3})
-  EXPECT_EQ(base2:getStuff(), {6, 7, 8})
-
-  derived = Derived(10, 20, 30, 40, 50)
-  EXPECT_EQ(derived:getStuff(), {10, 20, 30, 40, 50, 'f'})
-
-  anotherDerived = AnotherDerived(100, 200, 300, 400, 500)
-  EXPECT_EQ(anotherDerived:getStuff(), {100, 200, 300, 400, 500, 'f'})
-end
-
-return {
-  class=class,
-  test=test
-}
+return class

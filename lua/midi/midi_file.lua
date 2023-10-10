@@ -1,9 +1,7 @@
 require 'strict'
 
-local from = require 'util/import'
-local class = from 'util/class' : import 'class'
-local list = from 'util/list' : import 'list'
-
+local class = require 'util/class'
+local list = require 'util/list'
 local midi_io = require 'midi/io'
 
 -- A re representing a Midi file. A midi file consists of a format, the
