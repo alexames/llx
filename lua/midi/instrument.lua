@@ -1,4 +1,4 @@
-return {
+local instruments = {
   -- Piano
   Acoustic_Grand = 0,
   Bright_Acoustic = 1,
@@ -158,4 +158,8 @@ return {
   Helicopter = 125,
   Applause = 126,
   Gunshot = 127
+}
+
+return {
+  instrument=instrument
 }

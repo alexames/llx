@@ -1,7 +1,14 @@
+require 'strict'
+
+local from = require 'util/import'
+local class = from 'util/class' : import 'class'
+local list = from 'util/list' : import 'list'
+
+local midi_io = require 'midi/io'
 
 -- A re representing a Midi file. A midi file consists of a format, the
 -- number of ticks per beat, and a list of tracks filled with midi events.
-class 'MidiFile' {
+local MidiFile = class 'MidiFile' {
   __init = function(self)
     self.format = 0
     self.ticks = 0
@@ -13,12 +20,14 @@ class 'MidiFile' {
       file = io.open(file, "w")
     end
     file:write('MThd')
-    writeUInt32be(file, 0x0006)
-    writeUInt16be(file, self.format)
-    writeUInt16be(file, #self.tracks)
-    writeUInt16be(file, self.ticks)
+    midi_io.writeUInt32be(file, 0x0006)
+    midi_io.writeUInt16be(file, self.format)
+    midi_io.writeUInt16be(file, #self.tracks)
+    midi_io.writeUInt16be(file, self.ticks)
     for track in self.tracks:ivalues() do
       track:write(file)
     end
   end
 }
+
+return MidiFile

@@ -1,17 +1,16 @@
-require 'class'
-require 'printValue'
-require 'py'
+require 'strict'
 
-class 'list' : extends(table)
+local from = require 'util/import'
+local class = from 'util/class' : import 'class'
+
+local list = class 'list' : extends(table) {}
 
 local function noop(value)
   return value
 end
 
-function list:__init(args)
-  for i, v in ipairs(args) do
-    self[i] = v
-  end
+function list:__new(t)
+  return t or {}
 end
 
 function list.generate(arg)
@@ -92,8 +91,6 @@ end
 
 list.__call = list.slice
 list.ipairs = ipairs
--- list.ipairs = statefulipairs
-list.unpack = unpack
 
 local function test()
   l1 = list.generate{lambda=function(n) return n * 100 end,
@@ -124,3 +121,8 @@ local function test()
     print("l3:", v)
   end
 end
+
+return {
+  list=list,
+  test=test,
+}

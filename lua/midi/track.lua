@@ -1,6 +1,12 @@
-require 'class'
+require 'strict'
 
-local track = class 'Track' {
+local from = require 'util/import'
+local class = from 'util/class' : import 'class'
+local list = from 'util/list' : import 'list'
+local midi_io = require 'midi/io'
+local events = require 'midi/events'
+
+local Track = class 'Track' {
   __init = function(self)
     self.events = list{}
   end;
@@ -21,22 +27,22 @@ local track = class 'Track' {
       end
 
       -- Command
-      local commandByte = bit32.bor(event.command, event.channel)
+      local commandByte = event.command | event.channel
       if commandByte ~= previousCommandByte or event.command == MetaEvent.command then
         length = length + 1
         previousCommandByte = commandByte
       end
 
       -- One data byte
-      if event.command == ProgramChangeEvent.command then
-      elseif event.command == ChannelPressureChangeEvent.command then
+      if event.command == events.ProgramChangeEvent.command then
+      elseif event.command == events.ChannelPressureChangeEvent.command then
         length = length + 1
       -- Two data bytes
-      elseif event.command == NoteEndEvent.command
-             or event.command == NoteBeginEvent.command
-             or event.command == VelocityChangeEvent.command
-             or event.command == ControllerChangeEvent.command
-             or event.command == PitchWheelChangeEvent.command then
+      elseif event.command == events.NoteEndEvent.command
+             or event.command == events.NoteBeginEvent.command
+             or event.command == events.VelocityChangeEvent.command
+             or event.command == events.ControllerChangeEvent.command
+             or event.command == events.PitchWheelChangeEvent.command then
         length = length + 2
       -- Variable data bytes
       elseif event.command == Meta.command then
@@ -47,14 +53,13 @@ local track = class 'Track' {
   end;
 
   write = function(self, file)
-    writeUInt8be(file, string.byte('M'))
-    writeUInt8be(file, string.byte('T'))
-    writeUInt8be(file, string.byte('r'))
-    writeUInt8be(file, string.byte('k'))
-    writeUInt32be(file, self:getTrackByteLength())
+    file:write('MTrk')
+    midi_io.writeUInt32be(file, self:getTrackByteLength())
     local context = {previousCommandByte = 0}
     for event in self.events:ivalues() do
       event:write(file, context)
     end
   end;
 }
+
+return Track

@@ -1,4 +1,3 @@
-
 local function table_is_list(t)
   local count = 0
   for k, unused in pairs(t) do
@@ -8,11 +7,9 @@ local function table_is_list(t)
   return count == #t
 end
 
-function dump_value(t, visited)
+local function dump_value(t, visited)
   local result = ""
-  if visited == nil then
-    visited = {}
-  end
+  visited = visited or {}
   if type(t) == 'table' then
     if visited[t] then
       result = result .. tostring(t)
@@ -21,7 +18,7 @@ function dump_value(t, visited)
       result = result .. '{'
       local first = true
 
-      isList = table_is_list(t)
+      local isList = table_is_list(t)
       for k, v in pairs(t) do
         if first then
           first = false
@@ -46,3 +43,5 @@ function dump_value(t, visited)
   end
   return result
 end
+
+return dump_value

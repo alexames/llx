@@ -1,3 +1,5 @@
+local dump_value = require 'util/dump_value'
+
 local function class(name)
   local classTable = {}
   local classTableMetatable = {}
@@ -6,8 +8,16 @@ local function class(name)
 
   -- Used to initialize an instance of the class.
   function classTableMetatable:__call(...)
-    local object = setmetatable({}, classTable)
+    local object = setmetatable(
+      classTable.__new and classTable.__new(...) or {},
+      classTable)
     if classTable.__init then
+      -- print('classTableMetatable.__call', object, '{')
+      -- for i, v in pairs({...}) do
+      --   print('', i, dump_value(v))
+      -- end
+      -- print('}')
+
       classTable.__init(object, ...)
     end
     return object
@@ -29,9 +39,6 @@ local function class(name)
   end
   classTable.__index = classTable.__defaultindex
 
-  setmetatable(classTable, classTableMetatable)
-  -- _G[name] = classTable
-
   -- By returning this class definer object, we can do these things:
   --   class 'foo' { ... }
   -- or 
@@ -39,8 +46,7 @@ local function class(name)
   local classDefiner = {}
   function classDefiner:extends(...)
     local arg = {...}
-    for i=1, #arg do
-      local base = arg[i]
+    for i, base in ipairs(arg) do
       classTable.__extends[i] = base
       if base.__name then
         classTable[base.__name] = base
@@ -57,6 +63,7 @@ local function class(name)
     return classTable
   end
 
+  setmetatable(classTable, classTableMetatable)
   return setmetatable(classDefiner, classDefinerMetatable)
 end
 
