@@ -95,8 +95,17 @@ function hash_value(hash, value)
   return hash_fn(hash, value)
 end
 
+local function getmetamethod(value, methodname)
+  local mt = getmetatable(methodname)
+  return mt and rawget(mt, methodname)
+end
+
 local function fnv1a(value)
-  return hash_value(FNV_offset_basis, value)
+  local hash = getmetamethod(value, '__hash')
+  if type(hash) == 'function' then
+    return hash(value)
+  end
+  return hash or hash_value(FNV_offset_basis, value)
 end
 
 return fnv1a
