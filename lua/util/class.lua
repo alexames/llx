@@ -1,62 +1,62 @@
 local function class(name)
-  local classTable = {}
-  local classTableMetatable = {}
-  classTable.__name = name
-  classTable.__extends = {};
+  local class_table = {}
+  local class_table_metatable = {}
+  class_table.__name = name
+  class_table.__extends = {};
 
   -- Used to initialize an instance of the class.
-  function classTableMetatable:__call(...)
+  function class_table_metatable:__call(...)
     local object = setmetatable(
-      classTable.__new and classTable.__new(...) or {},
-      classTable)
-    if classTable.__init then
-      classTable.__init(object, ...)
+      class_table.__new and class_table.__new(...) or {},
+      class_table)
+    if class_table.__init then
+      class_table.__init(object, ...)
     end
     return object
   end
 
   -- If the object doesn't have a field, check the metatable, then any base classes
-  function classTable:__defaultindex(key)
+  function class_table:__defaultindex(key)
     -- Does the class metatable have the field?
-    local value = rawget(classTable, key)
+    local value = rawget(class_table, key)
     if value then return value end
 
     -- Do any of the base classes have the field?
-    if classTable.__extends then
-      for unused, base in ipairs(classTable.__extends) do
+    if class_table.__extends then
+      for unused, base in ipairs(class_table.__extends) do
         local value = rawget(base, key)
         if value then return value end
       end
     end
   end
-  classTable.__index = classTable.__defaultindex
+  class_table.__index = class_table.__defaultindex
 
   -- By returning this class definer object, we can do these things:
   --   class 'foo' { ... }
   -- or 
   --   class 'foo' : extends(bar) { ... }
-  local classDefiner = {}
-  function classDefiner:extends(...)
+  local class_definer = {}
+  function class_definer:extends(...)
     local arg = {...}
     for i, base in ipairs(arg) do
-      classTable.__extends[i] = base
+      class_table.__extends[i] = base
       if base.__name then
-        classTable[base.__name] = base
+        class_table[base.__name] = base
       end
     end
-    return classDefiner
+    return class_definer
   end
 
-  local classDefinerMetatable = {}
-  function classDefinerMetatable:__call(metatable)
+  local class_definer_metatable = {}
+  function class_definer_metatable:__call(metatable)
     for k, v in pairs(metatable) do
-      classTable[k] = v
+      class_table[k] = v
     end
-    return classTable
+    return class_table
   end
 
-  setmetatable(classTable, classTableMetatable)
-  return setmetatable(classDefiner, classDefinerMetatable)
+  setmetatable(class_table, class_table_metatable)
+  return setmetatable(class_definer, class_definer_metatable)
 end
 
 return class
