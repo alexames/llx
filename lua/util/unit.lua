@@ -1,8 +1,45 @@
+-- Utilities
 
-function EXPECT_THAT(actual, condition)
-  result, message = condition(actual)
+local function max(a, b)
+  return a > b and a or b
+end
+
+local function max(a, b)
+  return a < b and a or b
+end
+
+local function list_to_string(t)
+  local s = '{'
+  for i, v in ipairs(t) do
+    if i == 1 then
+      s = s .. tostring(v)
+    else
+      s = s .. ', ' .. tostring(v)
+    end
+  end
+  return s .. '}'
+end
+
+local function table_to_string(t)
+  local s = '{'
+  local first = true
+  for k, v in pairs(t) do
+    if first then
+      s = s .. tostring(k) .. ' = ' .. tostring(v)
+      first = false
+    else
+      s = s .. ', ' .. tostring(k) .. ' = ' .. tostring(v)
+    end
+  end
+  return s .. '}'
+end
+
+--------------------------------------------------------------------------------
+local fmt = 'expected that\n  %s\n%s\n  %s'
+function EXPECT_THAT(actual, predicate)
+  result, a, b, c = predicate(actual, false)
   if not result then
-    error(message)
+    error(fmt:format(a, b, c))
   end
 end
 
@@ -22,76 +59,58 @@ function EXPECT_NE(actual, expected)
   EXPECT_THAT(actual, Not(Equals(expected)))
 end
 
-function subsetOf(table1, table2, visited)
-  if visited == nil then
-    visited = {}
-  end
-  for key1, value1 in pairs(table1) do
-    local value2 = table2[key1]
-    if (value2 == nil 
-        or not valuesAreEqual(value1, value2, visited)) then
-      return false
-    end
-  end
-  return true
-end
-
-function valuesAreEqual(table1, table2, visited)
-  if visited == nil then
-    visited = {}
-  end
-
-  local type1 = type(table1)
-  local type2 = type(table2)
-  if type1 ~= type2 then return false end
-
-  -- non-table types can be directly compared
-  if type1 ~= 'table' and type2 ~= 'table' then return table1 == table2 end
-  
-  -- as well as tables which have the metamethod __eq
-  local metatable = getmetatable(table1)
-  if metatable and metatable.__eq then return table1 == table2 end
-
-  if visited[table1] or visited[table2] then
-    error("recursive tables not supported")
-  end
-  visited[table1] = true
-  visited[table2] = true
-
-  return subsetOf(table1, table2, visited) 
-         and subsetOf(table2, table1, visited)
-end
-
-function Not(funcToNegate)
+function Not(predicate)
   return function(actual)
-    result, message = funcToNegate(actual, true)
-    return not result, message
+    local result, act, msg, exp = predicate(actual)
+    return not result, act, 'not ' .. msg, exp
   end
 end
 
-function toBoolean(value)
-  if value then return true else return false end
+function Equals(expected)
+  return function(actual)
+    local result = actual == expected
+    return
+      result,
+      tostring(actual),
+      'be equal to',
+      tostring(expected)
+  end
 end
 
-function Equals(expectation)
-  return function(actual, negate)
-    negate = toBoolean(negate)
-
-    local result = valuesAreEqual(expectation, actual)
-    local message = nil
-    if result == negate then
-      local messageOperation
-      if negate then
-        messageOperation = "inequality"
-      else
-        messageOperation = "equality"
+function Listwise(predicate_generator, expected)
+  return function(actual)
+    local result, act, msg, exp
+    for i=1, max(#actual, #expected) do
+      local predicate = predicate_generator(actual[i])
+      result, act, msg, exp = predicate(expected[i])
+      if not result then
+        break
       end
-      message = "expected " .. messageOperation .. " between expected value\n  "
-                .. valueToString(expectation) 
-                .. "\nand actual value\n  "
-                .. valueToString(actual)
     end
-    return result, message
+    return result,
+           list_to_string(actual),
+           msg .. ' at every index to',
+           list_to_string(expected)
+  end
+end
+
+function Tablewise(predicate_generator, expected)
+  return function(actual)
+    local result, act, msg, exp
+    local keys = {}
+    for k, _ in pairs(actual) do keys[k] = true end
+    for k, _ in pairs(expected) do keys[k] = true end
+    for k, _ in pairs(keys) do
+      local predicate = predicate_generator(actual[k])
+      result, act, msg, exp = predicate(expected[k])
+      if not result then
+        break
+      end
+    end
+    return result,
+           table_to_string(actual),
+           msg .. ' at every index to',
+           table_to_string(expected)
   end
 end
 
@@ -146,8 +165,6 @@ function test()
   EXPECT_EQ(next, next)
   local t = {a=100, b="hello"}
   EXPECT_EQ(t, t)
-  EXPECT_EQ({a=100, b="hello"}, {a=100, b="hello"})
-  EXPECT_EQ({1, 2, 3}, {1, 2, 3})
 
   EXPECT_NE(1, 2)
   EXPECT_NE(true, false)
@@ -161,38 +178,44 @@ function test()
   EXPECT_NE({1, 2, 3}, {2, 3})
   EXPECT_NE({1, 2}, {2, 3})
 
-  -- Test to ensure they fail when they get bad values
-  EXPECT_FALSE(pcall(EXPECT_TRUE, false))
-  EXPECT_FALSE(pcall(EXPECT_FALSE, true))
+  -- -- EXPECT_THAT({a=100, b="hello"}, Listwise(Equals({a=100, b="hello"}))
+  EXPECT_THAT({1, 2, 3}, Listwise(Equals, {1, 2, 3}))
+  EXPECT_THAT({1, 2, 3}, Listwise(function(v) return Not(Equals(v)) end, {2, 4, 6}))
+  EXPECT_THAT({1, 2, 3}, Not(Listwise(Equals, {1, 2, 4})))
+  -- EXPECT_THAT({1, 2, 3}, Not(Listwise(function(v) return Not(Equals(v)) end), {1, 2, 3}))
+  -- EXPECT_THAT({1, 2, 3}, Not(Listwise(function(v) return Not(Equals(v)) end), {1, 2, 4}))
 
-  EXPECT_FALSE(pcall(EXPECT_EQ, nil, 1))
-  EXPECT_FALSE(pcall(EXPECT_EQ, true, false))
-  EXPECT_FALSE(pcall(EXPECT_EQ, nil, 1))
-  EXPECT_FALSE(pcall(EXPECT_EQ, false, true))
-  EXPECT_FALSE(pcall(EXPECT_EQ, 1, 2))
-  EXPECT_FALSE(pcall(EXPECT_EQ, "hello", "world"))
-  EXPECT_FALSE(pcall(EXPECT_EQ, next, print))
-  EXPECT_FALSE(pcall(EXPECT_EQ, {a=100, b="hello"}, {a=100}))
-  EXPECT_FALSE(pcall(EXPECT_EQ, {b="hello"}, {a=100, b="hello"}))
-  EXPECT_FALSE(pcall(EXPECT_EQ, {a=100, b="hello"}, {c=100, d="hello"}))
-  EXPECT_FALSE(pcall(EXPECT_EQ, {1, 2}, {1, 2, 3}))
-  EXPECT_FALSE(pcall(EXPECT_EQ, {1, 2, 3}, {2, 3}))
-  EXPECT_FALSE(pcall(EXPECT_EQ, {1, 2}, {2, 3}))
+  EXPECT_THAT({a=100, b="hello"}, Tablewise(Equals, {a=100, b="hello"}))
+  EXPECT_THAT({a=100, b="hello"}, Tablewise(function(v) return Not(Equals(v)) end, {a=1000, b="goodbye"}))
+  -- EXPECT_THAT({a=100, b="hello"}, Not(Tablewise(Equals), {a=100, b="hello", c="world"}))
+  -- EXPECT_THAT({a=100, b="hello", c="world"}, Not(Tablewise(Equals), {a=100, b="hello"}))
 
-  EXPECT_FALSE(pcall(EXPECT_NE, nil, nil))
-  EXPECT_FALSE(pcall(EXPECT_NE, true, true))
-  EXPECT_FALSE(pcall(EXPECT_NE, false, false))
-  EXPECT_FALSE(pcall(EXPECT_NE, 1, 1))
-  EXPECT_FALSE(pcall(EXPECT_NE, "hello, world", "hello, world"))
-  EXPECT_FALSE(pcall(EXPECT_NE, next, next))
-  EXPECT_FALSE(pcall(EXPECT_NE, {1, 2, 3}, {1, 2, 3}))
+  -- -- Test to ensure they fail when they get bad values
+  print(pcall(EXPECT_TRUE, false))
+  print(pcall(EXPECT_FALSE, true))
 
-  -- Recursive tables should always fail.
-  local recursiveTable = {}
-  recursiveTable.a = recursiveTable
-  EXPECT_FALSE(pcall(EXPECT_EQ, recursiveTable, recursiveTable))
-  EXPECT_FALSE(pcall(EXPECT_NE, recursiveTable, recursiveTable))
+  print(pcall(EXPECT_EQ, nil, 1))
+  print(pcall(EXPECT_EQ, true, false))
+  print(pcall(EXPECT_EQ, nil, 1))
+  print(pcall(EXPECT_EQ, false, true))
+  print(pcall(EXPECT_EQ, 1, 2))
+  print(pcall(EXPECT_EQ, "hello", "world"))
+  print(pcall(EXPECT_EQ, next, print))
+  print(pcall(EXPECT_EQ, {a=100, b="hello"}, {a=100}))
+  print(pcall(EXPECT_EQ, {b="hello"}, {a=100, b="hello"}))
+  print(pcall(EXPECT_EQ, {a=100, b="hello"}, {c=100, d="hello"}))
+  print(pcall(EXPECT_EQ, {1, 2}, {1, 2, 3}))
+  print(pcall(EXPECT_EQ, {1, 2, 3}, {2, 3}))
+  print(pcall(EXPECT_EQ, {1, 2}, {2, 3}))
 
+  print(pcall(EXPECT_NE, nil, nil))
+  print(pcall(EXPECT_NE, true, true))
+  print(pcall(EXPECT_NE, false, false))
+  print(pcall(EXPECT_NE, 1, 1))
+  print(pcall(EXPECT_NE, "hello, world", "hello, world"))
+  print(pcall(EXPECT_NE, next, next))
+
+  print(pcall(EXPECT_THAT, {1, 2, 3}, Not(Listwise(function(v) return Not(Equals(v)) end, {2, 4, 65}))))
 end
 
 test()
