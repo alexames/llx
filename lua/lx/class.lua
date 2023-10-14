@@ -104,6 +104,25 @@ local function class(name)
     end
   end
 
+  local function check_mt(metatable)
+    if metatable == class_table then
+      return true
+    end
+    local superclasses = metatable.__superclasses
+    if superclasses then
+      for i, superclass in pairs(superclasses) do
+        if check_mt(superclass, class_table) then
+          return true
+        end
+      end
+    end
+    return false
+  end
+
+  local function isinstance(o)
+    return check_mt(getmetatable(o))
+  end
+
   class_table = {
     __name = name;
     __metatable = class_table_proxy;
@@ -114,6 +133,8 @@ local function class(name)
 
     __index = __index;
     __defaultindex = __index;
+
+    isinstance = isinstance;
   }
 
   setmetatable(class_table_proxy, {
@@ -161,6 +182,8 @@ local function class(name)
       extends = function(self, ...)
         local arg = {...}
         for i, base in ipairs(arg) do
+          assert(type(base) == 'table',
+                 name .. ' must inherit from table, not ' .. type(base))
           local base_name = base.__name
           if base_name then
             class_table[base_name] = base
