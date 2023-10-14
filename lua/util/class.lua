@@ -44,41 +44,98 @@
 --
 -- Implementation details:
 --
+
+--------------------------------------------------------------------------------
+-- Utilities
+
+local function startswith(str, start)
+   return str:sub(1, #start) == start
+end
+
+local function endswith(str, ending)
+   return ending == "" or str:sub(-#ending) == ending
+end
+
 local function class(name)
+  -- This is the metatable for instance of the class.
   local class_table = nil
-  class_table = setmetatable(
-    {
-      __name = name;
-      __extends = {};
+  class_table = {
+    __name = name;
+    __superclasses = {};
+    __subclasses = {};
+    __metafields = {};
 
-      -- If the object doesn't have a field, check the metatable,
-      -- then any base classes
-      __index = function(t, k)
-        -- Does the class metatable have the field?
-        local value = rawget(class_table, k)
-        if value then return value end
+    -- If the object doesn't have a field, check the metatable,
+    -- then any base classes
+    __index = function(t, k)
+      -- Does the class metatable have the field?
+      local value = rawget(class_table, k)
+      if value then return value end
 
-        -- Do any of the base classes have the field?
-        if class_table.__extends then
-          for _, base in ipairs(class_table.__extends) do
-            local value = base[k]
-            if value then return value end
-          end
+      -- Do any of the base classes have the field?
+      if class_table.__superclasses then
+        for _, base in ipairs(class_table.__superclasses) do
+          local value = base[k]
+          if value then return value end
         end
       end
-    },
-    {
-      -- Used to initialize an instance of the class.
-      __call = function(self, ...)
-        local object = setmetatable(
-          class_table.__new and class_table.__new(...) or {},
-          class_table)
-        if class_table.__init then
-          class_table.__init(object, ...)
-        end
-        return object
+    end
+  }
+
+  function try_set_metafield(class_table, key, value)
+    if class_table.__metafields[key] == nil then
+      class_table[key] = value
+    end
+  end
+
+  function set_metafield_on_subclasses(class_table, key, value)
+    for _, subclass in pairs(class_table.__subclasses) do
+      try_set_metafield(subclass, key, value)
+    end
+  end
+
+  function set_metafield(class_table, key, value)
+    -- Assign metafield value to class_table[key] if and only if
+    -- class_table.__metafields does not define it.
+    if type(key) == 'string' and startswith(key, '__') then
+      class_table.__metafields[key] = value
+      set_metafield_on_subclasses(class_table, key, value)
+    end
+  end
+
+  local dummy_class_table = {}
+  setmetatable(dummy_class_table, {
+    -- Used to initialize an instance of the class.
+    __call = function(self, ...)
+      local object = setmetatable(
+        class_table.__new and class_table.__new(...) or {},
+        class_table)
+      if class_table.__init then
+        class_table.__init(object, ...)
       end
-    })
+      return object
+    end;
+
+    __index = class_table.__index;
+
+    __newindex = function(self, k, v)
+      rawset(class_table, k, v)
+      set_metafield(class_table, k, v)
+    end;
+
+    __pairs = function()
+      return next, class_table, nil
+    end;
+
+    __len = function()
+      return #class_table
+    end;
+
+    __eq = function(lhs, rhs)
+      local other = (rawequal(dummy_class_table, lhs) and rhs or lhs)
+      return rawequal(class_table, other)
+    end;
+  })
 
   class_table.__defaultindex = class_table.__index
 
@@ -92,21 +149,40 @@ local function class(name)
       extends = function(self, ...)
         local arg = {...}
         for i, base in ipairs(arg) do
-          class_table.__extends[i] = base
-          if base.__name then
-            class_table[base.__name] = base
+          local base_name = base.__name
+          if base_name then
+            class_table[base_name] = base
+          end
+
+          -- Bi-directional extends/extendedby bookkeeping.
+          class_table.__superclasses[i] = base
+          local extendedby = base.__subclasses
+          if extendedby then
+            extendedby[class_table.__name] = class_table
           end
         end
-        -- property fixup
+
+        -- TODO: property fixup
+
         return class_definer
       end
     },
     {
-      __call = function(self, metatable)
-        for k, v in pairs(metatable) do
-          class_table[k] = v
+      __call = function(self, definition_table)
+        for k, v in pairs(definition_table) do
+          rawset(class_table, k, v)
+          set_metafield(class_table, k, v)
         end
-        return class_table
+
+        -- I think this needs to be set up to be recursive.
+        -- I'm also concerned about the ordering of the superclasses and
+        -- whether this will respect that.
+        for _, superclass in ipairs(class_table.__superclasses) do
+          for k, v in pairs(superclass.__metafields) do
+            try_set_metafield(class_table, k, v)
+          end
+        end
+        return dummy_class_table
       end
     })
   return class_definer
@@ -184,6 +260,7 @@ local function test()
   EXPECT_NE(Base.getStuff, nil)
   EXPECT_NE(Base(1, 2, 3), nil)
   local base = Base(1, 2, 3)
+  EXPECT_EQ(Base, getmetatable(base))
   EXPECT_EQ(getmetatable(base), Base)
   EXPECT_EQ(tostring(base), 'Base(1, 2, 3)')
   EXPECT_EQ(base.getStuff, Base.getStuff)
@@ -206,7 +283,6 @@ local function test()
   anotherDerived = AnotherDerived(100, 200, 300, 400, 500)
   EXPECT_THAT(anotherDerived:getStuff(),
               Listwise(Equals, {100, 200, 300, 400, 500, 'f'}))
-
 end
 
 return {class, test}
