@@ -82,19 +82,19 @@ local function class(name)
     end
   }
 
-  function try_set_metafield(class_table, key, value)
+  local function try_set_metafield(class_table, key, value)
     if class_table.__metafields[key] == nil then
       class_table[key] = value
     end
   end
 
-  function set_metafield_on_subclasses(class_table, key, value)
+  local function set_metafield_on_subclasses(class_table, key, value)
     for _, subclass in pairs(class_table.__subclasses) do
       try_set_metafield(subclass, key, value)
     end
   end
 
-  function set_metafield(class_table, key, value)
+  local function set_metafield(class_table, key, value)
     -- Assign metafield value to class_table[key] if and only if
     -- class_table.__metafields does not define it.
     if type(key) == 'string' and startswith(key, '__') then
@@ -103,8 +103,14 @@ local function class(name)
     end
   end
 
-  local dummy_class_table = {}
-  setmetatable(dummy_class_table, {
+  local function class_table_next(unused, index)
+    return next(class_table, index)
+  end
+
+  local class_table_proxy = {}
+  setmetatable(class_table_proxy, {
+    __metatable = class_table_proxy;
+
     -- Used to initialize an instance of the class.
     __call = function(self, ...)
       local object = setmetatable(
@@ -124,7 +130,7 @@ local function class(name)
     end;
 
     __pairs = function()
-      return next, class_table, nil
+      return class_table_next, nil, nil
     end;
 
     __len = function()
@@ -132,7 +138,7 @@ local function class(name)
     end;
 
     __eq = function(lhs, rhs)
-      local other = (rawequal(dummy_class_table, lhs) and rhs or lhs)
+      local other = (rawequal(class_table_proxy, lhs) and rhs or lhs)
       return rawequal(class_table, other)
     end;
   })
@@ -158,7 +164,7 @@ local function class(name)
           class_table.__superclasses[i] = base
           local extendedby = base.__subclasses
           if extendedby then
-            extendedby[class_table.__name] = class_table
+            extendedby[class_table.__name] = class_table_proxy
           end
         end
 
@@ -182,7 +188,7 @@ local function class(name)
             try_set_metafield(class_table, k, v)
           end
         end
-        return dummy_class_table
+        return class_table_proxy
       end
     })
   return class_definer
@@ -239,6 +245,7 @@ local function test()
 
     staticValue = 200;
   }
+
 
   local AnotherDerived = class "AnotherDerived" : extends(Base) {}
 
