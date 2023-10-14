@@ -175,7 +175,7 @@ function Tablewise(predicate_generator, expected)
   end
 end
 
-TestCaseList = {}
+local TestCaseList = {}
 function TestCase(name)
   local testCase = {}
   testCase.name = name
@@ -187,11 +187,11 @@ function TestCase(name)
   })
 end
 
-local function startsWith(str, start)
+local function starts_with(str, start)
    return str:sub(1, #start) == start
 end
 
-local function endsWith(str, ending)
+local function ends_with(str, ending)
    return ending == "" or str:sub(-#ending) == ending
 end
 
@@ -199,7 +199,7 @@ function RunUnitTests()
   for _, testCase in ipairs(TestCaseList) do
     print('[==========] Running tests from ' .. testCase.name)
     for name, test in pairs(testCase.tests) do
-      if startsWith(name, 'test_') then
+      if starts_with(name, 'test_') then
         print('[ Run      ] ' .. testCase.name .. '.' .. name)
         local ok, err = pcall(test)
         if ok then
