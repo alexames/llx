@@ -28,10 +28,10 @@ function table:remove_if(predicate)
   return self;
 end
 
-function table:get_or_insert_lazy(k, defaultFunc)
+function table:get_or_insert_lazy(k, default_func)
   local v = self[k]
   if not v then
-    v = defaultFunc()
+    v = default_func()
     self[k] = v
   end
   return v

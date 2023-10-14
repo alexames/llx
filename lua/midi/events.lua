@@ -1,4 +1,4 @@
-local class = require 'util/class'
+local class = require 'lx/class'
 local midi_io = require 'midi/io'
 
 -- A midi event represents one of many commands a midi file can run. The Event

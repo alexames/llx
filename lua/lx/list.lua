@@ -1,5 +1,5 @@
 
-local class = require 'util/class'
+local class = require 'lx/class'
 
 local list = class 'list' : extends(table) {}
 

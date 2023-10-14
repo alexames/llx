@@ -1,6 +1,6 @@
 require 'ext'
 
-local class = require 'util/class'
+local class = require 'lx/class'
 local type_check_decorator = require 'types/type_check_decorator'
 
 local method = class 'method' {

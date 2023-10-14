@@ -1,16 +1,16 @@
 
 require 'ext'
 
-class = require 'util/class'
-list = require 'util/list'
--- require 'util/default'
-dump_value = require 'util/dump_value'
-hash = require 'util/hash'
-list = require 'util/list'
-method = require 'util/method'
--- require 'util/py'
-unit = require 'util/unit'
--- require 'util/using'
+class = require 'lx/class'
+list = require 'lx/list'
+-- require 'lx/default'
+dump_value = require 'lx/dump_value'
+hash = require 'lx/hash'
+list = require 'lx/list'
+method = require 'lx/method'
+-- require 'lx/py'
+unit = require 'lx/unit'
+-- require 'lx/using'
 
 
 -- Lock down global table.

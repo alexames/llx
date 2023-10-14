@@ -56,58 +56,66 @@ local function endswith(str, ending)
    return ending == "" or str:sub(-#ending) == ending
 end
 
+local function try_set_metafield(class_table, key, value)
+  if class_table.__metafields[key] == nil then
+    class_table[key] = value
+  end
+end
+
+local function set_metafield_on_subclasses(class_table, key, value)
+  for _, subclass in pairs(class_table.__subclasses) do
+    try_set_metafield(subclass, key, value)
+  end
+end
+
+local function set_metafield(class_table, key, value)
+  -- Assign metafield value to class_table[key] if and only if
+  -- class_table.__metafields does not define it.
+  if type(key) == 'string' and startswith(key, '__') then
+    class_table.__metafields[key] = value
+    set_metafield_on_subclasses(class_table, key, value)
+  end
+end
+
+--------------------------------------------------------------------------------
+
 local function class(name)
   -- This is the metatable for instance of the class.
   local class_table = nil
-  class_table = {
-    __name = name;
-    __superclasses = {};
-    __subclasses = {};
-    __metafields = {};
-
-    -- If the object doesn't have a field, check the metatable,
-    -- then any base classes
-    __index = function(t, k)
-      -- Does the class metatable have the field?
-      local value = rawget(class_table, k)
-      if value then return value end
-
-      -- Do any of the base classes have the field?
-      if class_table.__superclasses then
-        for _, base in ipairs(class_table.__superclasses) do
-          local value = base[k]
-          if value then return value end
-        end
-      end
-    end
-  }
-
-  local function try_set_metafield(class_table, key, value)
-    if class_table.__metafields[key] == nil then
-      class_table[key] = value
-    end
-  end
-
-  local function set_metafield_on_subclasses(class_table, key, value)
-    for _, subclass in pairs(class_table.__subclasses) do
-      try_set_metafield(subclass, key, value)
-    end
-  end
-
-  local function set_metafield(class_table, key, value)
-    -- Assign metafield value to class_table[key] if and only if
-    -- class_table.__metafields does not define it.
-    if type(key) == 'string' and startswith(key, '__') then
-      class_table.__metafields[key] = value
-      set_metafield_on_subclasses(class_table, key, value)
-    end
-  end
+  local class_table_proxy = {}
 
   local function class_table_next(unused, index)
     return next(class_table, index)
   end
 
-  local class_table_proxy = {}
+  -- If the object doesn't have a field, check the metatable,
+  -- then any base classes
+  local function __index(t, k)
+    -- Does the class metatable have the field?
+    local value = rawget(class_table, k)
+    if value then return value end
+
+    -- Do any of the base classes have the field?
+    if class_table.__superclasses then
+      for _, base in ipairs(class_table.__superclasses) do
+        local value = base[k]
+        if value then return value end
+      end
+    end
+  end
+
+  class_table = {
+    __name = name;
+    __metatable = class_table_proxy;
+
+    __superclasses = {};
+    __subclasses = {};
+    __metafields = {};
+
+    __index = __index;
+    __defaultindex = __index;
+  }
+
   setmetatable(class_table_proxy, {
     __metatable = class_table_proxy;
 
@@ -142,8 +150,6 @@ local function class(name)
       return rawequal(class_table, other)
     end;
   })
-
-  class_table.__defaultindex = class_table.__index
 
   -- By returning this class definer object, we can do these things:
   --   class 'foo' { ... }
@@ -195,7 +201,7 @@ local function class(name)
 end
 
 local function test()
-  require 'util/unit'
+  require 'lx/unit'
 
   local Base = class "Base" {
     __init = function(self, a, b, c)

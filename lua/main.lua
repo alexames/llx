@@ -1,5 +1,4 @@
 
-class, test = table.unpack(require'util/class', nil, nil)
-
+class, test = table.unpack(require 'lx/class', nil, nil)
 
 test()
