@@ -1,23 +1,25 @@
 local types = {}
 
 local function any_type_check()
-  return {
+  return setmetatable({
     __name = 'Any';
     isinstance = function(value)
       return true
     end;
-  }
+  }, {
+    __tostring = function() return 'types.Any' end;
+  })
 end
 
 local function union_type_check(type_checker_list)
   local contituent_types = {}
   for i, type_checker in ipairs(type_checker_list) do
-    contituent_types[i] = type_checker_list[i].typename
+    contituent_types[i] = type_checker_list[i]
   end
   local expected_typenames = '{' .. (','):join(contituent_types) .. '}'
-
-  return {
-    __name = 'Union' .. expected_typenames;
+  local typename = 'Union' .. expected_typenames
+  return setmetatable({
+    __name = typename;
 
     isinstance = function(value)
       for _, type_checker in ipairs(type_checker_list) do
@@ -27,7 +29,9 @@ local function union_type_check(type_checker_list)
       end
       return false
     end;
-  }
+  }, {
+    __tostring = function() return typename end;
+  })
 end
 
 local function optional_type_check(type_checker)
@@ -35,9 +39,10 @@ local function optional_type_check(type_checker)
 end
 
 local function list_type_check(type_checker)
-  list_type_checker = type_checker[1]
-  return {
-    __name = 'List{' .. list_type_checker.typename .. '}';
+  local list_type_checker = type_checker[1]
+  local typename = 'List{' .. list_type_checker.typename .. '}';
+  return setmetatable({
+    __name = typename;
 
     isinstance = function(value)
       if type(value) ~= 'table' then
@@ -50,7 +55,9 @@ local function list_type_check(type_checker)
       end
       return true
     end;
-  }
+  }, {
+    __tostring = function() return typename end;
+  })
 end
 
 local function dict_type_check(type_checker)

@@ -30,8 +30,8 @@ local InvalidArgumentException =
     Exception.__init(
       self,
       string.format(
-        '%s expected at argument index %s, got %s',
-        expected_type, argument_index, actual_type))
+        'bad argument #%s (%s expected, got %s)',
+        argument_index, expected_type, actual_type))
   end
 }
 

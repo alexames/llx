@@ -28,7 +28,7 @@ double = method{
   end
 }
 
-print(double(Foo()))
+print(double('Foo()'))
 print(double(100))
 
 test()

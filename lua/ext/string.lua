@@ -19,7 +19,7 @@ function string:join(t)
     if i > 1 then
       result = result .. self
     end
-    result = result .. t[i]
+    result = result .. tostring(t[i])
   end
   return result
 end

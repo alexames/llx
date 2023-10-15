@@ -21,9 +21,8 @@ local method = class 'method' {
 return method
 
 -- TODO:
--- Move join to common utility file
 -- Fix error message to be more like built in error message:
---   `bad argument #2 to 'format' (string expected, got nil)`
+--   ``
 -- Make it work better with built in types, so you can specify strings with just
 --   `string` or `number` instead of having to use type.String, etc
 --   this could be done by adding functions directly to the tables for each type
