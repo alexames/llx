@@ -27,15 +27,6 @@ local function union_type_check(type_checker_list)
       end
       return false
     end;
-
-    -- invalid_type = function(location, index, value)
-    --   local actual_typename = type(value)
-    --   if actual_typename ~= expected_typename then
-    --     return string.format(
-    --       'one of %s expected at %s index %s, got %s',
-    --       expected_typenames, location, index, actual_typename)
-    --   end
-    -- end;
   }
 end
 
@@ -59,22 +50,6 @@ local function list_type_check(type_checker)
       end
       return true
     end;
-
-    -- invalid_type = function(location, index, value)
-    --   local actual_typename = type(value)
-    --   if actual_typename ~= 'table' then
-    --     return string.format(
-    --       'List{%s} expected at %s index %s, got %s',
-    --       list_type_checker.typename, location, index, actual_typename)
-    --   end
-    --   for i, v in ipairs(value) do
-    --     if not list_type_checker.isinstance(v) then
-    --       return string.format(
-    --         'List{%s} expected at %s index %s, got %s at list index %s',
-    --         list_type_checker.typename, location, index, type(v), i)
-    --     end
-    --   end
-    -- end;
   }
 end
 
