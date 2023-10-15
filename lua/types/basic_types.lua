@@ -21,7 +21,7 @@ local function union_type_check(type_checker_list)
 
     isinstance = function(value)
       for _, type_checker in ipairs(type_checker_list) do
-        if type_checker.check(value) then
+        if type_checker.isinstance(value) then
           return true
         end
       end
@@ -53,7 +53,7 @@ local function list_type_check(type_checker)
         return false
       end
       for _, v in ipairs(value) do
-        if not list_type_checker.check(v) then
+        if not list_type_checker.isinstance(v) then
           return false
         end
       end
@@ -68,7 +68,7 @@ local function list_type_check(type_checker)
     --       list_type_checker.typename, location, index, actual_typename)
     --   end
     --   for i, v in ipairs(value) do
-    --     if not list_type_checker.check(v) then
+    --     if not list_type_checker.isinstance(v) then
     --       return string.format(
     --         'List{%s} expected at %s index %s, got %s at list index %s',
     --         list_type_checker.typename, location, index, type(v), i)
