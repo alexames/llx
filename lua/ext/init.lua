@@ -1,2 +1,8 @@
+require 'ext/nil'
+require 'ext/boolean'
+require 'ext/number'
 require 'ext/string'
 require 'ext/table'
+require 'ext/function'
+require 'ext/thread'
+require 'ext/userdata'

@@ -1,4 +1,10 @@
 
+table.__name = 'table';
+
+table.isinstance = function(v)
+  return type(v) == 'table'
+end
+
 local table_instance_metatable = {
   __index = table
 }
@@ -8,6 +14,8 @@ local table_metatable = {
     return setmetatable(t or {}, table_instance_metatable)
   end
 }
+
+function table.__tostring() return 'table' end;
 
 setmetatable(table, table_metatable)
 
@@ -85,3 +93,5 @@ function table:insert_unique(value)
     self:insert(value)
   end
 end
+
+return table

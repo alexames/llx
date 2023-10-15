@@ -1,4 +1,18 @@
 
+setmetatable(string, {
+  __call = function(v)
+    return v and tostring(v) or ''
+  end;
+
+  __tostring = function() return 'string' end;
+})
+
+string.__name = 'string'
+
+string.isinstance = function(v)
+  return type(v) == 'string'
+end
+
 function string:join(t)
   local result = ''
   for i=1, #t do
@@ -21,3 +35,5 @@ end
 function string:endswith(ending)
    return ending == "" or self:sub(-#ending) == ending
 end
+
+return string

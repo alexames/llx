@@ -108,7 +108,7 @@ local function class(name)
     if metatable == class_table then
       return true
     end
-    local superclasses = metatable.__superclasses
+    local superclasses = metatable and metatable.__superclasses
     if superclasses then
       for i, superclass in pairs(superclasses) do
         if check_mt(superclass, class_table) then
@@ -169,6 +169,10 @@ local function class(name)
     __eq = function(lhs, rhs)
       local other = (rawequal(class_table_proxy, lhs) and rhs or lhs)
       return rawequal(class_table, other)
+    end;
+
+    __tostring = function()
+      return name
     end;
   })
 

@@ -1,4 +1,4 @@
-require 'lx'
+require 'lx/class'
 
 local Exception = class 'Exception' {
   __init = function(self, what)
@@ -14,11 +14,9 @@ local FileNotFoundException = class 'FileNotFoundException' : extends(Exception)
   __init = function(self)
     self.Exception.__init(self, 'File Not Found')
   end;
-
-  __tostring = Exception.__tostring
 }
 
-local function try(t)
+function try(t)
   local successful, exception = pcall(t[1])
   if not successful then
     local catch = t[exception.__name]
@@ -27,6 +25,8 @@ local function try(t)
     catch(exception)
   end
 end
+
+return {try=try, Exception=Exception}
 
 -- print('ready to try')
 -- try {

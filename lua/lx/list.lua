@@ -1,5 +1,5 @@
 
-local class = require 'lx/class'
+local class, test = table.unpack(require 'lx/class', nil, nil)
 
 local list = class 'list' : extends(table) {}
 
