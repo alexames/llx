@@ -3,7 +3,7 @@ nil_table = setmetatable({
 
   isinstance = function(v)
     return type(v) == 'nil'
-  end
+  end;
 }, {
   __tostring = function() return 'nil' end;
 })

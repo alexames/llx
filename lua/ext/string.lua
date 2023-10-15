@@ -1,6 +1,6 @@
 
 setmetatable(string, {
-  __call = function(v)
+  __call = function(self, v)
     return v and tostring(v) or ''
   end;
 

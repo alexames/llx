@@ -5,7 +5,7 @@ boolean = setmetatable({
     return type(v) == 'boolean'
   end;
 },{
-  __call = function(v)
+  __call = function(self, v)
     return v ~= nil and v ~= false
   end;
 

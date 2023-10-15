@@ -12,7 +12,6 @@ local Foo = class 'Foo' {
 
 local Bar = class 'Bar' : extends(Foo) {
   __init = function(self)
-
   end
 }
 
@@ -21,7 +20,7 @@ local f = Foo()
 
 double = method{
   types = {
-    args = {Foo},
+    args = {types.Union{Foo, number}},
     returns = {number}
   },
   function (i)
@@ -30,5 +29,6 @@ double = method{
 }
 
 print(double(Foo()))
+print(double(100))
 
 test()

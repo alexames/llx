@@ -4,10 +4,15 @@ number = setmetatable({
   isinstance = function(v)
     return type(v) == 'number'
   end;
-},
-{
-  __call = function(v)
-    return tonumber(v)
+}, {
+  __call = function(self, v)
+    if v == nil or v == false then
+      return 0
+    elseif v == true then
+      return 1
+    else
+      return tonumber(v)
+    end
   end;
 
   __tostring = function() return 'number' end;
