@@ -1,12 +1,5 @@
--- Utilities
-
-local function max(a, b)
-  return a > b and a or b
-end
-
-local function max(a, b)
-  return a < b and a or b
-end
+require 'ext/string'
+require 'lx/base'
 
 local function list_to_string(t)
   local s = '{'
@@ -32,15 +25,6 @@ local function table_to_string(t)
     end
   end
   return s .. '}'
-end
-
-local function collect_keys(out, ...)
-  for i, t in pairs{...} do
-    for k, v in pairs(t) do
-      out[k] = true
-    end
-  end
-  return out
 end
 
 --------------------------------------------------------------------------------
@@ -131,6 +115,30 @@ function LessThanOrEqual(expected)
       tostring(actual),
       'be less than or equal to',
       'be not less than or equal to',
+      tostring(expected)
+  end
+end
+
+function StartsWith(expected)
+  return function(actual)
+    local result = actual:startswith(expected)
+    return
+      result,
+      tostring(actual),
+      'start with',
+      'not start with',
+      tostring(expected)
+  end
+end
+
+function EndsWith(expected)
+  return function(actual)
+    local result = actual:endswith(expected)
+    return
+      result,
+      tostring(actual),
+      'end with',
+      'not end with',
       tostring(expected)
   end
 end
