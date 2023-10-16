@@ -10,19 +10,7 @@ local function default(defaultsTable, argTable)
   })
 end
 
-local function extract(t, ...)
-  man(extract, '')
-  local result = {}
-  for unused, key in ipairs(arg) do
-    table.insert(result, t[key])
-  end
-  return unpack(result)
-end
-
-return {
-  extract=extract,
-  default=default,
-}
+return default
 
 -- function arguments(argTable, orderedDefaults)
 --   local result = {}
