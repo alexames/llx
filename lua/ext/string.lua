@@ -1,19 +1,21 @@
+String = string
 
 setmetatable(string, {
   __call = function(self, v)
     return v and tostring(v) or ''
   end;
 
-  __tostring = function() return 'string' end;
+  __tostring = function() return 'String' end;
 })
 
-string.__name = 'string'
 
-string.isinstance = function(v)
-  return type(v) == 'string'
+String.__name = 'String'
+
+String.isinstance = function(v)
+  return type(v) == 'String'
 end
 
-function string:join(t)
+function String:join(t)
   local result = ''
   for i=1, #t do
     if i > 1 then
@@ -24,16 +26,16 @@ function string:join(t)
   return result
 end
 
-function string:empty()
+function String:empty()
   return #self == 0
 end
 
-function string:startswith(start)
+function String:startswith(start)
    return self:sub(1, #start) == start
 end
 
-function string:endswith(ending)
+function String:endswith(ending)
    return ending == "" or self:sub(-#ending) == ending
 end
 
-return string
+return String

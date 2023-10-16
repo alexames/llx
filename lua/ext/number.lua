@@ -1,5 +1,5 @@
-number = setmetatable({
-  __name = 'number';
+Number = setmetatable({
+  __name = 'Number';
 
   isinstance = function(v)
     return type(v) == 'number'
@@ -15,7 +15,7 @@ number = setmetatable({
     end
   end;
 
-  __tostring = function() return 'number' end;
+  __tostring = function() return 'Number' end;
 })
 
-return number
+return Number

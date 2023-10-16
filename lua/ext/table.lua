@@ -1,12 +1,13 @@
 
-table.__name = 'table';
+Table = table
+Table.__name = 'Table';
 
-table.isinstance = function(v)
+Table.isinstance = function(v)
   return type(v) == 'table'
 end
 
 local table_instance_metatable = {
-  __index = table
+  __index = Table
 }
 
 local table_metatable = {
@@ -15,11 +16,11 @@ local table_metatable = {
   end
 }
 
-function table.__tostring() return 'table' end;
+function Table.__tostring() return 'Table' end;
 
 setmetatable(table, table_metatable)
 
-function table:remove_if(predicate)
+function Table:remove_if(predicate)
   local j = 1
   local size = #self;
   for i=1, size do
@@ -36,7 +37,7 @@ function table:remove_if(predicate)
   return self;
 end
 
-function table:get_or_insert_lazy(k, default_func)
+function Table:get_or_insert_lazy(k, default_func)
   local v = self[k]
   if not v then
     v = default_func()
@@ -45,7 +46,7 @@ function table:get_or_insert_lazy(k, default_func)
   return v
 end
 
-function table:get_or_insert(k, default) 
+function Table:get_or_insert(k, default) 
   local v = self[k]
   if not v then
     v = default
@@ -54,7 +55,7 @@ function table:get_or_insert(k, default)
   return v
 end
 
-function table:copy(destination)
+function Table:copy(destination)
   destination = destination or {}
   for k, v in pairs(self) do
     destination[k] = v
@@ -62,17 +63,17 @@ function table:copy(destination)
   return destination
 end
 
-function table:deepcopy(destination)
+function Table:deepcopy(destination)
   -- todo
 end
 
-function table:apply(xform)
+function Table:apply(xform)
   for k, v in pairs(self) do
     self[k] = xform(v)
   end
 end
 
-function table:find(value)
+function Table:find(value)
   for k, v in pairs(self) do
     if v == value then
       return k, v
@@ -80,7 +81,7 @@ function table:find(value)
   end
 end
 
-function table:find_if(predicate)
+function Table:find_if(predicate)
   for k, v in pairs(self) do
     if predicate(k, v) then
       return k, v
@@ -88,7 +89,7 @@ function table:find_if(predicate)
   end
 end
 
-function table:ifind(value, init)
+function Table:ifind(value, init)
   for i=init or 1, #self do
     if self[i] == value then
       return i, v
@@ -96,18 +97,18 @@ function table:ifind(value, init)
   end
 end
 
-function table:ifind_if(predicate, init)
+function Table:ifind_if(predicate, init)
   for i=init or 1, #self do
-    if predicate(self[i]) then
-      return i
+    if predicate(i, self[i]) then
+      return i, self[i]
     end
   end
 end
 
-function table:insert_unique(value)
+function Table:insert_unique(value)
   if not self:ifind(value) then
     self:insert(value)
   end
 end
 
-return table
+return Table

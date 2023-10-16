@@ -1,5 +1,5 @@
-boolean = setmetatable({
-  __name = 'boolean';
+Boolean = setmetatable({
+  __name = 'Boolean';
 
   isinstance = function(v)
     return type(v) == 'boolean'
@@ -9,7 +9,7 @@ boolean = setmetatable({
     return v ~= nil and v ~= false
   end;
 
-  __tostring = function() return 'boolean' end;
+  __tostring = function() return 'Boolean' end;
 })
 
 return boolean

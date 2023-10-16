@@ -1,11 +1,11 @@
-nil_table = setmetatable({
+Nil = setmetatable({
   __name = 'nil';
 
   isinstance = function(v)
     return type(v) == 'nil'
   end;
 }, {
-  __tostring = function() return 'nil' end;
+  __tostring = function() return 'Nil' end;
 })
 
-return nil_table
+return Nil

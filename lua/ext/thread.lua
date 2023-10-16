@@ -1,11 +1,11 @@
-thread = setmetatable({
-  __name = 'thread';
+Thread = setmetatable({
+  __name = 'Thread';
 
   isinstance = function(v)
     return type(v) == 'thread'
   end;
 }, {
-  __tostring = function() return 'thread' end;
+  __tostring = function() return 'Thread' end;
 })
 
-return thread
+return Thread

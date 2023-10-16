@@ -6,21 +6,21 @@ local class, test = table.unpack(require 'lx/class', nil, nil)
 local function gettype(o)
   local type = type(o)
   if type == 'nil' then
-    return nil_table
+    return Nil
   elseif type == 'boolean' then
-    return boolean
+    return Boolean
   elseif type == 'number' then
-    return number
+    return Number
   elseif type == 'string' then
     return string
   elseif type == 'table' then
-    return getmetatable(o) or table
+    return getmetatable(o) or Table
   elseif type == 'function' then
-    return function_table
+    return Function
   elseif type == 'thread' then
-    return thread
+    return Thread
   elseif type == 'userdata' then
-    return getmetatable(o) or userdata
+    return getmetatable(o) or Userdata
   end
 end
 
