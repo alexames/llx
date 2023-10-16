@@ -199,6 +199,16 @@ class 'Test' {
   end
 }
 
+function test(name)
+  return 'test_' .. name
+end
+
+function test_class(name)
+  return function(class_definition)
+    RegisterTest(class(name):extends(Test)(class_definition))
+  end
+end
+
 -- This is a list of classes that have been registered with unit.
 local unit_test_suite = {}
 function TestCase(name)
@@ -212,23 +222,30 @@ function TestCase(name)
   })
 end
 
+function RegisterTest(test_class)
+  table.insert(unit_test_suite, test_class)
+end
+
 function run_unit_tests(test_suite)
   local total_failure_count = 0
   local total_test_count = 0
   local failure_list = {}
   for _, test_case in ipairs(unit_test_suite) do
     local test_count = 0
-    for name, test in pairs(test_case.tests) do
+    for name, test in pairs(test_case.tests or test_case) do
       if name:startswith('test_') then
         test_count = test_count + 1
         total_test_count = total_test_count + 1
       end
     end
     printf('%s[==========]%s Running %s tests from %s%s%s',
-            color(green), reset(), test_count, color(bright_cyan), test_case.name, reset())
+            color(green), reset(), test_count, color(bright_cyan), 
+            -- This needs to be fixed.
+            tostring(test_case),
+            reset())
     local test_number = 0
     local failure_count = 0
-    for name, test in pairs(test_case.tests) do
+    for name, test in pairs(test_case.tests or test_case) do
       if name:startswith('test_') then
         test_number = test_number + 1
         printf('%s[ Run      ] %s%s.%s%s',
@@ -240,7 +257,7 @@ function run_unit_tests(test_suite)
         else
           total_failure_count = total_failure_count + 1
           failure_count = failure_count + 1
-          table.insert(failure_list, test_case.name .. '.' .. name)
+          table.insert(failure_list, (test_case.name or tostring(test_case)) .. '.' .. name)
           printf('%s[  FAILURE ] %s%s.%s%s\n%s',
                  color(red), color(bright_cyan), test_case.name, name, reset(), err)
         end
