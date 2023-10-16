@@ -21,12 +21,6 @@ local method = class 'method' {
 return method
 
 -- TODO:
--- Fix error message to be more like built in error message:
---   ``
--- Make it work better with built in types, so you can specify strings with just
---   `string` or `number` instead of having to use type.String, etc
---   this could be done by adding functions directly to the tables for each type
---   or by having a table that uses those types as a key, or something else?
 -- Improve lists so they are intrinsically typed
 -- Add a dict type checker
 -- Add a tuple type checker, both intrinsically typed and not
