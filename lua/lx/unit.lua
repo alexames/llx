@@ -1,5 +1,6 @@
 require 'ext/string'
 require 'lx/base'
+require 'lx/terminal_colors'
 
 -- Utilities
 
