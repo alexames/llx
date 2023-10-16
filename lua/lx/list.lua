@@ -20,8 +20,8 @@ function list.generate(arg)
   while iterable do
     local v = {iterable()}
     if #v == 0 then break end
-    if not filter or filter(unpack(v)) then
-      table.insert(result, lambdaFn(unpack(v)))
+    if not filter or filter(table.unpack(v)) then
+      table.insert(result, lambdaFn(table.unpack(v)))
     end
   end
   return result
