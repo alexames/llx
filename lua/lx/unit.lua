@@ -135,6 +135,17 @@ function EndsWith(expected)
   end
 end
 
+function IsOfType(expected)
+  return function(actual)
+    return
+      expected.isinstance(actual),
+      tostring(actual),
+      'be of type',
+      'not be of type',
+      tostring(expected)
+  end
+end
+
 function Listwise(predicate_generator, expected)
   return function(actual)
     local result = true
