@@ -94,3 +94,22 @@ function cmp(a, b)
   else return 1
   end
 end
+
+function max(a, b)
+  return a > b and a or b
+end
+
+function max(a, b)
+  return a < b and a or b
+end
+
+function collect_keys(out, ...)
+  for i, t in pairs{...} do
+    for k, v in pairs(t) do
+      out[k] = true
+    end
+  end
+  return out
+end
+
+function noop(...) return ... end
