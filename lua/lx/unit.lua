@@ -174,42 +174,79 @@ function Tablewise(predicate_generator, expected)
   end
 end
 
-local TestCaseList = {}
+-- This is a list of classes that have been registered with unit.
+local unit_test_suite = {}
 function TestCase(name)
-  local testCase = {}
-  testCase.name = name
-  table.insert(TestCaseList, testCase)
+  local test_case = {}
+  test_case.name = name
+  table.insert(unit_test_suite, test_case)
   return setmetatable({}, {
-    __call = function(self, testCaseTable)
-      testCase.tests = testCaseTable
+    __call = function(self, test_case_table)
+      test_case.tests = test_case_table
     end
   })
 end
 
-local function starts_with(str, start)
-   return str:sub(1, #start) == start
-end
-
-local function ends_with(str, ending)
-   return ending == "" or str:sub(-#ending) == ending
-end
-
-function RunUnitTests()
-  for _, testCase in ipairs(TestCaseList) do
-    print('[==========] Running tests from ' .. testCase.name)
-    for name, test in pairs(testCase.tests) do
-      if starts_with(name, 'test_') then
-        print('[ Run      ] ' .. testCase.name .. '.' .. name)
+function run_unit_tests(test_suite)
+  local total_failure_count = 0
+  local total_test_count = 0
+  local failure_list = {}
+  for _, test_case in ipairs(unit_test_suite) do
+    local test_count = 0
+    for name, test in pairs(test_case.tests) do
+      if name:startswith('test_') then
+        test_count = test_count + 1
+        total_test_count = total_test_count + 1
+      end
+    end
+    printf('%s[==========]%s Running %s tests from %s%s%s',
+            color(green), reset(), test_count, color(bright_cyan), test_case.name, reset())
+    local test_number = 0
+    local failure_count = 0
+    for name, test in pairs(test_case.tests) do
+      if name:startswith('test_') then
+        test_number = test_number + 1
+        printf('%s[ Run      ] %s%s.%s%s',
+               color(green), color(bright_cyan), test_case.name, name, reset())
         local ok, err = pcall(test)
         if ok then
-          print('[       OK ] ' .. testCase.name .. '.' .. name)
-        else 
-          print('[  FAILURE ] ' .. testCase.name .. '.' .. name .. ' | ' .. err)
+          printf('%s[       OK ] %s%s.%s%s',
+                 color(green), color(bright_cyan), test_case.name, name, reset())
+        else
+          total_failure_count = total_failure_count + 1
+          failure_count = failure_count + 1
+          table.insert(failure_list, test_case.name .. '.' .. name)
+          printf('%s[  FAILURE ] %s%s.%s%s\n%s',
+                 color(red), color(bright_cyan), test_case.name, name, reset(), err)
         end
       end
+    end
+    if failure_count == 0 then
+      printf('%s[==========]%s All %s tests succeeded!',
+             color(green), reset(), test_case.name)
+    else
+      printf('%s[==========]%s %s / %s failed.',
+             color(red), reset(), failure_count, test_count)
+    end
+      print()
+  end
+  if total_failure_count == 0 then
+    printf('%s[==========]%s All tests succeeded!',
+           color(green), reset())
+  else
+    printf('%s[==========]%s %s / %s failed.',
+           color(red), reset(), total_failure_count, total_test_count)
+    for i, v in ipairs(failure_list) do
+      printf('%s[  FAILED  ] %s%s',
+             color(red), v, reset())
     end
   end
 end
 
+function print_test_suite_results(results)
+end
 
-
+function RunUnitTests()
+  local results = run_unit_tests(unit_test_suite)
+  print_test_suite_results(results)
+end
