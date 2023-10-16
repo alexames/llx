@@ -75,7 +75,15 @@ end
 function table:find(value)
   for k, v in pairs(self) do
     if v == value then
-      return k
+      return k, v
+    end
+  end
+end
+
+function table:find_if(predicate)
+  for k, v in pairs(self) do
+    if predicate(k, v) then
+      return k, v
     end
   end
 end
@@ -83,6 +91,14 @@ end
 function table:ifind(value, init)
   for i=init or 1, #self do
     if self[i] == value then
+      return i, v
+    end
+  end
+end
+
+function table:ifind_if(predicate, init)
+  for i=init or 1, #self do
+    if predicate(self[i]) then
       return i
     end
   end
