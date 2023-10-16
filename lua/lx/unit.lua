@@ -1,6 +1,7 @@
 require 'ext/string'
 require 'lx/base'
 require 'lx/terminal_colors'
+local class = require 'lx/class'
 
 -- Utilities
 
@@ -173,6 +174,26 @@ function Tablewise(predicate_generator, expected)
            table_to_string(expected)
   end
 end
+
+-- Make the results printing a coroutine.
+
+class 'Test' {
+  setup = noop;
+  teardown = noop;
+
+  run_tests = function(self)
+    -- Gather list of tests
+    local tests = {}
+    -- classes need __pairs metamethods.
+    for test_name, test in pairs(self) do
+    end
+
+    for test_name, test in pairs(self) do
+    end
+
+    local ok, err = pcall(test)
+  end
+}
 
 -- This is a list of classes that have been registered with unit.
 local unit_test_suite = {}
