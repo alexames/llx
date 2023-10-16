@@ -1,17 +1,7 @@
 require 'ext/string'
 require 'lx/base'
 
-local function list_to_string(t)
-  local s = '{'
-  for i, v in ipairs(t) do
-    if i == 1 then
-      s = s .. tostring(v)
-    else
-      s = s .. ', ' .. tostring(v)
-    end
-  end
-  return s .. '}'
-end
+-- Utilities
 
 local function table_to_string(t)
   local s = '{'
@@ -156,10 +146,10 @@ function Listwise(predicate_generator, expected)
       result = result and local_result
     end
     return result,
-           list_to_string(act_list),
+           '{' .. (','):join(act_list) .. '}',
            msg .. ' the value at every index of',
            'not to ' .. msg .. ' the value at every index of',
-           list_to_string(exp_list)
+           '{' .. (','):join(exp_list) .. '}'
   end
 end
 
