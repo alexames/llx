@@ -53,9 +53,8 @@ end
 
 function Equals(expected)
   return function(actual)
-    local result = (actual == expected)
     return
-      result,
+      actual == expected,
       tostring(actual),
       'be equal to',
       'be not equal to',
@@ -65,9 +64,8 @@ end
 
 function GreaterThan(expected)
   return function(actual)
-    local result = (actual > expected)
     return
-      result,
+      actual > expected,
       tostring(actual),
       'be greater than',
       'be not greater than',
@@ -77,9 +75,8 @@ end
 
 function GreaterThanOrEqual(expected)
   return function(actual)
-    local result = (actual >= expected)
     return
-      result,
+      actual >= expected,
       tostring(actual),
       'be greater than or equal to',
       'be not greater than or equal to',
@@ -89,9 +86,8 @@ end
 
 function LessThan(expected)
   return function(actual)
-    local result = (actual < expected)
     return
-      result,
+      actual < expected,
       tostring(actual),
       'be less than',
       'be not less than',
@@ -101,9 +97,8 @@ end
 
 function LessThanOrEqual(expected)
   return function(actual)
-    local result = (actual <= expected)
     return
-      result,
+      actual <= expected,
       tostring(actual),
       'be less than or equal to',
       'be not less than or equal to',
@@ -113,9 +108,8 @@ end
 
 function StartsWith(expected)
   return function(actual)
-    local result = actual:startswith(expected)
     return
-      result,
+      actual:startswith(expected),
       tostring(actual),
       'start with',
       'not start with',
@@ -125,9 +119,8 @@ end
 
 function EndsWith(expected)
   return function(actual)
-    local result = actual:endswith(expected)
     return
-      result,
+      actual:endswith(expected),
       tostring(actual),
       'end with',
       'not end with',
