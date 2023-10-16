@@ -1,0 +1,5 @@
+
+
+Mock = class 'Mock' {
+  
+}
