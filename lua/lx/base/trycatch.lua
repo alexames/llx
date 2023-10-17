@@ -1,4 +1,4 @@
-require 'ext/table'
+require 'lx/base/table'
 
 -- try {
 --   function()
@@ -29,5 +29,3 @@ end
 function catch(exception, handler)
   return {exception=exception, handler=handler}
 end
-
-return try, catch

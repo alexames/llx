@@ -1,7 +1,5 @@
-require 'ext'
-local e = require 'lx/exception'
-local try, Exception = e.try, e.Exception
-local class, test = table.unpack(require 'lx/class', nil, nil)
+require 'lx/base/class'
+require 'lx/base/exception'
 
 local function gettype(o)
   local type = type(o)

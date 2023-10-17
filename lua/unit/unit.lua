@@ -1,10 +1,9 @@
-require 'ext/string'
-require 'ext/table'
-require 'lx/base'
-require 'lx/terminal_colors'
-require 'lx/matchers'
-
-local class = require 'lx/class'
+require 'lx/base/base'
+require 'lx/base/class'
+require 'lx/base/string'
+require 'lx/base/table'
+require 'lx/base/terminal_colors'
+require 'unit/matchers'
 
 local fmt = 'expected\n  %s\nto %s\n  %s'
 function EXPECT_THAT(actual, predicate)

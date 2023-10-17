@@ -1,5 +1,5 @@
-require 'lx/unit'
-class = require 'lx/class'
+require 'unit'
+require 'lx/base/class'
 
 local Base = class "Base" {
   __init = function(self, a, b, c)

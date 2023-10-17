@@ -1,9 +1,9 @@
-require 'lx/unit'
-require 'lx/trycatch'
-require 'ext/table'
-local class = require 'lx/class'
+require 'lx/base/class'
+require 'lx/base/exception'
+require 'lx/base/table'
+require 'lx/base/trycatch'
+require 'unit'
 local types = require 'types/basic_types'
-local Exception = require 'lx/exception'
 
 local FooException = class 'FooException' : extends(Exception) {}
 local BarException = class 'BarException' : extends(Exception) {}

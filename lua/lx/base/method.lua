@@ -1,8 +1,5 @@
-require 'ext'
-
-local c = require 'lx/class'
+require 'lx/base/class'
 local type_check_decorator = require 'types/type_check_decorator'
-local class = c[1]
 
 local method = class 'method' {
   __init = function(self, function_args)

@@ -1,4 +1,3 @@
-
 Table = table
 Table.__name = 'Table';
 

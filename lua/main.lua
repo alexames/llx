@@ -1,21 +1,24 @@
-require 'lx/unit'
+require 'lx'
+require 'unit'
 
-TestCase 'main' {
-  test_foo = function()
+test_class 'main' {
+  [test('foo')] = function()
   end
 }
 
-TestCase 'more' {
-  test_foo = function()
+test_class 'more' {
+  [test('foo')] = function()
     return false
   end;
-  test_bar = function()
+  [test('bar')] = function()
     return false
   end;
-  test_baz = function()
+  [test('baz')] = function()
     error('something went wrong, whoops')
   end;
-  test_qux = function()
+  [test('qux')] = function()
     return false
   end;
 }
+
+RunUnitTests()

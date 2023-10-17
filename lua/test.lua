@@ -1,4 +1,4 @@
-require 'lx/unit'
-require 'lx/test'
+require 'unit'
+require 'tests/lx'
 
 RunUnitTests()

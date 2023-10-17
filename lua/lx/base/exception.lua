@@ -1,4 +1,4 @@
-require 'lx/class'
+require 'lx/base/class'
 
 Exception = class 'Exception' {
   __init = function(self, what)
@@ -9,5 +9,3 @@ Exception = class 'Exception' {
     return self.what
   end;
 }
-
-return Exception

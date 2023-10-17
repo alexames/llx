@@ -1,7 +1,7 @@
 require 'strict'
 
-local class = require 'lx/class'
-local list = require 'lx/list'
+require 'lx/base/class'
+require 'lx/list'
 local midi_io = require 'midi/io'
 local events = require 'midi/events'
 

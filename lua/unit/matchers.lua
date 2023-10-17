@@ -1,4 +1,4 @@
-require 'ext/string'
+require 'lx/base/string'
 
 local function table_to_string(t)
   local s = '{'

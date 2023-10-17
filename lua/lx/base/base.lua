@@ -1,4 +1,3 @@
-
 function range(startOrFinish, finish, step)
   local current
   if finish == nil then

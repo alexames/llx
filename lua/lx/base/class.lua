@@ -79,7 +79,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local function class(name)
+function class(name)
   -- This is the metatable for instance of the class.
   local class_table = nil
   local class_table_proxy = {}
@@ -217,7 +217,7 @@ local function class(name)
         -- I'm also concerned about the ordering of the superclasses and
         -- whether this will respect that.
         for _, superclass in ipairs(class_table.__superclasses) do
-          for k, v in pairs(superclass.__metafields) do
+          for k, v in pairs(superclass.__metafields or {}) do
             try_set_metafield(class_table, k, v)
           end
         end

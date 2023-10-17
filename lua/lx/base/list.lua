@@ -1,22 +1,22 @@
+require 'lx/base/class'
+require 'lx/base/table'
 
-local class, test = table.unpack(require 'lx/class', nil, nil)
-
-local list = class 'list' : extends(table) {}
+local List = class 'List' : extends(Table) {}
 
 local function noop(value)
   return value
 end
 
-function list:__new(t)
+function List:__new(t)
   return t or {}
 end
 
-function list.generate(arg)
-  local iterable = arg.iterable or list.ivalues(arg.list)
+function List.generate(arg)
+  local iterable = arg.iterable or List.ivalues(arg.List)
   local filter = arg.filter
   local lambdaFn = arg.lambda or noop
 
-  local result = list{}
+  local result = List{}
   while iterable do
     local v = {iterable()}
     if #v == 0 then break end
@@ -27,19 +27,19 @@ function list.generate(arg)
   return result
 end
 
-function list:__index(index)
+function List:__index(index)
   if type(index) == 'number' then
     if index < 0 then
       index = #self + index + 1
     end
     return rawget(self, index)
   else
-    return list.__defaultindex(self, index)
+    return List.__defaultindex(self, index)
   end
 end
 
-function list:__add(other)
-  result = list{}
+function List:__add(other)
+  result = List{}
   for v in self:ivalues() do
     result:insert(v)
   end
@@ -49,7 +49,7 @@ function list:__add(other)
   return result
 end
 
-function list:ivalues()
+function List:ivalues()
   local i = 0
   return function()
     i = i + 1
@@ -57,7 +57,7 @@ function list:ivalues()
   end
 end
 
-function list:contains(value)
+function List:contains(value)
   for element in self:ivalues() do
     if value == element then
       return true
@@ -66,7 +66,7 @@ function list:contains(value)
   return false
 end
 
-function list:slice(start, finish, step)
+function List:slice(start, finish, step)
   start = start or 1
   finish = finish or #self
   step = step or 1
@@ -74,7 +74,7 @@ function list:slice(start, finish, step)
   if start < 0 then start = #self - start + 1 end
   if finish < 0 then finish = #self - finish + 1 end
 
-  result = list{}
+  result = List{}
   local dest = 1
   for src=start, finish, step do
     result[dest] = self[src]
@@ -83,11 +83,9 @@ function list:slice(start, finish, step)
   return result
 end
 
-function list:reverse()
-  return list:slice(nil, nil, -1)
+function List:reverse()
+  return List:slice(nil, nil, -1)
 end
 
-list.__call = list.slice
-list.ipairs = ipairs
-
-return list
+List.__call = List.slice
+List.ipairs = ipairs
