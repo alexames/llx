@@ -102,21 +102,21 @@ EXPECT_THAT(anotherDerived:getStuff(),
 --   end
 -- end
 
-TestCase 'class' {
-  test_class_fields = function()
+test_class 'class' {
+  [test('class_fields')] = function()
     local foo = class 'foo' {
       field = 100
     }
     EXPECT_EQ(foo.field, 100)
   end;
-  test_member_fields = function()
+  [test('member_fields')] = function()
     local foo = class 'foo' {
       field = 100
     }
     local f = foo()
     EXPECT_EQ(f.field, 100)
   end;
-  test_class_functions = function()
+  [test('class_functions')] = function()
     -- TODO: proper mocks
     local called = false
     local foo = class 'foo' {
@@ -128,7 +128,7 @@ TestCase 'class' {
     EXPECT_EQ(foo.func(), 100)
     EXPECT_TRUE(called)
   end;
-  test_member_functions = function()
+  [test('member_functions')] = function()
     -- TODO: proper mocks
     local called = false
     local self_ref = nil
@@ -144,18 +144,18 @@ TestCase 'class' {
     EXPECT_EQ(self_ref, f)
     EXPECT_TRUE(called)
   end;
-  test_metatable = function()
+  [test('metatable')] = function()
     local foo = class 'foo' {}
     local f = foo()
     EXPECT_EQ(getmetatable(f), foo)
   end;
-  test_set_instance_field = function()
+  [test('set_instance_field')] = function()
     local foo = class 'foo' {}
     local f = foo()
     f.bar = 100
     EXPECT_EQ(f.bar, 100)
   end;
-  test_set_class_field = function()
+  [test('set_class_field')] = function()
     local foo = class 'foo' {}
     local f = foo()
     foo.bar = 100
@@ -164,12 +164,12 @@ TestCase 'class' {
     EXPECT_EQ(f.bar, 100)
     EXPECT_EQ(g.bar, 100)
   end;
-  test_default_tostring = function()
+  [test('default_tostring')] = function()
     local foo = class 'foo' {}
     local f = foo()
     EXPECT_THAT(tostring(f), StartsWith('foo: '))
   end;
-  test_custom_tostring = function()
+  [test('custom_tostring')] = function()
     local foo = class 'foo' {
       __tostring = function(self)
         return 'custom tostring'
@@ -178,7 +178,7 @@ TestCase 'class' {
     local f = foo()
     EXPECT_EQ(tostring(f), 'custom tostring')
   end;
-  test_init = function()
+  [test('init')] = function()
     local self_ref = nil
     local a_ref = nil
     local b_ref = nil
@@ -194,7 +194,7 @@ TestCase 'class' {
     EXPECT_EQ(a_ref, 1)
     EXPECT_EQ(b_ref, 2)
   end;
-  test_new = function()
+  [test('new')] = function()
     local self_ref = nil
     local a_ref = nil
     local b_ref = nil
@@ -213,8 +213,8 @@ TestCase 'class' {
   end;
 }
 
-TestCase 'derived_class' {
-  test_class_fields = function()
+test_class 'derived_class' {
+  [test('class_fields')] = function()
     local foo = class 'foo' {
       foo_field = 100
     }
@@ -226,7 +226,7 @@ TestCase 'derived_class' {
     EXPECT_EQ(bar.foo_field, 100)
     EXPECT_EQ(bar.bar_field, 200)
   end;
-  test_member_fields = function()
+  [test('member_fields')] = function()
     local foo = class 'foo' {
       foo_field = 100
     }
@@ -240,7 +240,7 @@ TestCase 'derived_class' {
     EXPECT_EQ(b.foo_field, 100)
     EXPECT_EQ(b.bar_field, 200)
   end;
-  test_class_functions = function()
+  [test('class_functions')] = function()
     local foo_called = false
     local bar_called = false
     local foo = class 'foo' {
@@ -260,7 +260,7 @@ TestCase 'derived_class' {
     EXPECT_EQ(bar.bar_func(), 200)
     EXPECT_TRUE(bar_called)
   end;
-  test_member_functions = function()
+  [test('member_functions')] = function()
     local foo_called = false
     local bar_called = false
     local foo = class 'foo' {
@@ -281,7 +281,7 @@ TestCase 'derived_class' {
     EXPECT_EQ(b.bar_func(), 200)
     EXPECT_TRUE(bar_called)
   end;
-  test_metatable = function()
+  [test('metatable')] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local f = foo()
@@ -289,7 +289,7 @@ TestCase 'derived_class' {
     EXPECT_EQ(getmetatable(f), foo)
     EXPECT_EQ(getmetatable(b), bar)
   end;
-  test_set_class_field = function()
+  [test('set_class_field')] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
@@ -303,13 +303,13 @@ TestCase 'derived_class' {
     EXPECT_EQ(c.foo_value, 100)
     EXPECT_EQ(c.bar_value, 200)
   end;
-  test_default_tostring = function()
+  [test('default_tostring')] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
     EXPECT_THAT(tostring(b), StartsWith('bar: '))
   end;
-  test_custom_tostring = function()
+  [test('custom_tostring')] = function()
     local foo = class 'foo' {
       __tostring = function(self)
         return 'custom tostring'
@@ -319,7 +319,7 @@ TestCase 'derived_class' {
     local b = bar()
     EXPECT_EQ(tostring(b), 'custom tostring')
   end;
-  test_custom_tostring_on_derived = function()
+  [test('custom_tostring_on_derived')] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {
       __tostring = function(self)
@@ -329,7 +329,7 @@ TestCase 'derived_class' {
     local b = bar()
     EXPECT_EQ(tostring(b), 'custom tostring')
   end;
-  test_custom_tostring_override = function()
+  [test('custom_tostring_override')] = function()
     local foo = class 'foo' {
       __tostring = function(self)
         return 'wrong tostring'
@@ -344,7 +344,7 @@ TestCase 'derived_class' {
     EXPECT_EQ(tostring(b), 'right tostring')
   end;
 --------------------------------------------------------------------------------
-  test_init = function()
+  [test('init')] = function()
     local self_ref = nil
     local a_ref = nil
     local b_ref = nil
@@ -361,7 +361,7 @@ TestCase 'derived_class' {
     EXPECT_EQ(b_ref, 2)
   end;
 --------------------------------------------------------------------------------
-  test_new = function()
+  [test('new')] = function()
     local self_ref = nil
     local a_ref = nil
     local b_ref = nil

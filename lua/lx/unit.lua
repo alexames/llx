@@ -1,25 +1,11 @@
 require 'ext/string'
+require 'ext/table'
 require 'lx/base'
 require 'lx/terminal_colors'
+require 'lx/matchers'
+
 local class = require 'lx/class'
 
--- Utilities
-
-local function table_to_string(t)
-  local s = '{'
-  local first = true
-  for k, v in pairs(t) do
-    if first then
-      s = s .. tostring(k) .. ' = ' .. tostring(v)
-      first = false
-    else
-      s = s .. ', ' .. tostring(k) .. ' = ' .. tostring(v)
-    end
-  end
-  return s .. '}'
-end
-
---------------------------------------------------------------------------------
 local fmt = 'expected\n  %s\nto %s\n  %s'
 function EXPECT_THAT(actual, predicate)
   result, act, msg, nmsg, exp = predicate(actual, false)
@@ -44,140 +30,6 @@ function EXPECT_NE(actual, expected)
   EXPECT_THAT(actual, Not(Equals(expected)))
 end
 
-function Not(predicate)
-  return function(actual)
-    local result, act, msg, nmsg, exp = predicate(actual)
-    return not result, act, nmsg, msg, exp
-  end
-end
-
-function Equals(expected)
-  return function(actual)
-    return
-      actual == expected,
-      tostring(actual),
-      'be equal to',
-      'be not equal to',
-      tostring(expected)
-  end
-end
-
-function GreaterThan(expected)
-  return function(actual)
-    return
-      actual > expected,
-      tostring(actual),
-      'be greater than',
-      'be not greater than',
-      tostring(expected)
-  end
-end
-
-function GreaterThanOrEqual(expected)
-  return function(actual)
-    return
-      actual >= expected,
-      tostring(actual),
-      'be greater than or equal to',
-      'be not greater than or equal to',
-      tostring(expected)
-  end
-end
-
-function LessThan(expected)
-  return function(actual)
-    return
-      actual < expected,
-      tostring(actual),
-      'be less than',
-      'be not less than',
-      tostring(expected)
-  end
-end
-
-function LessThanOrEqual(expected)
-  return function(actual)
-    return
-      actual <= expected,
-      tostring(actual),
-      'be less than or equal to',
-      'be not less than or equal to',
-      tostring(expected)
-  end
-end
-
-function StartsWith(expected)
-  return function(actual)
-    return
-      actual:startswith(expected),
-      tostring(actual),
-      'start with',
-      'not start with',
-      tostring(expected)
-  end
-end
-
-function EndsWith(expected)
-  return function(actual)
-    return
-      actual:endswith(expected),
-      tostring(actual),
-      'end with',
-      'not end with',
-      tostring(expected)
-  end
-end
-
-function IsOfType(expected)
-  return function(actual)
-    return
-      expected.isinstance(actual),
-      tostring(actual),
-      'be of type',
-      'not be of type',
-      tostring(expected)
-  end
-end
-
-function Listwise(predicate_generator, expected)
-  return function(actual)
-    local result = true
-    local act, msg, nmsg, exp
-    local act_list, exp_list = {}, {}
-    for i=1, max(#actual, #expected) do
-      local predicate = predicate_generator(expected[i])
-      local local_result
-      local_result, act, msg, nmsg, exp = predicate(actual[i])
-      act_list[i], exp_list[i] = act, exp
-      result = result and local_result
-    end
-    return result,
-           '{' .. (','):join(act_list) .. '}',
-           msg .. ' the value at every index of',
-           'not to ' .. msg .. ' the value at every index of',
-           '{' .. (','):join(exp_list) .. '}'
-  end
-end
-
-function Tablewise(predicate_generator, expected)
-  return function(actual)
-    local result = true
-    local act, msg, nmsg, exp
-    local act_list, exp_list = {}, {}
-    local keys = collect_keys({}, actual, expected)
-    for k, _ in pairs(keys) do
-      local predicate = predicate_generator(expected[k])
-      local local_result
-      local_result, act, msg, nmsg, exp = predicate(actual[k])
-      result = result and local_result
-    end
-    return result,
-           table_to_string(actual),
-           msg .. ' the value at every key of',
-           'not to ' .. msg .. ' the value at every key of',
-           table_to_string(expected)
-  end
-end
 
 -- Make the results printing a coroutine.
 
@@ -196,7 +48,7 @@ class 'Test' {
     end
 
     local ok, err = pcall(test)
-  end
+  end;
 }
 
 function test(name)
@@ -205,67 +57,57 @@ end
 
 function test_class(name)
   return function(class_definition)
-    RegisterTest(class(name):extends(Test)(class_definition))
+    RegisterTestClass(class(name):extends(Test)(class_definition))
   end
 end
 
 -- This is a list of classes that have been registered with unit.
-local unit_test_suite = {}
-function TestCase(name)
-  local test_case = {}
-  test_case.name = name
-  table.insert(unit_test_suite, test_case)
-  return setmetatable({}, {
-    __call = function(self, test_case_table)
-      test_case.tests = test_case_table
-    end
-  })
-end
-
-function RegisterTest(test_class)
-  table.insert(unit_test_suite, test_class)
+local unit_test_suite = Table{}
+function RegisterTestClass(test_class)
+  unit_test_suite:insert(test_class)
 end
 
 function run_unit_tests(test_suite)
   local total_failure_count = 0
   local total_test_count = 0
   local failure_list = {}
-  for _, test_case in ipairs(unit_test_suite) do
+  for _, test_class in ipairs(unit_test_suite) do
     local test_count = 0
-    for name, test in pairs(test_case.tests or test_case) do
-      if name:startswith('test_') then
+    for name, test in pairs(test_class) do
+      if type(name) == 'string' and name:startswith('test_') then
         test_count = test_count + 1
         total_test_count = total_test_count + 1
       end
     end
+    -- test_class:run_tests()
     printf('%s[==========]%s Running %s tests from %s%s%s',
             color(green), reset(), test_count, color(bright_cyan), 
             -- This needs to be fixed.
-            tostring(test_case),
+            tostring(test_class),
             reset())
     local test_number = 0
     local failure_count = 0
-    for name, test in pairs(test_case.tests or test_case) do
-      if name:startswith('test_') then
+    for name, test in pairs(test_class) do
+      if type(name) == 'string' and name:startswith('test_') then
         test_number = test_number + 1
         printf('%s[ Run      ] %s%s.%s%s',
-               color(green), color(bright_cyan), test_case.name, name, reset())
+               color(green), color(bright_cyan), test_class.__name, name, reset())
         local ok, err = pcall(test)
         if ok then
           printf('%s[       OK ] %s%s.%s%s',
-                 color(green), color(bright_cyan), test_case.name, name, reset())
+                 color(green), color(bright_cyan), test_class.__name, name, reset())
         else
           total_failure_count = total_failure_count + 1
           failure_count = failure_count + 1
-          table.insert(failure_list, (test_case.name or tostring(test_case)) .. '.' .. name)
+          table.insert(failure_list, (test_class.__name or tostring(test_class)) .. '.' .. name)
           printf('%s[  FAILURE ] %s%s.%s%s\n%s',
-                 color(red), color(bright_cyan), test_case.name, name, reset(), err)
+                 color(red), color(bright_cyan), test_class.__name, name, reset(), err)
         end
       end
     end
     if failure_count == 0 then
       printf('%s[==========]%s All %s tests succeeded!',
-             color(green), reset(), test_case.name)
+             color(green), reset(), test_class)
     else
       printf('%s[==========]%s %s / %s failed.',
              color(red), reset(), failure_count, test_count)
