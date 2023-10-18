@@ -1,4 +1,4 @@
 require 'unit'
 require 'tests/lx'
 
-RunUnitTests()
+run_unit_tests()
