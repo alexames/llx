@@ -21,4 +21,4 @@ test_class 'more' {
   end;
 }
 
-RunUnitTests()
+run_unit_tests()
