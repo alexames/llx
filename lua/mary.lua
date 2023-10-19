@@ -8,9 +8,9 @@ composition.format = 1
 composition.ticks = ticks
 local track = midi.Track()
 
-function midi.Track:note(number, length)
+function midi.Track:note(number, beats)
   self.events:insert(midi.events.NoteBeginEvent(0 * ticks, 0, number, 100))
-  self.events:insert(midi.events.NoteEndEvent(length * ticks, 0, 72, 100))
+  self.events:insert(midi.events.NoteEndEvent(beats * ticks, 0, 72, 100))
 end
 
 track:note(76, 1)      -- Ma
