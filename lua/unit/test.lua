@@ -6,7 +6,7 @@ function test(name)
   return {index = test_index, name=name, __istest=true}
 end
 
-function is_test(t)
+local function is_test(t)
   return Table:isinstance(t) and t.__istest
 end
 
