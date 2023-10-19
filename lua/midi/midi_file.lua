@@ -1,7 +1,7 @@
 require 'strict'
 
 require 'lx/base/class'
-require 'lx/list'
+require 'lx/base/list'
 local midi_io = require 'midi/io'
 
 -- A re representing a Midi file. A midi file consists of a format, the
@@ -10,7 +10,7 @@ local MidiFile = class 'MidiFile' {
   __init = function(self)
     self.format = 0
     self.ticks = 0
-    self.tracks = list{}
+    self.tracks = List{}
   end;
 
   write = function(self, file)

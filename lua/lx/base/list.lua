@@ -1,7 +1,7 @@
 require 'lx/base/class'
 require 'lx/base/table'
 
-local List = class 'List' : extends(Table) {}
+List = class 'List' : extends(Table) {}
 
 local function noop(value)
   return value

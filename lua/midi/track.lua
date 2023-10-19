@@ -1,13 +1,11 @@
-require 'strict'
-
 require 'lx/base/class'
-require 'lx/list'
+require 'lx/base/list'
 local midi_io = require 'midi/io'
 local events = require 'midi/events'
 
 local Track = class 'Track' {
   __init = function(self)
-    self.events = list{}
+    self.events = List{}
   end;
 
   getTrackByteLength = function(self)
