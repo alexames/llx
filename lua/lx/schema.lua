@@ -97,5 +97,3 @@ local schema = {
 }
 
 local t = {id='1234', name='alex', age=36}
-print(matches_schema(t, schema))
-
