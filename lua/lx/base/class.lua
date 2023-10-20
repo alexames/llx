@@ -52,10 +52,6 @@ local function startswith(str, start)
    return str:sub(1, #start) == start
 end
 
-local function endswith(str, ending)
-   return ending == "" or str:sub(-#ending) == ending
-end
-
 local function try_set_metafield(class_table, key, value)
   if class_table.__metafields[key] == nil then
     class_table[key] = value
@@ -77,67 +73,81 @@ local function set_metafield(class_table, key, value)
   end
 end
 
+local function isinstance_impl(metatable, class_table)
+  if metatable == class_table then
+    return true
+  end
+  local superclasses = metatable and metatable.__superclasses
+  if superclasses then
+    for i, superclass in pairs(superclasses) do
+      if isinstance_impl(superclass, class_table) then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 --------------------------------------------------------------------------------
 
-function class(name)
-  -- This is the metatable for instance of the class.
-  local class_table = nil
-  local class_table_proxy = {}
+local function create_class_definer(class_table, class_table_proxy)
+  -- By returning this class definer object, we can do these things:
+  --   class 'foo' { ... }
+  -- or 
+  --   class 'foo' : extends(bar) { ... }
+  local class_definer = nil
+  class_definer = setmetatable({
+    extends = function(self, ...)
+      local arg = {...}
+      for i, base in ipairs(arg) do
+        assert(type(base) == 'table', 
+               string.format('%s must inherit from table, not %s',
+                             class_table.__name, type(base)))
+        local base_name = base.__name
+        if base_name then
+          class_table[base_name] = base
+        end
 
+        -- Bi-directional extends/extendedby bookkeeping.
+        class_table.__superclasses[i] = base
+        local extendedby = base.__subclasses
+        if extendedby then
+          extendedby[class_table.__name] = class_table_proxy
+        end
+      end
+
+      -- TODO: property fixup
+
+      return class_definer
+    end
+  }, {
+    __call = function(self, class_definition)
+      for k, v in pairs(class_definition) do
+        rawset(class_table, k, v)
+        set_metafield(class_table, k, v)
+      end
+
+      -- I think this needs to be set up to be recursive.
+      -- I'm also concerned about the ordering of the superclasses and
+      -- whether this will respect that.
+      for _, superclass in ipairs(class_table.__superclasses) do
+        for k, v in pairs(superclass.__metafields or {}) do
+          try_set_metafield(class_table, k, v)
+        end
+      end
+      return class_table_proxy
+    end
+  })
+  return class_definer
+end
+
+local function create_class_table_proxy(class_table)
   local function class_table_next(unused, index)
     return next(class_table, index)
   end
 
-  -- If the object doesn't have a field, check the metatable,
-  -- then any base classes
-  local function __index(t, k)
-    -- Does the class metatable have the field?
-    local value = rawget(class_table, k)
-    if value then return value end
-
-    -- Do any of the base classes have the field?
-    if class_table.__superclasses then
-      for _, base in ipairs(class_table.__superclasses) do
-        local value = base[k]
-        if value then return value end
-      end
-    end
-  end
-
-  local function check_mt(metatable)
-    if metatable == class_table then
-      return true
-    end
-    local superclasses = metatable and metatable.__superclasses
-    if superclasses then
-      for i, superclass in pairs(superclasses) do
-        if check_mt(superclass, class_table) then
-          return true
-        end
-      end
-    end
-    return false
-  end
-
-  local function isinstance(o)
-    return check_mt(getmetatable(o))
-  end
-
-  class_table = {
-    __name = name;
-    __metatable = class_table_proxy;
-
-    __superclasses = {};
-    __subclasses = {};
-    __metafields = {};
-
-    __index = __index;
-    __defaultindex = __index;
-
-    isinstance = isinstance;
-  }
-
-  setmetatable(class_table_proxy, {
+  local class_table_proxy = {}
+  local class_table_proxy_metatable = {
     __metatable = class_table_proxy;
 
     -- Used to initialize an instance of the class.
@@ -172,59 +182,91 @@ function class(name)
     end;
 
     __tostring = function()
-      return name
+      return class_table.__name
     end;
-  })
-
-  -- By returning this class definer object, we can do these things:
-  --   class 'foo' { ... }
-  -- or 
-  --   class 'foo' : extends(bar) { ... }
-  local class_definer = nil
-  class_definer = setmetatable(
-    {
-      extends = function(self, ...)
-        local arg = {...}
-        for i, base in ipairs(arg) do
-          assert(type(base) == 'table',
-                 name .. ' must inherit from table, not ' .. type(base))
-          local base_name = base.__name
-          if base_name then
-            class_table[base_name] = base
-          end
-
-          -- Bi-directional extends/extendedby bookkeeping.
-          class_table.__superclasses[i] = base
-          local extendedby = base.__subclasses
-          if extendedby then
-            extendedby[class_table.__name] = class_table_proxy
-          end
-        end
-
-        -- TODO: property fixup
-
-        return class_definer
-      end
-    },
-    {
-      __call = function(self, definition_table)
-        for k, v in pairs(definition_table) do
-          rawset(class_table, k, v)
-          set_metafield(class_table, k, v)
-        end
-
-        -- I think this needs to be set up to be recursive.
-        -- I'm also concerned about the ordering of the superclasses and
-        -- whether this will respect that.
-        for _, superclass in ipairs(class_table.__superclasses) do
-          for k, v in pairs(superclass.__metafields or {}) do
-            try_set_metafield(class_table, k, v)
-          end
-        end
-        return class_table_proxy
-      end
-    })
-  return class_definer
+  }
+  return setmetatable(class_table_proxy, class_table_proxy_metatable)
 end
+
+local function create_internal_class_table(name)
+  local class_table = nil
+  -- If the object doesn't have a field, check the metatable,
+  -- then any base classes
+  local function __index(t, k)
+    -- Does the class metatable have the field?
+    local value = rawget(class_table, k)
+    if value then return value end
+
+    -- Do any of the base classes have the field?
+    if class_table.__superclasses then
+      for _, base in ipairs(class_table.__superclasses) do
+        local value = base[k]
+        if value then return value end
+      end
+    end
+  end
+
+  local function isinstance(o)
+    return isinstance_impl(getmetatable(o), class_table)
+  end
+
+  class_table = {
+    __name = name;
+
+    __superclasses = {};
+    __subclasses = {};
+    __metafields = {};
+
+    __index = __index;
+    __defaultindex = __index;
+
+    isinstance = isinstance;
+  }
+  return class_table
+end
+
+local function class_argument_resolver(name_or_definition)
+  local name = nil
+  local class_definition = nil
+  if type(name_or_definition) == 'string' then
+    name = name_or_definition
+    class_definition = nil
+  else
+    name = '<anonymous class>'
+    class_definition = name_or_definition
+  end
+  return name, class_definition
+end
+
+local function create_class(name)
+  -- This is the metatable for instance of the class.
+  local class_table = create_internal_class_table(name)
+  local class_table_proxy = create_class_table_proxy(class_table)
+
+  -- Lock down the class table.
+  class_table.__metatable = class_table_proxy;
+
+  return class_table, class_table_proxy
+end
+
+class = setmetatable({
+  extends = function(self, ...)
+    local class_table, class_table_proxy = create_class('<anonymous class>')
+    local definer = create_class_definer(class_table, class_table_proxy)
+    definer:extends(...)
+    return definer
+  end;
+}, {
+  __call = function(self, name_or_definition)
+    local name, class_definition = class_argument_resolver(name_or_definition)
+    local class_table, class_table_proxy = create_class(name)
+    local definer = create_class_definer(class_table, class_table_proxy)
+    if class_definition then
+      return definer(class_definition)
+    else
+      return definer
+    end
+  end;
+})
 
 return class
