@@ -1,24 +1,19 @@
 require 'lx'
 require 'unit'
 
-test_class 'main' {
-  [test('foo')] = function()
-  end
+local mock <close> = Mock()
+
+mock:call_count(Equals(2))
+mock:call_spec{
+  {
+    expected_args = {Equals(1), Equals("String"), GreaterThan(10)},
+    return_values = {1, 2, 3},
+  },
+  {
+    expected_args = {Equals(1), Equals("String"), GreaterThan(10)},
+    return_values = {4, 5, 6},
+  },
 }
 
-test_class 'more' {
-  [test('foo')] = function()
-    return false
-  end;
-  [test('bar')] = function()
-    return false
-  end;
-  [test('baz')] = function()
-    error('something went wrong, whoops')
-  end;
-  [test('qux')] = function()
-    return false
-  end;
-}
-
-run_unit_tests()
+print(mock(1, "String", 40))
+print(mock(1, "String", 40))
