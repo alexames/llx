@@ -1,10 +1,10 @@
 require 'unit/matchers'
 
-local fmt = 'expected\n  %s\nto %s\n  %s'
-function EXPECT_THAT(actual, predicate)
+local fmt = 'expected %s\n  %s\nto %s\n  %s'
+function EXPECT_THAT(actual, predicate, s)
   result, act, msg, nmsg, exp = predicate(actual, false)
   if not result then
-    error(fmt:format(act, msg, exp))
+    error(fmt:format(s or '', act, msg, exp))
   end
 end
 
