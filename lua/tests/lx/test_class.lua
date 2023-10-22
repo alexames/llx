@@ -95,13 +95,6 @@ anotherDerived = AnotherDerived(100, 200, 300, 400, 500)
 EXPECT_THAT(anotherDerived:getStuff(),
             Listwise(Equals, {100, 200, 300, 400, 500, 'f'}))
 
-
--- function TestCase(name)
---   return function(args)
---     return class(name):extends(TestCase)(args)
---   end
--- end
-
 test_class 'class' {
   [test('class_fields')] = function()
     local foo = class 'foo' {
