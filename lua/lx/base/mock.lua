@@ -8,10 +8,12 @@ Mock = class 'Mock' {
 
   call_spec = function(self, call_list)
     self._call_spec = call_list
+    return self
   end;
 
   call_count = function(self, expectation)
     self._call_count_expectation = expectation
+    return self
   end;
 
   __call = function(self, ...)
@@ -34,6 +36,8 @@ Mock = class 'Mock' {
 
   __close = function(self)
     expectation = self._call_count_expectation
-    EXPECT_THAT(self._call_count, expectation, 'call count')
+    if expectation then
+      EXPECT_THAT(self._call_count, expectation, 'call count')
+    end
   end;
 }
