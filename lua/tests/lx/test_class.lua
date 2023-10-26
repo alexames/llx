@@ -1,5 +1,7 @@
 require 'unit'
 require 'lx/base/class'
+require 'lx/base/mock'
+require 'lx/base/proxy'
 
 local Base = class "Base" {
   __init = function(self, a, b, c)
@@ -95,6 +97,26 @@ anotherDerived = AnotherDerived(100, 200, 300, 400, 500)
 EXPECT_THAT(anotherDerived:getStuff(),
             Listwise(Equals, {100, 200, 300, 400, 500, 'f'}))
 
+local function CallSpec(t)
+  return t
+end
+--------------------------------------------------------------------------------
+
+function ProxySetter(proxy)
+  return function(v)
+    set_proxy_value(proxy, v)
+    return true
+  end
+end
+
+--------------------------------------------------------------------------------
+
+local function ArgumentStorage()
+  return setmetatable({}, {
+    __call=function(self, value) return self.predicate(value) end
+  })
+end
+
 test_class 'class' {
   [test('class_fields')] = function()
     local foo = class 'foo' {
@@ -110,32 +132,26 @@ test_class 'class' {
     EXPECT_EQ(f.field, 100)
   end;
   [test('class_functions')] = function()
-    -- TODO: proper mocks
-    local called = false
+    local mock <close> = Mock()
     local foo = class 'foo' {
-      func = function()
-        called = true
-        return 100
-      end;
+      func = mock:call_count(Equals(1)):call_spec{
+        CallSpec{return_values={100}}
+      }
     }
     EXPECT_EQ(foo.func(), 100)
-    EXPECT_TRUE(called)
   end;
   [test('member_functions')] = function()
-    -- TODO: proper mocks
-    local called = false
-    local self_ref = nil
+    local mock <close> = Mock()
+    local self_ref = Proxy()
     local foo = class 'foo' {
-      func = function(self)
-        called = true
-        self_ref = self
-        return 100
-      end;
+      func = mock:call_count(Equals(1)):call_spec{
+        CallSpec{expected_args={ProxySetter(self_ref)},
+                 return_values={100}}
+      }
     }
     local f = foo()
     EXPECT_EQ(f:func(), 100)
-    EXPECT_EQ(self_ref, f)
-    EXPECT_TRUE(called)
+    EXPECT_EQ(f, self_ref)
   end;
   [test('metatable')] = function()
     local foo = class 'foo' {}
@@ -163,46 +179,37 @@ test_class 'class' {
     EXPECT_THAT(tostring(f), StartsWith('foo: '))
   end;
   [test('custom_tostring')] = function()
+    local mock <close> = Mock()
     local foo = class 'foo' {
-      __tostring = function(self)
-        return 'custom tostring'
-      end
+      __tostring = mock:call_spec {
+        CallSpec{return_values={'custom tostring'}}
+      }
     }
     local f = foo()
     EXPECT_EQ(tostring(f), 'custom tostring')
   end;
   [test('init')] = function()
-    local self_ref = nil
-    local a_ref = nil
-    local b_ref = nil
+    local mock <close> = Mock()
+    local self_ref = Proxy()
     local foo = class 'foo' {
-      __init = function(self, arg_a, arg_b)
-        self_ref = self
-        a_ref = arg_a
-        b_ref = arg_b
-      end
+      __init = mock:call_spec{
+        CallSpec{expected_args={
+          ProxySetter(self_ref), Equals(1), Equals(2)}}
+      }
     }
     local f = foo(1, 2)
-    EXPECT_EQ(self_ref, f)
-    EXPECT_EQ(a_ref, 1)
-    EXPECT_EQ(b_ref, 2)
+    EXPECT_EQ(f, self_ref)
   end;
   [test('new')] = function()
-    local self_ref = nil
-    local a_ref = nil
-    local b_ref = nil
+    local mock <close> = Mock()
+    local self_ref = {}
     local foo = class 'foo' {
-      __new = function(arg_a, arg_b)
-        self_ref = {}
-        a_ref = arg_a
-        b_ref = arg_b
-        return self_ref
-      end
+      __new = mock:call_spec{
+        CallSpec{expected_args = {Equals(1), Equals(2)},
+                 return_values={self_ref}}
+      }
     }
-    local f = foo(1, 2)
-    EXPECT_EQ(self_ref, f)
-    EXPECT_EQ(a_ref, 1)
-    EXPECT_EQ(b_ref, 2)
+    EXPECT_EQ(foo(1, 2), self_ref)
   end;
 }
 
@@ -234,45 +241,37 @@ test_class 'derived_class' {
     EXPECT_EQ(b.bar_field, 200)
   end;
   [test('class_functions')] = function()
-    local foo_called = false
-    local bar_called = false
+    local foo_mock <close> = Mock()
+    local bar_mock <close> = Mock()
     local foo = class 'foo' {
-      foo_func = function()
-        foo_called = true
-        return 100
-      end;
+      foo_func = foo_mock:call_count(Equals(1)):call_spec{
+        CallSpec{return_values={100}}
+      }
     }
     local bar = class 'bar' : extends(foo) {
-      bar_func = function()
-        bar_called = true
-        return 200
-      end;
+      bar_func = bar_mock:call_count(Equals(1)):call_spec{
+        CallSpec{return_values={200}}
+      }
     }
     EXPECT_EQ(bar.foo_func(), 100)
-    EXPECT_TRUE(foo_called)
     EXPECT_EQ(bar.bar_func(), 200)
-    EXPECT_TRUE(bar_called)
   end;
   [test('member_functions')] = function()
-    local foo_called = false
-    local bar_called = false
+    local foo_mock <close> = Mock()
+    local bar_mock <close> = Mock()
     local foo = class 'foo' {
-      foo_func = function()
-        foo_called = true
-        return 100
-      end;
+      foo_func = foo_mock:call_count(Equals(1)):call_spec{
+        CallSpec{return_values={100}}
+      }
     }
     local bar = class 'bar' : extends(foo) {
-      bar_func = function()
-        bar_called = true
-        return 200
-      end;
+      bar_func = bar_mock:call_count(Equals(1)):call_spec{
+        CallSpec{return_values={200}}
+      }
     }
     b = bar()
     EXPECT_EQ(b.foo_func(), 100)
-    EXPECT_TRUE(foo_called)
     EXPECT_EQ(b.bar_func(), 200)
-    EXPECT_TRUE(bar_called)
   end;
   [test('metatable')] = function()
     local foo = class 'foo' {}
@@ -303,38 +302,40 @@ test_class 'derived_class' {
     EXPECT_THAT(tostring(b), StartsWith('bar: '))
   end;
   [test('custom_tostring')] = function()
+    local mock <close> = Mock()
     local foo = class 'foo' {
-      __tostring = function(self)
-        return 'custom tostring'
-      end
+      __tostring = mock:call_count(Equals(1)):call_spec{
+        CallSpec{return_values={'custom tostring'}}
+      }
     }
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
     EXPECT_EQ(tostring(b), 'custom tostring')
   end;
   [test('custom_tostring_on_derived')] = function()
+    local mock <close> = Mock()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {
-      __tostring = function(self)
-        return 'custom tostring'
-      end
+      __tostring = mock:call_count(Equals(1)):call_spec{
+        CallSpec{return_values={'custom tostring'}}
+      }
     }
     local b = bar()
     EXPECT_EQ(tostring(b), 'custom tostring')
   end;
   [test('custom_tostring_override')] = function()
+    local foo_mock <close> = Mock()
+    local bar_mock <close> = Mock()
     local foo = class 'foo' {
-      __tostring = function(self)
-        return 'wrong tostring'
-      end
+      __tostring = foo_mock:call_count(Equals(0)):call_spec{}
     }
     local bar = class 'bar' : extends(foo) {
-      __tostring = function(self)
-        return 'right tostring'
-      end
+      __tostring = bar_mock:call_count(Equals(1)):call_spec{
+        CallSpec{return_values={'custom tostring'}}
+      }
     }
     local b = bar()
-    EXPECT_EQ(tostring(b), 'right tostring')
+    EXPECT_EQ(tostring(b), 'custom tostring')
   end;
 --------------------------------------------------------------------------------
   [test('init')] = function()
