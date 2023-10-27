@@ -28,3 +28,11 @@ function EXPECT_NE(actual, expected)
   level = level or 3
   EXPECT_THAT(actual, Not(Equals(expected)), level)
 end
+
+return {
+  EXPECT_THAT=EXPECT_THAT,
+  EXPECT_TRUE=EXPECT_TRUE,
+  EXPECT_FALSE=EXPECT_FALSE,
+  EXPECT_EQ=EXPECT_EQ,
+  EXPECT_NE=EXPECT_NE,
+}

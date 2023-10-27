@@ -1,7 +1,8 @@
-require 'unit'
+local unit = require 'unit'
 require 'lx/base/class'
-require 'lx/base/mock'
 require 'lx/base/proxy'
+
+local Mock = unit.Mock
 
 local Base = class "Base" {
   __init = function(self, a, b, c)
@@ -100,21 +101,12 @@ EXPECT_THAT(anotherDerived:getStuff(),
 local function CallSpec(t)
   return t
 end
---------------------------------------------------------------------------------
 
 function ProxySetter(proxy)
   return function(v)
     set_proxy_value(proxy, v)
     return true
   end
-end
-
---------------------------------------------------------------------------------
-
-local function ArgumentStorage()
-  return setmetatable({}, {
-    __call=function(self, value) return self.predicate(value) end
-  })
 end
 
 test_class 'class' {

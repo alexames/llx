@@ -1,5 +1,6 @@
+require 'lx/base/class'
 
-Mock = class 'Mock' {
+local Mock = class 'Mock' {
   __init = function(self)
     self._call_spec = nil
     self._call_count = 0
@@ -40,4 +41,8 @@ Mock = class 'Mock' {
       EXPECT_THAT(self._call_count, expectation, 'call count')
     end
   end;
+}
+
+return {
+  Mock=Mock,
 }

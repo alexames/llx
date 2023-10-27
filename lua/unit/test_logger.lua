@@ -1,6 +1,6 @@
 require 'lx/base'
 
-TestLogger = class 'TestLogger' {
+local TestLogger = class 'TestLogger' {
   test_suite_name = function() return self.test_suite.__class_name end;
 
   prelude = function() end;
@@ -50,4 +50,8 @@ TestLogger = class 'TestLogger' {
       -- end
     end
   end;
+}
+
+return {
+  TestLogger=TestLogger,
 }

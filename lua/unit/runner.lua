@@ -1,21 +1,20 @@
 require 'lx/base'
-require 'unit/expects'
-require 'unit/matchers'
-require 'unit/test'
-require 'unit/test_logger'
+
+local test = require 'unit/test'
+local test_logger = require 'unit/test_logger'
 
 -- This is a list of classes that have been registered with unit.
 local global_test_suites = Table{}
 function test_class(name)
   return function(class_definition)
-    local cls = class(name):extends(Test)(class_definition)
+    local cls = class(name):extends(test.Test)(class_definition)
     global_test_suites:insert(cls)
   end
 end
 
 function run_unit_tests(test_suites, logger)
   test_suites = test_suites or global_test_suites
-  logger = logger or TestLogger()
+  logger = logger or test_logger.TestLogger()
   local total_failure_count = 0
   local total_test_count = 0
   local failure_list = Table()
@@ -28,3 +27,8 @@ function run_unit_tests(test_suites, logger)
   end
   logger.finale(total_failure_count, total_test_count)
 end
+
+return {
+  test_class=test_class,
+  run_unit_tests=run_unit_tests,
+}

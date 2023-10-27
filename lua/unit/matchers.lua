@@ -148,3 +148,17 @@ function Tablewise(predicate_generator, expected)
            table_to_string(expected)
   end
 end
+
+return {
+  Not=Not,
+  Equals=Equals,
+  GreaterThan=GreaterThan,
+  GreaterThanOrEqual=GreaterThanOrEqual,
+  LessThan=LessThan,
+  LessThanOrEqual=LessThanOrEqual,
+  StartsWith=StartsWith,
+  EndsWith=EndsWith,
+  IsOfType=IsOfType,
+  Listwise=Listwise,
+  Tablewise=Tablewise,
+}

@@ -1,4 +1,4 @@
-require 'unit'
+unit = require 'unit'
 require 'tests/lx'
 
-run_unit_tests()
+unit.run_unit_tests()

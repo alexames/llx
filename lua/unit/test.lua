@@ -10,7 +10,7 @@ local function is_test(t)
   return Table:isinstance(t) and t.__istest
 end
 
-Test = class 'Test' {
+local Test = class 'Test' {
   setup = noop;
   teardown = noop;
 
@@ -56,4 +56,8 @@ Test = class 'Test' {
     printer.class_conclusion(self, failure_count)
     return failure_count, #self._tests
   end;
+}
+
+return {
+  Test=Test,
 }
