@@ -1,5 +1,5 @@
-require 'lx/base/class'
-require 'lx/base/exception'
+require 'llx/core/class'
+require 'llx/core/exception'
 
 local function gettype(o)
   local type = type(o)

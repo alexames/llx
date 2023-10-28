@@ -1,5 +1,5 @@
-require 'lx/base/class'
-local type_check_decorator = require 'types/type_check_decorator'
+require 'llx/core/class'
+local type_check_decorator = require 'llx/types/type_check_decorator'
 
 local method = class 'method' {
   __init = function(self, function_args)

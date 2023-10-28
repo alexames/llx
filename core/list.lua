@@ -1,5 +1,5 @@
-require 'lx/base/class'
-require 'lx/base/table'
+require 'llx/core/class'
+require 'llx/core/table'
 
 List = class 'List' : extends(Table) {}
 

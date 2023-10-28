@@ -1,6 +1,6 @@
 local unit = require 'unit'
-require 'lx/base/class'
-require 'lx/base/proxy'
+require 'llx/core/class'
+require 'llx/core/proxy'
 
 local Mock = unit.Mock
 

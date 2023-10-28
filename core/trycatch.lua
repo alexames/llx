@@ -1,4 +1,4 @@
-require 'lx/base/table'
+require 'llx/core/table'
 
 -- try {
 --   function()

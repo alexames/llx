@@ -1,4 +1,4 @@
-require 'lx/base/class'
+require 'llx/core/class'
 
 Exception = class 'Exception' {
   __init = function(self, what)
