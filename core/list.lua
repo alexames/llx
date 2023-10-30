@@ -7,7 +7,7 @@ local function noop(value)
   return value
 end
 
-function List:__new(t)
+function List.__new(t)
   return t or {}
 end
 
