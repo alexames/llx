@@ -33,6 +33,7 @@ end
 
 function zip(...)
   local i = 0
+  local arg = {...}
   return function()
     i = i + 1
     local tuple = {}
@@ -41,7 +42,7 @@ function zip(...)
       if element == nil then return nil end
       tuple[index] = element
     end
-    return unpack(tuple)
+    return table.unpack(tuple)
   end
 end
 
@@ -112,3 +113,17 @@ function collect_keys(out, ...)
 end
 
 function noop(...) return ... end
+
+function getmetafield(t, k)
+  local metatable = debug.getmetatable(t)
+  return metatable and rawget(metatable, k)
+end
+
+function printtable(t)
+  for k, v in pairs(t) do print(k, v) end
+end
+
+
+function printlist(t)
+  for i, v in ipairs(t) do print(i, v) end
+end
