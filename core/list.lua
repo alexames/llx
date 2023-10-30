@@ -1,5 +1,6 @@
 require 'llx/core/class'
 require 'llx/core/table'
+require 'llx/core/core'
 
 List = class 'List' : extends(Table) {}
 
@@ -38,13 +39,27 @@ function List:__index(index)
   end
 end
 
+function List:extend(other)
+  for i, v in ipairs(other) do
+    table.insert(self, v)
+  end
+end
+
 function List:__add(other)
-  result = List{}
+  local result = List{}
   for v in self:ivalues() do
     result:insert(v)
   end
   for v in other:ivalues() do
     result:insert(v)
+  end
+  return result
+end
+
+function List:__mul(num_copies)
+  local result = List{}
+  for i=1, num_copies do
+    result:extend(self)
   end
   return result
 end
@@ -58,7 +73,8 @@ function List:ivalues()
 end
 
 function List:contains(value)
-  for element in self:ivalues() do
+  for i=1, #self do
+    local element = self[i]
     if value == element then
       return true
     end

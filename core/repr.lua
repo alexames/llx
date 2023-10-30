@@ -1,3 +1,5 @@
+require 'llx/core/core'
+
 local identifier_pattern = '^[%a_][%w_]*$'
 local function is_identifier(s)
   return type(s) == 'string'
@@ -50,9 +52,9 @@ function repr(value)
   elseif type_of_value == 'string' then
     return string.format('%q', value)
   elseif type_of_value == 'table' then
-    local metatable = getmetatable(value)
-    if metatable and metatable.__repr then
-      return metatable.__repr(value)
+    local __repr = getmetafield(value, '__repr')
+    if __repr then
+      return __repr(value)
     else
       return repr_table(value)
     end

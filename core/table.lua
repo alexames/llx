@@ -55,7 +55,7 @@ function Table:get_or_insert(k, default)
 end
 
 function Table:copy(destination)
-  destination = destination or {}
+  local destination = destination or {}
   for k, v in pairs(self) do
     destination[k] = v
   end
