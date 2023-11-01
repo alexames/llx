@@ -25,6 +25,9 @@ function List.generate(arg)
 end
 
 function List:__eq(other)
+  if #self ~= #other then
+    return false
+  end
   for i, v in ipairs(self) do
     if v ~= other[i] then
       return false
