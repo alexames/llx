@@ -53,7 +53,7 @@ end
 
 function List:extend(other)
   for i, v in ipairs(other) do
-    table.insert(self, v)
+    self:insert(v)
   end
 end
 
@@ -105,7 +105,7 @@ function List:slice(start, finish, step)
   if start < 0 then start = #self - start + 1 end
   if finish < 0 then finish = #self - finish + 1 end
 
-  result = List{}
+  local result = List{}
   local dest = 1
   for src=start, finish, step do
     result[dest] = self[src]
@@ -115,7 +115,7 @@ function List:slice(start, finish, step)
 end
 
 function List:reverse()
-  return List:slice(nil, nil, -1)
+  return self:slice(#self, 1, -1)
 end
 
 List.__call = List.slice
