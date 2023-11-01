@@ -1,0 +1,83 @@
+local unit = require 'unit'
+require 'llx/core/list'
+
+test_class 'ListTest' {
+  [test('__new')] = function()
+    local list_table = {}
+    local list = List(list_table)
+    EXPECT_EQ(list_table, list)
+  end;
+  [test('generate')] = function()
+    local t = {'a', 'b', 'c', 'd', 'e'}
+    local list = List.generate{
+      lambda=function(v) return v..v end,
+      list=t,
+    }
+    EXPECT_EQ(list, {'aa', 'bb', 'cc', 'dd', 'ee'})
+  end;
+  [test('extend')] = function()
+    local list_a = List{1, 2, 3}
+    local list_b = List{4, 5, 6}
+    list_a:extend(list_b)
+    EXPECT_EQ(list_a, {1, 2, 3, 4, 5, 6})
+    EXPECT_EQ(list_b, {4, 5, 6})
+  end;
+  [test('ivalues')] = function()
+    local mock <close> = Mock()
+    mock:call_count(Equals(3)):call_spec{
+      {expected_args={Equals('a')}},
+      {expected_args={Equals('b')}},
+      {expected_args={Equals('c')}},
+    }
+    local list = List{'a', 'b', 'c'}
+    for v in list:ivalues() do
+      mock(v)
+    end
+  end;
+  [test('contains')] = function()
+    local list = List{1, 2, 3}
+    EXPECT_TRUE(list:contains(1))
+    EXPECT_TRUE(list:contains(2))
+    EXPECT_TRUE(list:contains(3))
+    EXPECT_FALSE(list:contains(4))
+  end;
+  [test('slice')] = function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    EXPECT_EQ(list:slice(1, 3), {1, 2, 3})
+    EXPECT_EQ(list:slice(1, 6, 2), {1, 3, 5})
+    EXPECT_EQ(list:slice(2, 4), {2, 3, 4})
+    EXPECT_EQ(list:slice(2, 6, 2), {2, 4, 6})
+    EXPECT_EQ(list:slice(6, 1, -1), {6, 5, 4, 3, 2, 1})
+    EXPECT_EQ(list:slice(6, 1, -2), {6, 4, 2})
+  end;
+  [test('reverse')] = function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    local reversed_list = list:reverse()
+    EXPECT_EQ(list, {1, 2, 3, 4, 5, 6})
+    EXPECT_EQ(reversed_list, {6, 5, 4, 3, 2, 1})
+  end;
+  [test('__index')] = function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    EXPECT_EQ(list[1], 1)
+    EXPECT_EQ(list[2], 2)
+    EXPECT_EQ(list[3], 3)
+    EXPECT_EQ(list[-1], 6)
+    EXPECT_EQ(list[-2], 5)
+    EXPECT_EQ(list[-3], 4)
+  end;
+  [test('__concat')] = function()
+    local list_a = List{1, 2, 3}
+    local list_b = List{4, 5, 6}
+    local concat_list = list_a .. list_b
+    EXPECT_EQ(list_a, {1, 2, 3})
+    EXPECT_EQ(list_b, {4, 5, 6})
+    EXPECT_EQ(concat_list, {1, 2, 3, 4, 5, 6})
+  end;
+  [test('__mul')] = function()
+    local list = List{1, 2, 3}
+    local multiplied_list = list * 3
+    local multiplied_list = 3 * list
+    EXPECT_EQ(list, {1, 2, 3})
+    EXPECT_EQ(multiplied_list, {1, 2, 3, 1, 2, 3, 1, 2, 3})
+  end;
+}

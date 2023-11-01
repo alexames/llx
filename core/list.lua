@@ -1,31 +1,40 @@
 require 'llx/core/class'
-require 'llx/core/table'
 require 'llx/core/core'
+require 'llx/core/table'
 
 List = class 'List' : extends(Table) {}
-
-local function noop(value)
-  return value
-end
 
 function List.__new(t)
   return t or {}
 end
 
 function List.generate(arg)
-  local iterable = arg.iterable or List.ivalues(arg.List)
+  local lambda = arg.lambda or noop
+  local iterable = arg.iterable or List.ivalues(arg.list)
   local filter = arg.filter
-  local lambdaFn = arg.lambda or noop
 
   local result = List{}
   while iterable do
     local v = {iterable()}
     if #v == 0 then break end
     if not filter or filter(table.unpack(v)) then
-      table.insert(result, lambdaFn(table.unpack(v)))
+      table.insert(result, lambda(table.unpack(v)))
     end
   end
   return result
+end
+
+function List:__eq(other)
+  for i, v in ipairs(self) do
+    if v ~= other[i] then
+      return false
+    end
+  end
+  return true
+end
+
+function List:__tostring()
+  return 'List{' .. (','):join(self) .. '}'
 end
 
 function List:__index(index)
@@ -45,7 +54,7 @@ function List:extend(other)
   end
 end
 
-function List:__add(other)
+function List:__concat(other)
   local result = List{}
   for v in self:ivalues() do
     result:insert(v)
@@ -57,6 +66,9 @@ function List:__add(other)
 end
 
 function List:__mul(num_copies)
+  if type(self) == 'number' then
+    self, num_copies = num_copies, self
+  end
   local result = List{}
   for i=1, num_copies do
     result:extend(self)
