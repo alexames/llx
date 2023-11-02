@@ -118,5 +118,6 @@ function List:reverse()
   return self:slice(#self, 1, -1)
 end
 
+List.__iterate = List.ivalues
 List.__call = List.slice
 List.ipairs = ipairs

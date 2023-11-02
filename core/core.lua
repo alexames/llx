@@ -1,3 +1,26 @@
+function getmetafield(t, k)
+  local metatable = debug.getmetatable(t)
+  return metatable and rawget(metatable, k)
+end
+
+function printf(fmt, ...)
+  print(string.format(fmt, ...))
+end
+
+function p(...)
+  print(...)
+  return ...
+end
+
+function each(iterable, ...)
+  local __iterate = getmetafield(iterable, '__iterate')
+  if __iterate then
+    return __iterate(iterable)
+  else
+    return iterable, ...
+  end
+end
+
 function range(startOrFinish, finish, step)
   local current
   if finish == nil then
@@ -32,36 +55,35 @@ function count(start, step)
 end
 
 function zip(...)
-  local i = 0
   local arg = {...}
-  return function()
-    i = i + 1
-    local tuple = {}
-    for index, list in ipairs(arg) do
-      local element = list[i]
-      if element == nil then return nil end
-      tuple[index] = element
-    end
-    return table.unpack(tuple)
+  local iterator_functions, states, controls, closing_values = {}, {}, {}, {}
+  for i, iterable in ipairs(arg) do
+    iterator_functions[i], states[i], controls[i], closing_values[i] = each(iterable)
   end
-end
-
-function zipLongest(...)
-  local result = {}
-  for i in count() do
-    local tuple = {}
-    local foundElement = false
-    for index, list in ipairs(arg) do
-      local element = list[i]
-      foundElement = foundElement or (element ~= nil)
-      tuple[index] = element
+  setmetatable(closing_values, {
+    __close=function(self, err)
+      -- Pass along err.
+      for i=#iterator_functions, 1, -1 do
+        local to_be_closed <close> = self[i]
+      end
     end
-    if foundElement then
-      table.insert(result, tuple)
-    else
-      return result
+  })
+  local function zip_iterator_function(states, unused_control)
+    local results = {}
+    for i, iterator_function in ipairs(iterator_functions) do
+      local iteration_results = {iterator_function(states[i], controls[i])}
+      local control = iteration_results[1]
+      controls[i] = control
+      if control == nil then return nil end
+      if #iteration_results == 1 then
+        results[i] = control
+      else
+        results[i] = iteration_results
+      end
     end
+    return table.unpack(results)
   end
+  return zip_iterator_function, states, controls, closing_values
 end
 
 function all(t)
@@ -113,11 +135,6 @@ function collect_keys(out, ...)
 end
 
 function noop(...) return ... end
-
-function getmetafield(t, k)
-  local metatable = debug.getmetatable(t)
-  return metatable and rawget(metatable, k)
-end
 
 function printtable(t)
   for k, v in pairs(t) do print(k, v) end

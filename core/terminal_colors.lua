@@ -1,7 +1,3 @@
-function printf(fmt, ...)
-  print(string.format(fmt, ...))
-end
-
 local lua_exe = arg[-1]
 local TERMINAL_COLORS = lua_exe ~= 'lua'
 
