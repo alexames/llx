@@ -127,10 +127,6 @@ local function create_class_definer(class_table, class_table_proxy)
         rawset(class_table, k, v)
         handle_potential_metafield(class_table, k, v)
       end
-
-      -- I think this needs to be set up to be recursive.
-      -- I'm also concerned about the ordering of the superclasses and
-      -- whether this will respect that.
       for _, superclass in ipairs(class_table.__superclasses) do
         for k, v in pairs(superclass.__metafields or {}) do
           try_set_metafield(class_table, k, v)
