@@ -2,102 +2,6 @@ local unit = require 'unit'
 require 'llx/core/class'
 require 'llx/core/proxy'
 
-local Mock = unit.Mock
-
-local Base = class "Base" {
-  __init = function(self, a, b, c)
-    self.a = a
-    self.b = b
-    self.c = c
-  end;
-
-  getStuff = function(self)
-    return {self.a, self.b, self.c}
-  end;
-
-  __tostring = function(self)
-    return string.format('Base(%s, %s, %s)', self.a, self.b, self.c)
-  end;
-
-  __metamethod = function(self)
-    return 999
-  end;
-
-  staticValue = 100;
-}
-
-local Derived = class "Derived" : extends(Base) {
-  __init = function(self, a, b, c, d, e)
-    self.Base.__init(self, a, b, c)
-    self.d = d
-    self.e = e
-    self.f = "f"
-  end;
-
-  getStuff = function(self)
-    local result = self.Base.getStuff(self)
-    table.insert(result, self.d)
-    table.insert(result, self.e)
-    table.insert(result, self.f)
-    return result
-  end;
-
-  __tostring = function(self)
-    return string.format(
-      'Derived(%s, %s, %s, %s, %s, %s)',
-      tostring(self.a), tostring(self.b), tostring(self.c),
-      tostring(self.d), tostring(self.e), tostring(self.f))
-  end;
-
-
-  staticValue = 200;
-}
-
-
-local AnotherDerived = class "AnotherDerived" : extends(Base) {}
-
-function AnotherDerived:__init(a, b, c, d, e)
-  self.Base.__init(self, a, b, c)
-  self.d = d
-  self.e = e
-  self.f = "f"
-end
-
-function AnotherDerived:getStuff()
-  local result = self.Base.getStuff(self)
-  table.insert(result, self.d)
-  table.insert(result, self.e)
-  table.insert(result, self.f)
-  return result
-end;
-
-EXPECT_NE(Base.getStuff, nil)
-EXPECT_NE(Base(1, 2, 3), nil)
-local base = Base(1, 2, 3)
-EXPECT_EQ(Base, getmetatable(base))
-EXPECT_EQ(getmetatable(base), Base)
-EXPECT_EQ(tostring(base), 'Base(1, 2, 3)')
-EXPECT_EQ(base.getStuff, Base.getStuff)
-EXPECT_THAT(base:getStuff(), Listwise(Equals, {1, 2, 3}))
-EXPECT_EQ(getmetatable(base).__metamethod(), 999)
-
-base1 = Base(1, 2, 3)
-EXPECT_THAT(base1:getStuff(), Listwise(Equals, {1, 2, 3}))
-
-base2 = Base(6, 7, 8)
-EXPECT_THAT(base1:getStuff(), Listwise(Equals, {1, 2, 3}))
-EXPECT_THAT(base2:getStuff(), Listwise(Equals, {6, 7, 8}))
-
-derived = Derived(10, 20, 30, 40, 50)
-EXPECT_EQ(tostring(derived), 'Derived(10, 20, 30, 40, 50, f)')
-EXPECT_THAT(derived:getStuff(),
-            Listwise(Equals, {10, 20, 30, 40, 50, 'f'}))
--- EXPECT_EQ(getmetatable(derived).__metamethod(), 999)
-
-anotherDerived = AnotherDerived(100, 200, 300, 400, 500)
-EXPECT_THAT(anotherDerived:getStuff(),
-            Listwise(Equals, {100, 200, 300, 400, 500, 'f'}))
-
 local function CallSpec(t)
   return t
 end
@@ -363,5 +267,54 @@ test_class 'derived_class' {
     EXPECT_EQ(self_ref, f)
     EXPECT_EQ(a_ref, 1)
     EXPECT_EQ(b_ref, 2)
+  end;
+  [test('descendant_metainheritance')] = function()
+    local foo = class 'foo' {
+      __meta = 'value'
+    }
+    local bar = class 'bar' : extends(foo) {}
+    local baz = class 'baz' : extends(bar) {}
+    EXPECT_EQ(foo.__meta, 'value')
+    EXPECT_EQ(bar.__meta, 'value')
+    EXPECT_EQ(baz.__meta, 'value')
+  end;
+  [test('descendant_metainheritance_late')] = function()
+    local foo = class 'foo' {}
+    local bar = class 'bar' : extends(foo) {}
+    local baz = class 'baz' : extends(bar) {}
+    foo.__meta = 100
+    EXPECT_EQ(foo.__meta, 100)
+    EXPECT_EQ(bar.__meta, 100)
+    EXPECT_EQ(baz.__meta, 100)
+  end;
+  [test('descendant_metainheritance_changed')] = function()
+    local foo = class 'foo' {}
+    local bar = class 'bar' : extends(foo) {}
+    local baz = class 'baz' : extends(bar) {}
+    foo.__meta = 100
+    foo.__meta = 200
+    EXPECT_EQ(foo.__meta, 200)
+    EXPECT_EQ(bar.__meta, 200)
+    EXPECT_EQ(baz.__meta, 200)
+  end;
+  [test('descendant_metainheritance_changed_intercepted')] = function()
+    local foo = class 'foo' {}
+    local bar = class 'bar' : extends(foo) {}
+    local baz = class 'baz' : extends(bar) {}
+    foo.__meta = 100
+    bar.__meta = 200
+    EXPECT_EQ(foo.__meta, 100)
+    EXPECT_EQ(bar.__meta, 200)
+    EXPECT_EQ(baz.__meta, 200)
+  end;
+  [test('descendant_metainheritance_changed_intercepted_out_of_order')] = function()
+    local foo = class 'foo' {}
+    local bar = class 'bar' : extends(foo) {}
+    local baz = class 'baz' : extends(bar) {}
+    bar.__meta = 200
+    foo.__meta = 100
+    EXPECT_EQ(foo.__meta, 100)
+    EXPECT_EQ(bar.__meta, 200)
+    EXPECT_EQ(baz.__meta, 200)
   end;
 }

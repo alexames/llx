@@ -54,22 +54,23 @@ end
 
 local function try_set_metafield(class_table, key, value)
   if class_table.__metafields[key] == nil then
-    class_table[key] = value
+    rawset(class_table, key, value)
+  else
   end
 end
 
-local function set_metafield_on_subclasses(class_table, key, value)
+local function try_set_metafield_on_subclasses(class_table, key, value)
   for _, subclass in pairs(class_table.__subclasses) do
     try_set_metafield(subclass, key, value)
   end
 end
 
-local function set_metafield(class_table, key, value)
+local function handle_potential_metafield(class_table, key, value)
   -- Assign metafield value to class_table[key] if and only if
   -- class_table.__metafields does not define it.
   if type(key) == 'string' and startswith(key, '__') then
     class_table.__metafields[key] = value
-    set_metafield_on_subclasses(class_table, key, value)
+    try_set_metafield_on_subclasses(class_table, key, value)
   end
 end
 
@@ -124,7 +125,7 @@ local function create_class_definer(class_table, class_table_proxy)
     __call = function(self, class_definition)
       for k, v in pairs(class_definition) do
         rawset(class_table, k, v)
-        set_metafield(class_table, k, v)
+        handle_potential_metafield(class_table, k, v)
       end
 
       -- I think this needs to be set up to be recursive.
@@ -165,7 +166,7 @@ local function create_class_table_proxy(class_table)
 
     __newindex = function(self, k, v)
       rawset(class_table, k, v)
-      set_metafield(class_table, k, v)
+      handle_potential_metafield(class_table, k, v)
     end;
 
     __pairs = function()
@@ -225,6 +226,8 @@ local function create_internal_class_table(name)
   return class_table
 end
 
+local anonymous_class_name = '<anonymous class>'
+
 local function class_argument_resolver(name_or_definition)
   local name = nil
   local class_definition = nil
@@ -232,7 +235,7 @@ local function class_argument_resolver(name_or_definition)
     name = name_or_definition
     class_definition = nil
   else
-    name = '<anonymous class>'
+    name = anonymous_class_name
     class_definition = name_or_definition
   end
   return name, class_definition
@@ -251,7 +254,7 @@ end
 
 class = setmetatable({
   extends = function(self, ...)
-    local class_table, class_table_proxy = create_class('<anonymous class>')
+    local class_table, class_table_proxy = create_class(anonymous_class_name)
     local definer = create_class_definer(class_table, class_table_proxy)
     definer:extends(...)
     return definer
