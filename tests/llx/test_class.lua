@@ -317,4 +317,16 @@ test_class 'derived_class' {
     EXPECT_EQ(bar.__meta, 200)
     EXPECT_EQ(baz.__meta, 200)
   end;
+  [test('descendant_metainheritance_descendant')] = function()
+    local ancestor = class 'foo' {}
+    local descendant = ancestor
+    for i=1, 10 do
+      descendant = class : extends(descendant) {}
+    end
+    ancestor.__meta = 100
+    ancestor.__meta = 200
+    -- descendant.__meta = 100
+    EXPECT_EQ(ancestor.__meta, 200)
+    EXPECT_EQ(descendant.__meta, 200)
+  end;
 }
