@@ -8,6 +8,7 @@ function trace(...)
     io.write(' ')
   end
   print(...)
+  return ...
 end
 
 return {
