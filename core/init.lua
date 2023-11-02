@@ -1,6 +1,6 @@
-require 'llx/core/core'
 require 'llx/core/boolean'
 require 'llx/core/class'
+require 'llx/core/core'
 require 'llx/core/default'
 require 'llx/core/exception'
 require 'llx/core/extract'
