@@ -4,15 +4,14 @@ setmetatable(string, {
   __call = function(self, v)
     return v and tostring(v) or ''
   end;
-
-  __tostring = function() return 'String' end;
 })
 
+local string_metatable = getmetatable('')
 
 String.__name = 'String'
 
 String.isinstance = function(v)
-  return type(v) == 'String'
+  return type(v) == 'string'
 end
 
 function String:join(t)
@@ -36,6 +35,27 @@ end
 
 function String:endswith(ending)
    return ending == "" or self:sub(-#ending) == ending
+end
+
+function String:__index(i, v)
+  print(i)
+  return self:sub(i, i)
+end
+
+function string_metatable.__index(s, k)
+  if type(k) == 'number' then
+    return s:sub(k, k)
+  else
+    return string[k]
+  end
+end
+
+function string_metatable.__unm(str,i)
+  return string.reverse(str)
+end
+
+function string_metatable.__mul(str,i)
+  return string.rep(str, i)
 end
 
 return String
