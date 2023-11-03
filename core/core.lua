@@ -44,6 +44,21 @@ function range(startOrFinish, finish, step)
   end
 end
 
+function values(t)
+  local v = nil
+  return function()
+    return next(t, v)
+  end
+end
+
+function ivalues(t)
+  local i = 0
+  return function()
+    i = i + 1
+    return t[i]
+  end
+end
+
 function count(start, step)
   local i = start or 1
   step = step or 1
@@ -55,35 +70,25 @@ function count(start, step)
 end
 
 function zip(...)
-  local arg = {...}
-  local iterator_functions, states, controls, closing_values = {}, {}, {}, {}
-  for i, iterable in ipairs(arg) do
-    iterator_functions[i], states[i], controls[i], closing_values[i] = each(iterable)
+  local iterators = {...}
+  for i = 1, #iterators do
+    local iterator = iterators[i]
+    assert(type(iterator) == "table",
+          "you have to wrap the iterators in a table")
   end
-  setmetatable(closing_values, {
-    __close=function(self, err)
-      -- Pass along err.
-      for i=#iterator_functions, 1, -1 do
-        local to_be_closed <close> = self[i]
-      end
-    end
-  })
-  local function zip_iterator_function(states, unused_control)
+  return function()
     local results = {}
-    for i, iterator_function in ipairs(iterator_functions) do
-      local iteration_results = {iterator_function(states[i], controls[i])}
-      local control = iteration_results[1]
-      controls[i] = control
+    for i=1, #iterators do
+      local iterator = iterators[i]
+      local iteration_function, state, control = iterator[1], iterator[2], iterator[3]
+      local iteration_results = {iteration_function(state, control)}
+      control = iteration_results[1]
       if control == nil then return nil end
-      if #iteration_results == 1 then
-        results[i] = control
-      else
-        results[i] = iteration_results
-      end
+      iterator[3] = control
+      results[i] = iteration_results
     end
     return table.unpack(results)
   end
-  return zip_iterator_function, states, controls, closing_values
 end
 
 function all(t)

@@ -79,14 +79,6 @@ function List:__mul(num_copies)
   return result
 end
 
-function List:ivalues()
-  local i = 0
-  return function()
-    i = i + 1
-    return self[i]
-  end
-end
-
 function List:contains(value)
   for i=1, #self do
     local element = self[i]
@@ -121,3 +113,4 @@ end
 List.__iterate = List.ivalues
 List.__call = List.slice
 List.ipairs = ipairs
+List.ivalues = ivalues
