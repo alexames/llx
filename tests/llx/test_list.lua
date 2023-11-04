@@ -65,6 +65,16 @@ test_class 'ListTest' {
     EXPECT_EQ(list[-2], 5)
     EXPECT_EQ(list[-3], 4)
   end;
+  [test('__index_list')] = function()
+    local list = List{'a', 'b', 'c', 'd', 'e', 'f'}
+    EXPECT_EQ(list[{1, 3, 5}], List{'a', 'c', 'e'})
+    EXPECT_EQ(list[{5, 4, 6}], List{'e', 'd', 'f'})
+    EXPECT_EQ(list[{-3, -2, -1}], List{'d', 'e', 'f'})
+    EXPECT_EQ(list[{{1, 2, 3}, {2, 3, 4}, {3, 4, 5}}],
+              List{List{'a', 'b', 'c'},
+                   List{'b', 'c', 'd'},
+                   List{'c', 'd', 'e'}})
+  end;
   [test('__concat')] = function()
     local list_a = List{1, 2, 3}
     local list_b = List{4, 5, 6}

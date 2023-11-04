@@ -46,6 +46,12 @@ function List:__index(index)
       index = #self + index + 1
     end
     return rawget(self, index)
+  elseif type(index) == 'table' then
+    local results = List{}
+    for i, v in ipairs(index) do
+      results[i] = self[v]
+    end
+    return results
   else
     return List.__defaultindex(self, index)
   end
