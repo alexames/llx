@@ -41,14 +41,14 @@ test_class 'ListTest' {
     EXPECT_TRUE(list:contains(3))
     EXPECT_FALSE(list:contains(4))
   end;
-  [test('slice')] = function()
+  [test('sub')] = function()
     local list = List{1, 2, 3, 4, 5, 6}
-    EXPECT_EQ(list:slice(1, 3), {1, 2, 3})
-    EXPECT_EQ(list:slice(1, 6, 2), {1, 3, 5})
-    EXPECT_EQ(list:slice(2, 4), {2, 3, 4})
-    EXPECT_EQ(list:slice(2, 6, 2), {2, 4, 6})
-    EXPECT_EQ(list:slice(6, 1, -1), {6, 5, 4, 3, 2, 1})
-    EXPECT_EQ(list:slice(6, 1, -2), {6, 4, 2})
+    EXPECT_EQ(list:sub(1, 3), {1, 2, 3})
+    EXPECT_EQ(list:sub(1, 6, 2), {1, 3, 5})
+    EXPECT_EQ(list:sub(2, 4), {2, 3, 4})
+    EXPECT_EQ(list:sub(2, 6, 2), {2, 4, 6})
+    EXPECT_EQ(list:sub(6, 1, -1), {6, 5, 4, 3, 2, 1})
+    EXPECT_EQ(list:sub(6, 1, -2), {6, 4, 2})
   end;
   [test('reverse')] = function()
     local list = List{1, 2, 3, 4, 5, 6}
@@ -91,3 +91,7 @@ test_class 'ListTest' {
     EXPECT_EQ(multiplied_list, {1, 2, 3, 1, 2, 3, 1, 2, 3})
   end;
 }
+
+if main_file() then
+  unit.run_unit_tests()
+end

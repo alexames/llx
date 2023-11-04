@@ -58,4 +58,14 @@ function string_metatable.__mul(str,i)
   return string.rep(str, i)
 end
 
+function string_metatable:__shl(n)
+  if n < 0 then return self >> n end
+  return self:sub(n + 1) .. self:sub(1, n)
+end
+
+function string_metatable:__shr(n)
+  if n < 0 then return self << n end
+  return self:sub(-(n)) .. self:sub(1, -(n + 1))
+end
+
 return String

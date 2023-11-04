@@ -65,11 +65,11 @@ end
 
 function List:__concat(other)
   local result = List{}
-  for v in self:ivalues() do
-    result:insert(v)
+  for i=1, #self do
+    result:insert(self[i])
   end
-  for v in other:ivalues() do
-    result:insert(v)
+  for i=1, #other do
+    result:insert(other[i])
   end
   return result
 end
@@ -95,13 +95,19 @@ function List:contains(value)
   return false
 end
 
-function List:slice(start, finish, step)
+function List:sub(start, finish, step)
+  local length = #self
   start = start or 1
-  finish = finish or #self
+  finish = finish or length
   step = step or 1
 
-  if start < 0 then start = #self - start + 1 end
-  if finish < 0 then finish = #self - finish + 1 end
+  if start < 0 then start = length + start + 1 end
+  if start < 1 then start = 1
+  elseif start > length then start = length end
+
+  if finish < 0 then finish = length + finish + 1 end
+  if finish < 1 then finish = 1
+  elseif finish > length then finish = length end
 
   local result = List{}
   local dest = 1
@@ -113,10 +119,20 @@ function List:slice(start, finish, step)
 end
 
 function List:reverse()
-  return self:slice(#self, 1, -1)
+  return self:sub(#self, 1, -1)
+end
+
+function List:__shl(n)
+  if n < 0 then return self >> n end
+  return self:sub(n + 1) .. self:sub(1, n)
+end
+
+function List:__shr(n)
+  if n < 0 then return self << n end
+  return self:sub(-(n)) .. self:sub(1, -(n + 1))
 end
 
 List.__iterate = List.ivalues
-List.__call = List.slice
+List.__call = List.sub
 List.ipairs = ipairs
 List.ivalues = ivalues
