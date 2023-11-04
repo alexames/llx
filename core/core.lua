@@ -161,3 +161,11 @@ function tointeger(value)
   local __tointeger = getmetafield(value, '__tointeger')
   return __tointeger and __tointeger(value) or math.floor(value)
 end
+
+function script_path(level)
+   return debug.getinfo((level or 1) + 1, "S").source:sub(2)
+end
+
+function main_file(level)
+  return script_path((level or 1) + 1) == arg[0]
+end
