@@ -148,3 +148,8 @@ end
 function printlist(t)
   for i, v in ipairs(t) do print(i, v) end
 end
+
+function tointeger(value)
+  local __tointeger = getmetafield(value, '__tointeger')
+  return __tointeger and __tointeger(value) or math.floor(value)
+end
