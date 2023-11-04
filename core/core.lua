@@ -3,6 +3,14 @@ function getmetafield(t, k)
   return metatable and rawget(metatable, k)
 end
 
+function metamethod_args(class, self, other)
+  if class.isinstance(self) then
+    return self, other
+  else
+    return other, self
+  end
+end
+
 function printf(fmt, ...)
   print(string.format(fmt, ...))
 end
