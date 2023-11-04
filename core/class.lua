@@ -178,9 +178,7 @@ local function create_class_table_proxy(class_table)
       return rawequal(class_table, other)
     end;
 
-    __tostring = function()
-      return class_table.__name
-    end;
+    __name = class_table.__name
   }
   return setmetatable(class_table_proxy, class_table_proxy_metatable)
 end
