@@ -1,7 +1,7 @@
 require 'llx/core/class'
 local type_check_decorator = require 'llx/types/type_check_decorator'
 
-local method = class 'method' {
+method = class 'method' {
   __init = function(self, function_args)
     local underlying_function = function_args[1]
     for _, decorator in ipairs(function_args.decorators or {}) do

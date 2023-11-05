@@ -34,7 +34,7 @@ local InvalidArgumentException =
 }
 
 local function check_types(location, expected_types, argument_list)
-  for index, expected_type in ipairs(expected_types) do
+  for index, expected_type in ipairs(expected_types or {}) do
     local value = argument_list[index]
     local correct = expected_type.isinstance(value)
     if not correct then
