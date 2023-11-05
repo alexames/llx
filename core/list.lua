@@ -106,9 +106,8 @@ function List:sub(start, finish, step)
   elseif start > length then start = length end
 
   if finish < 0 then finish = length + finish + 1 end
-  if finish < 1 then finish = 1
+  if finish < 0 then finish = 0
   elseif finish > length then finish = length end
-
   local result = List{}
   local dest = 1
   for src=start, finish, step do
@@ -123,13 +122,17 @@ function List:reverse()
 end
 
 function List:__shl(n)
-  if n < 0 then return self >> n end
-  return self:sub(n + 1) .. self:sub(1, n)
+  if n < 0 then return self >> n
+  elseif n == 0 then return self
+  else return self:sub(n + 1) .. self:sub(1, n)
+  end
 end
 
 function List:__shr(n)
-  if n < 0 then return self << n end
-  return self:sub(-(n)) .. self:sub(1, -(n + 1))
+  if n < 0 then return self << n
+  elseif n == 0 then return self
+  else return self:sub(-(n)) .. self:sub(1, -(n + 1))
+  end
 end
 
 List.__iterate = List.ivalues

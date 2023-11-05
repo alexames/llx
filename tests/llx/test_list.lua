@@ -55,6 +55,8 @@ test_class 'ListTest' {
     EXPECT_EQ(list:sub(2, 6, 2), {2, 4, 6})
     EXPECT_EQ(list:sub(6, 1, -1), {6, 5, 4, 3, 2, 1})
     EXPECT_EQ(list:sub(6, 1, -2), {6, 4, 2})
+    EXPECT_EQ(list:sub(1, 0), {})
+    EXPECT_EQ(list:sub(0), {1, 2, 3, 4, 5, 6})
   end,
 
   [test 'reverse'] = function()
@@ -102,6 +104,23 @@ test_class 'ListTest' {
     EXPECT_EQ(multiplied_list, {1, 2, 3, 1, 2, 3, 1, 2, 3})
   end,
 
+  [test 'shift right >>'] = function()
+    local list = List{'a', 'b', 'c', 'd', 'e'}
+    EXPECT_EQ(list >> 0, List{'a', 'b', 'c', 'd', 'e'})
+    EXPECT_EQ(list >> 1, List{'e', 'a', 'b', 'c', 'd'})
+    EXPECT_EQ(list >> 2, List{'d', 'e', 'a', 'b', 'c'})
+    EXPECT_EQ(list >> 3, List{'c', 'd', 'e', 'a', 'b'})
+    EXPECT_EQ(list >> 4, List{'b', 'c', 'd', 'e', 'a'})
+  end,
+
+  [test 'shift left <<'] = function()
+    local list = List{'a', 'b', 'c', 'd', 'e'}
+    EXPECT_EQ(list << 0, List{'a', 'b', 'c', 'd', 'e'})
+    EXPECT_EQ(list << 1, List{'b', 'c', 'd', 'e', 'a'})
+    EXPECT_EQ(list << 2, List{'c', 'd', 'e', 'a', 'b'})
+    EXPECT_EQ(list << 3, List{'d', 'e', 'a', 'b', 'c'})
+    EXPECT_EQ(list << 4, List{'e', 'a', 'b', 'c', 'd'})
+  end,
 }
 
 if main_file() then
