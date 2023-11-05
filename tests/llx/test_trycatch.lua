@@ -14,7 +14,7 @@ local QuxException = class 'QuxException' : extends(FooException) {}
 local Union = types.Union
 
 test_class 'try' {
-  [test('first_exception')] = function()
+  [test 'first_exception'] = function()
     local result_branch
     local result_ex
     try {
@@ -38,7 +38,7 @@ test_class 'try' {
     EXPECT_THAT(result_ex, IsOfType(FooException))
   end,
 
-  [test('union_exception')] = function()
+  [test 'union_exception'] = function()
     local result_branch
     local result_ex
     try {
@@ -62,7 +62,7 @@ test_class 'try' {
     EXPECT_THAT(result_ex, IsOfType(BarException))
   end,
 
-  [test('fallback_exception')] = function()
+  [test 'fallback_exception'] = function()
     local result_branch
     local result_ex
     try {
@@ -82,7 +82,7 @@ test_class 'try' {
     EXPECT_THAT(result_ex, IsOfType(BarException))
   end,
 
-  [test('inherited_exception')] = function()
+  [test 'inherited_exception'] = function()
     local result_branch
     local result_ex
     try {
@@ -102,7 +102,7 @@ test_class 'try' {
     EXPECT_THAT(result_ex, IsOfType(QuxException))
   end,
 
-  [test('inherited_exception_ordered_last')] = function()
+  [test 'inherited_exception_ordered_last'] = function()
     local result_branch
     local result_ex
     try {
@@ -122,7 +122,7 @@ test_class 'try' {
     EXPECT_THAT(result_ex, IsOfType(QuxException))
   end,
 
-  [test('unhandled_exception')] = function()
+  [test 'unhandled_exception'] = function()
     local result_branch
     local success, result_ex = pcall(function()
       try {
@@ -144,7 +144,7 @@ test_class 'try' {
     EXPECT_EQ(result_ex, BazException)
   end,
 
-  [test('no_exception')] = function()
+  [test 'no_exception'] = function()
     local result_branch
     local result_ex
     try {

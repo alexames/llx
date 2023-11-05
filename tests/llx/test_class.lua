@@ -14,20 +14,22 @@ function ProxySetter(proxy)
 end
 
 test_class 'class' {
-  [test('class_fields')] = function()
+  [test 'class_fields'] = function()
     local foo = class 'foo' {
       field = 100
     }
     EXPECT_EQ(foo.field, 100)
-  end;
-  [test('member_fields')] = function()
+  end,
+
+  [test 'member_fields'] = function()
     local foo = class 'foo' {
       field = 100
     }
     local f = foo()
     EXPECT_EQ(f.field, 100)
-  end;
-  [test('class_functions')] = function()
+  end,
+
+  [test 'class_functions'] = function()
     local mock <close> = Mock()
     local foo = class 'foo' {
       func = mock:call_count(Equals(1)):call_spec{
@@ -35,8 +37,9 @@ test_class 'class' {
       }
     }
     EXPECT_EQ(foo.func(), 100)
-  end;
-  [test('member_functions')] = function()
+  end,
+
+  [test 'member_functions'] = function()
     local mock <close> = Mock()
     local self_ref = Proxy()
     local foo = class 'foo' {
@@ -48,19 +51,22 @@ test_class 'class' {
     local f = foo()
     EXPECT_EQ(f:func(), 100)
     EXPECT_EQ(f, self_ref)
-  end;
-  [test('metatable')] = function()
+  end,
+
+  [test 'metatable'] = function()
     local foo = class 'foo' {}
     local f = foo()
     EXPECT_EQ(getmetatable(f), foo)
-  end;
-  [test('set_instance_field')] = function()
+  end,
+
+  [test 'set_instance_field'] = function()
     local foo = class 'foo' {}
     local f = foo()
     f.bar = 100
     EXPECT_EQ(f.bar, 100)
-  end;
-  [test('set_class_field')] = function()
+  end,
+
+  [test 'set_class_field'] = function()
     local foo = class 'foo' {}
     local f = foo()
     foo.bar = 100
@@ -68,13 +74,15 @@ test_class 'class' {
     EXPECT_EQ(foo.bar, 100)
     EXPECT_EQ(f.bar, 100)
     EXPECT_EQ(g.bar, 100)
-  end;
-  [test('default_tostring')] = function()
+  end,
+
+  [test 'default_tostring'] = function()
     local foo = class 'foo' {}
     local f = foo()
     EXPECT_THAT(tostring(f), StartsWith('foo: '))
-  end;
-  [test('custom_tostring')] = function()
+  end,
+
+  [test 'custom_tostring'] = function()
     local mock <close> = Mock()
     local foo = class 'foo' {
       __tostring = mock:call_spec {
@@ -83,8 +91,9 @@ test_class 'class' {
     }
     local f = foo()
     EXPECT_EQ(tostring(f), 'custom tostring')
-  end;
-  [test('init')] = function()
+  end,
+
+  [test 'init'] = function()
     local mock <close> = Mock()
     local self_ref = Proxy()
     local foo = class 'foo' {
@@ -95,8 +104,9 @@ test_class 'class' {
     }
     local f = foo(1, 2)
     EXPECT_EQ(f, self_ref)
-  end;
-  [test('new')] = function()
+  end,
+
+  [test 'new'] = function()
     local mock <close> = Mock()
     local self_ref = {}
     local foo = class 'foo' {
@@ -106,11 +116,12 @@ test_class 'class' {
       }
     }
     EXPECT_EQ(foo(1, 2), self_ref)
-  end;
+  end,
+
 }
 
 test_class 'derived_class' {
-  [test('class_fields')] = function()
+  [test 'class_fields'] = function()
     local foo = class 'foo' {
       foo_field = 100
     }
@@ -121,8 +132,9 @@ test_class 'derived_class' {
     EXPECT_EQ(foo.bar_field, nil)
     EXPECT_EQ(bar.foo_field, 100)
     EXPECT_EQ(bar.bar_field, 200)
-  end;
-  [test('member_fields')] = function()
+  end,
+
+  [test 'member_fields'] = function()
     local foo = class 'foo' {
       foo_field = 100
     }
@@ -135,8 +147,9 @@ test_class 'derived_class' {
     EXPECT_EQ(f.bar_field, nil)
     EXPECT_EQ(b.foo_field, 100)
     EXPECT_EQ(b.bar_field, 200)
-  end;
-  [test('class_functions')] = function()
+  end,
+
+  [test 'class_functions'] = function()
     local foo_mock <close> = Mock()
     local bar_mock <close> = Mock()
     local foo = class 'foo' {
@@ -151,8 +164,9 @@ test_class 'derived_class' {
     }
     EXPECT_EQ(bar.foo_func(), 100)
     EXPECT_EQ(bar.bar_func(), 200)
-  end;
-  [test('member_functions')] = function()
+  end,
+
+  [test 'member_functions'] = function()
     local foo_mock <close> = Mock()
     local bar_mock <close> = Mock()
     local foo = class 'foo' {
@@ -168,16 +182,18 @@ test_class 'derived_class' {
     b = bar()
     EXPECT_EQ(b.foo_func(), 100)
     EXPECT_EQ(b.bar_func(), 200)
-  end;
-  [test('metatable')] = function()
+  end,
+
+  [test 'metatable'] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local f = foo()
     local b = bar()
     EXPECT_EQ(getmetatable(f), foo)
     EXPECT_EQ(getmetatable(b), bar)
-  end;
-  [test('set_class_field')] = function()
+  end,
+
+  [test 'set_class_field'] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
@@ -190,14 +206,16 @@ test_class 'derived_class' {
     EXPECT_EQ(b.bar_value, 200)
     EXPECT_EQ(c.foo_value, 100)
     EXPECT_EQ(c.bar_value, 200)
-  end;
-  [test('default_tostring')] = function()
+  end,
+
+  [test 'default_tostring'] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
     EXPECT_THAT(tostring(b), StartsWith('bar: '))
-  end;
-  [test('custom_tostring')] = function()
+  end,
+
+  [test 'custom_tostring'] = function()
     local mock <close> = Mock()
     local foo = class 'foo' {
       __tostring = mock:call_count(Equals(1)):call_spec{
@@ -207,8 +225,9 @@ test_class 'derived_class' {
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
     EXPECT_EQ(tostring(b), 'custom tostring')
-  end;
-  [test('custom_tostring_on_derived')] = function()
+  end,
+
+  [test 'custom_tostring_on_derived'] = function()
     local mock <close> = Mock()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {
@@ -218,8 +237,9 @@ test_class 'derived_class' {
     }
     local b = bar()
     EXPECT_EQ(tostring(b), 'custom tostring')
-  end;
-  [test('custom_tostring_override')] = function()
+  end,
+
+  [test 'custom_tostring_override'] = function()
     local foo_mock <close> = Mock()
     local bar_mock <close> = Mock()
     local foo = class 'foo' {
@@ -232,9 +252,10 @@ test_class 'derived_class' {
     }
     local b = bar()
     EXPECT_EQ(tostring(b), 'custom tostring')
-  end;
+  end,
+
 --------------------------------------------------------------------------------
-  [test('init')] = function()
+  [test 'init'] = function()
     local self_ref = nil
     local a_ref = nil
     local b_ref = nil
@@ -249,9 +270,10 @@ test_class 'derived_class' {
     EXPECT_EQ(self_ref, f)
     EXPECT_EQ(a_ref, 1)
     EXPECT_EQ(b_ref, 2)
-  end;
+  end,
+
 --------------------------------------------------------------------------------
-  [test('new')] = function()
+  [test 'new'] = function()
     local self_ref = nil
     local a_ref = nil
     local b_ref = nil
@@ -267,8 +289,9 @@ test_class 'derived_class' {
     EXPECT_EQ(self_ref, f)
     EXPECT_EQ(a_ref, 1)
     EXPECT_EQ(b_ref, 2)
-  end;
-  [test('descendant_metainheritance')] = function()
+  end,
+
+  [test 'descendant_metainheritance'] = function()
     local foo = class 'foo' {
       __meta = 'value'
     }
@@ -277,8 +300,9 @@ test_class 'derived_class' {
     EXPECT_EQ(foo.__meta, 'value')
     EXPECT_EQ(bar.__meta, 'value')
     EXPECT_EQ(baz.__meta, 'value')
-  end;
-  [test('descendant_metainheritance_late')] = function()
+  end,
+
+  [test 'descendant_metainheritance_late'] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local baz = class 'baz' : extends(bar) {}
@@ -286,8 +310,9 @@ test_class 'derived_class' {
     EXPECT_EQ(foo.__meta, 100)
     EXPECT_EQ(bar.__meta, 100)
     EXPECT_EQ(baz.__meta, 100)
-  end;
-  [test('descendant_metainheritance_changed')] = function()
+  end,
+
+  [test 'descendant_metainheritance_changed'] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local baz = class 'baz' : extends(bar) {}
@@ -296,8 +321,9 @@ test_class 'derived_class' {
     EXPECT_EQ(foo.__meta, 200)
     EXPECT_EQ(bar.__meta, 200)
     EXPECT_EQ(baz.__meta, 200)
-  end;
-  [test('descendant_metainheritance_changed_intercepted')] = function()
+  end,
+
+  [test 'descendant_metainheritance_changed_intercepted'] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local baz = class 'baz' : extends(bar) {}
@@ -306,8 +332,9 @@ test_class 'derived_class' {
     EXPECT_EQ(foo.__meta, 100)
     EXPECT_EQ(bar.__meta, 200)
     EXPECT_EQ(baz.__meta, 200)
-  end;
-  [test('descendant_metainheritance_changed_intercepted_out_of_order')] = function()
+  end,
+
+  [test 'descendant_metainheritance_changed_intercepted_out_of_order'] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local baz = class 'baz' : extends(bar) {}
@@ -316,8 +343,9 @@ test_class 'derived_class' {
     EXPECT_EQ(foo.__meta, 100)
     EXPECT_EQ(bar.__meta, 200)
     EXPECT_EQ(baz.__meta, 200)
-  end;
-  [test('descendant_metainheritance_descendant')] = function()
+  end,
+
+  [test 'descendant_metainheritance_descendant'] = function()
     local ancestor = class 'foo' {}
     local descendant = ancestor
     for i=1, 10 do
@@ -328,5 +356,6 @@ test_class 'derived_class' {
     -- descendant.__meta = 100
     EXPECT_EQ(ancestor.__meta, 200)
     EXPECT_EQ(descendant.__meta, 200)
-  end;
+  end,
+
 }
