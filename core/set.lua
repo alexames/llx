@@ -1,4 +1,5 @@
 require 'llx/core/class'
+require 'llx/core/list'
 require 'llx/core/table'
 
 Set = class 'Set' {
@@ -64,6 +65,14 @@ Set = class 'Set' {
 
   set = function(self, key, value)
     rawget(self, '_values')[key] = value and true or nil
+  end,
+
+  tolist = function(self)
+    local result = List{}
+    for k, v in pairs(self) do
+      result:insert(k)
+    end
+    return result
   end,
 
   __index = function(self, key)
