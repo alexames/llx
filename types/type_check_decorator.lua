@@ -29,7 +29,7 @@ local InvalidArgumentException =
       self,
       string.format(
         'bad argument #%s (%s expected, got %s)',
-        argument_index, expected_type, actual_type))
+        argument_index, expected_type.__name, actual_type))
   end
 }
 
@@ -58,6 +58,18 @@ local function type_check_decorator(underlying_function, expected_types)
     end
   end
   return type_checker(underlying_function)
+end
+
+function check_arg_types(expected_types)
+  local index = 0
+  repeat
+    index = index + 1
+    local name, value = debug.getlocal(2, index)
+    local expected_type = expected_types[name]
+    if name and not expected_type.isinstance(value) then
+      error(InvalidArgumentException(index, expected_type, gettype(value)), 3)
+    end
+  until name == nil
 end
 
 return type_check_decorator
