@@ -3,7 +3,8 @@ local types = {}
 local function any_type_check()
   return setmetatable({
     __name = 'Any';
-    isinstance = function(value)
+
+    __isinstance = function(value)
       return true
     end;
   }, {
@@ -21,9 +22,9 @@ local function union_type_check(type_checker_list)
   return setmetatable({
     __name = typename;
 
-    isinstance = function(value)
+    __isinstance = function(value)
       for _, type_checker in ipairs(type_checker_list) do
-        if type_checker.isinstance(value) then
+        if isinstance(value, type_checker) then
           return true
         end
       end
@@ -44,12 +45,12 @@ local function list_type_check(type_checker)
   return setmetatable({
     __name = typename;
 
-    isinstance = function(value)
+    __isinstance = function(value)
       if type(value) ~= 'table' then
         return false
       end
       for _, v in ipairs(value) do
-        if not list_type_checker.isinstance(v) then
+        if not isinstance(v, list_type_checker) then
           return false
         end
       end

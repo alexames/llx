@@ -1,7 +1,7 @@
 Number = setmetatable({
   __name = 'Number';
 
-  isinstance = function(v)
+  __isinstance = function(v)
     return type(v) == 'number'
   end;
 }, {

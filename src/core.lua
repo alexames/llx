@@ -16,7 +16,7 @@ function main_file(level)
 end
 
 function metamethod_args(class, self, other)
-  if class.isinstance(self) then
+  if isinstance(self, class) then
     return self, other
   else
     return other, self

@@ -36,7 +36,7 @@ local InvalidArgumentException =
 local function check_types(location, expected_types, argument_list)
   for index, expected_type in ipairs(expected_types or {}) do
     local value = argument_list[index]
-    local correct = expected_type.isinstance(value)
+    local correct = isinstance(value, expected_type)
     if not correct then
       error(InvalidArgumentException(index, expected_type, gettype(value)))
     end
@@ -66,7 +66,7 @@ function check_arg_types(expected_types)
     index = index + 1
     local name, value = debug.getlocal(2, index)
     local expected_type = expected_types[name]
-    if name and not expected_type.isinstance(value) then
+    if name and not isinstance(value, expected_type) then
       error(InvalidArgumentException(index, expected_type, gettype(value)), 3)
     end
   until name == nil

@@ -32,7 +32,7 @@ function type_switch(value)
       Table.ifind_if(
         sorted_cases,
         function(i, case)
-          return case.value.isinstance(value)
+          return isinstance(value, case.value)
         end)
     local handler = key and cases[key]
     return handler and handler(value)

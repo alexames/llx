@@ -1,7 +1,7 @@
 Boolean = setmetatable({
   __name = 'Boolean';
 
-  isinstance = function(v)
+  __isinstance = function(v)
     return type(v) == 'boolean'
   end;
 },{

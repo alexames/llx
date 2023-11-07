@@ -1,7 +1,7 @@
 Thread = setmetatable({
   __name = 'Thread';
 
-  isinstance = function(v)
+  __isinstance = function(v)
     return type(v) == 'thread'
   end;
 }, {

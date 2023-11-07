@@ -201,7 +201,7 @@ local function create_internal_class_table(name)
     end
   end
 
-  local function isinstance(o)
+  local function __isinstance(o)
     return isinstance_impl(getmetatable(o), class_table)
   end
 
@@ -215,7 +215,7 @@ local function create_internal_class_table(name)
     __index = __index;
     __defaultindex = __index;
 
-    isinstance = isinstance;
+    __isinstance = __isinstance;
   }
   return class_table
 end

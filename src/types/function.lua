@@ -1,7 +1,7 @@
 Function = setmetatable({
   __name = 'function';
 
-  isinstance = function(v)
+  __isinstance = function(v)
     return type(v) == 'function'
   end
 }, {

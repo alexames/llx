@@ -1,7 +1,7 @@
 Table = table
 Table.__name = 'Table';
 
-Table.isinstance = function(v)
+Table.__isinstance = function(v)
   return type(v) == 'table'
 end
 

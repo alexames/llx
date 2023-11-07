@@ -18,7 +18,7 @@ function try(try_block)
   if not successful then
     local _, matching_entry =
       try_block:ifind_if(function(i, catcher)
-        return catcher.exception.isinstance(thrown_exception)
+        return isinstance(thrown_exception, catcher.exception)
       end, 2)
     local handler = matching_entry and matching_entry.handler
                     or error

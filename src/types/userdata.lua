@@ -1,7 +1,7 @@
 Userdata = setmetatable({
   __name = 'Userdata';
 
-  isinstance = function(v)
+  __isinstance = function(v)
     return type(v) == 'userdata'
   end;
 }, {

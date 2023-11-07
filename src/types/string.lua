@@ -10,7 +10,7 @@ local string_metatable = getmetatable('')
 
 String.__name = 'String'
 
-String.isinstance = function(v)
+String.__isinstance = function(v)
   return type(v) == 'string'
 end
 

@@ -1,7 +1,7 @@
 Nil = setmetatable({
   __name = 'nil';
 
-  isinstance = function(v)
+  __isinstance = function(v)
     return type(v) == 'nil'
   end;
 }, {
