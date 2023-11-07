@@ -1,9 +1,9 @@
-require 'llx/core/class'
-require 'llx/core/exception'
-require 'llx/core/table'
-require 'llx/core/trycatch'
+require 'llx/src/class'
+require 'llx/src/exception'
+require 'llx/src/types/table'
+require 'llx/src/flow_control/trycatch'
 require 'unit'
-local types = require 'llx/types/basic_types'
+local types = require 'llx/src/types/basic_types'
 
 local FooException = class 'FooException' : extends(Exception) {}
 local BarException = class 'BarException' : extends(Exception) {}

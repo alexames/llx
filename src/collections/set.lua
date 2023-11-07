@@ -1,6 +1,6 @@
-require 'llx/core/class'
-require 'llx/core/list'
-require 'llx/core/table'
+require 'llx/src/class'
+require 'llx/src/collections/list'
+require 'llx/src/types/table'
 
 Set = class 'Set' {
   __init = function(self, values)

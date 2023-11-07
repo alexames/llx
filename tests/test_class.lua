@@ -1,6 +1,6 @@
 local unit = require 'unit'
-require 'llx/core/class'
-require 'llx/core/proxy'
+require 'llx/src/class'
+require 'llx/src/proxy'
 
 local function CallSpec(t)
   return t

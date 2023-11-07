@@ -1,27 +1,11 @@
-require 'llx/core/class'
-require 'llx/core/core'
-require 'llx/core/table'
+require 'llx/src/class'
+require 'llx/src/core'
+require 'llx/src/types/table'
 
 List = class 'List' : extends(Table) {}
 
 function List.__new(t)
   return t or {}
-end
-
-function List.generate(arg)
-  local lambda = arg.lambda or noop
-  local iterable = arg.iterable or List.ivalues(arg.list)
-  local filter = arg.filter
-
-  local result = List{}
-  while iterable do
-    local v = {iterable()}
-    if #v == 0 then break end
-    if not filter or filter(table.unpack(v)) then
-      table.insert(result, lambda(table.unpack(v)))
-    end
-  end
-  return result
 end
 
 function List:__eq(other)

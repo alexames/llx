@@ -1,4 +1,4 @@
 unit = require 'unit'
-require 'llx/tests/llx'
+require 'llx/tests'
 
 unit.run_unit_tests()

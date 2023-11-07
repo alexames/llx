@@ -1,4 +1,4 @@
-require 'llx/core/table'
+require 'llx/src/types/table'
 
 -- switch {
 --   value;

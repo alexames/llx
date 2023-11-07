@@ -1,4 +1,4 @@
-require 'llx/core/core'
+require 'llx/src/core'
 
 local identifier_pattern = '^[%a_][%w_]*$'
 local function is_identifier(s)
