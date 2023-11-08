@@ -25,12 +25,12 @@ function List:__tostring()
 end
 
 function List:__index(index)
-  if type(index) == 'number' then
+  if isinstance(index, Number) then
     if index < 0 then
       index = #self + index + 1
     end
     return rawget(self, index)
-  elseif type(index) == 'table' then
+  elseif isinstance(index, Table) then
     local results = List{}
     for i, v in ipairs(index) do
       results[i] = self[v]
