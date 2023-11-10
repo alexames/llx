@@ -1,6 +1,7 @@
 require 'llx/src/types/basic_types'
 require 'llx/src/types/boolean'
 require 'llx/src/types/function'
+require 'llx/src/types/integer'
 require 'llx/src/types/nil'
 require 'llx/src/types/number'
 require 'llx/src/types/string'

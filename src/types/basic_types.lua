@@ -1,4 +1,4 @@
-local types = {}
+types = {}
 
 local function any_type_check()
   return setmetatable({
