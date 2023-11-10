@@ -1,7 +1,7 @@
 require 'llx/src/class'
 require 'llx/src/exception'
 
-local function gettype(o)
+local function getclass(o)
   local type = type(o)
   if type == 'nil' then
     return Nil
@@ -38,7 +38,7 @@ local function check_types(location, expected_types, argument_list)
     local value = argument_list[index]
     local correct = isinstance(value, expected_type)
     if not correct then
-      error(InvalidArgumentException(index, expected_type, gettype(value)))
+      error(InvalidArgumentException(index, expected_type, getclass(value)))
     end
   end
 end
