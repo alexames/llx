@@ -1,8 +1,8 @@
 require 'llx/src/class'
 
 Exception = class 'Exception' {
-  __init = function(self, what)
-    self.what = what
+  __init = function(self, what, level)
+    self.what = debug.traceback(what, (level or 1) + 1)
   end;
 
   __tostring = function(self)
