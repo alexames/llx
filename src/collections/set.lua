@@ -18,6 +18,36 @@ Set = class 'Set' {
     return result
   end,
 
+  __eq = function(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then
+      return false
+    end
+    
+    local a_values = rawget(a, '_values')
+    local b_values = rawget(b, '_values')
+
+    -- Check if the sizes of the sets are equal
+    if #a_values ~= #b_values then
+      return false
+    end
+
+    -- Check if all elements in set A are also in set B
+    for k, v in pairs(a_values) do
+      if not b_values[k] then
+        return false
+      end
+    end
+
+    -- Check if all elements in set B are also in set A
+    for k, v in pairs(b_values) do
+        if not a_values[k] then
+            return false
+        end
+    end
+
+    return true
+  end
+
   insert = function(self, key)
     rawget(self, '_values')[key] = true
   end,
@@ -85,18 +115,11 @@ Set = class 'Set' {
   end,
 
   __tostring = function(self)
-    local fmt = 'Set{%s}'
-    local first = true
-    local values = ''
+    local values = {}
     for k, v in pairs(rawget(self, '_values')) do
-      if first then
-        values = values .. tostring(k)
-        first = false
-      else
-        values = values .. ',' .. tostring(k)
-      end
+      table.insert(values, tostring(k))
     end
-    return fmt:format(values)
+    return "Set{" .. table.concat(values, ', ') .. "}"
   end,
 
   __pairs = function(self)
