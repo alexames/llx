@@ -1,21 +1,25 @@
-Integer = setmetatable({
-  __name = 'Integer';
+local Integer = {}
 
-  __isinstance = function(v)
-    return math.type(v) == 'integer'
-  end;
-}, {
-  __call = function(self, v)
-    if v == nil or v == false then
-      return 0
-    elseif v == true then
-      return 1
-    else
-      return tointeger(v)
-    end
-  end;
+Integer.__name = 'Integer'
 
-  __tostring = function() return 'Integer' end;
-})
+function Integer:__isinstance(v)
+  return math.type(v) == 'integer'
+end
 
-return Integer
+local metatable = {}
+
+function metatable:__call(v)
+  if v == nil or v == false then
+    return 0
+  elseif v == true then
+    return 1
+  else
+    return tointeger(v)
+  end
+end
+
+function metatable:__tostring()
+  return 'Integer'
+end
+
+return setmetatable(Integer, metatable)

@@ -1,18 +1,6 @@
 require 'llx/src/class'
-require 'llx/src/exception'
+require 'llx/src/exceptions'
 require 'llx/src/getclass'
-
-local InvalidArgumentException = 
-    class 'InvalidArgumentException' : extends(Exception) {
-  __init = function(self, argument_index, expected_type, actual_type, level)
-    Exception.__init(
-      self,
-      string.format(
-        'bad argument #%s (%s expected, got %s)',
-        argument_index, expected_type.__name, actual_type),
-      (level or 1) + 1)
-  end,
-}
 
 local function check_types(location, expected_types, argument_list)
   for index, expected_type in ipairs(expected_types or {}) do
@@ -39,22 +27,6 @@ local function type_check_decorator(underlying_function, expected_types)
     end
   end
   return type_checker(underlying_function)
-end
-
-function check_arguments(expected_types)
-  local index = 0
-  repeat
-    index = index + 1
-    local name, value = debug.getlocal(2, index)
-    local expected_type = expected_types[name]
-    if name then
-      if expected_type == nil then
-        error(InvalidArgumentException(1, Table, getclass(value), 1))
-      elseif not isinstance(value, expected_type) then
-        error(InvalidArgumentException(index, expected_type, getclass(value), 3))
-      end
-    end
-  until name == nil
 end
 
 return type_check_decorator

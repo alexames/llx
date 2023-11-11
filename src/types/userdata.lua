@@ -1,11 +1,15 @@
-Userdata = setmetatable({
-  __name = 'Userdata';
+local Userdata = {}
 
-  __isinstance = function(v)
-    return type(v) == 'userdata'
-  end;
-}, {
-  __tostring = function() return 'Userdata' end;
-})
+Userdata.__name = 'Userdata'
 
-return Userdata
+function Userdata:__isinstance(v)
+  return type(v) == 'userdata'
+end
+
+local metatable = {}
+
+function metatable:__tostring()
+  return 'Userdata'
+end
+
+return setmetatable(Userdata, metatable)

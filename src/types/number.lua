@@ -1,21 +1,25 @@
-Number = setmetatable({
-  __name = 'Number';
+local Number = {}
 
-  __isinstance = function(v)
-    return type(v) == 'number'
-  end;
-}, {
-  __call = function(self, v)
-    if v == nil or v == false then
-      return 0
-    elseif v == true then
-      return 1
-    else
-      return tonumber(v)
-    end
-  end;
+Number.__name = 'Number'
 
-  __tostring = function() return 'Number' end;
-})
+function Number:__isinstance(value)
+  return type(value) == 'number'
+end
 
-return Number
+local metatable = {}
+
+function metatable:__call(value)
+  if value == nil or value == false then
+    return 0
+  elseif value == true then
+    return 1
+  else
+    return tonumber(value)
+  end
+end;
+
+function metatable:__tostring()
+  return 'Number'
+end;
+
+return setmetatable(Number, metatable)

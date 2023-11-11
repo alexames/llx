@@ -1,16 +1,18 @@
-String = string
+local String = string
 
-setmetatable(string, {
-  __call = function(self, v)
-    return v and tostring(v) or ''
-  end;
-})
+local metatable = {}
 
-local string_metatable = getmetatable('')
+function metatable:__call(v)
+  return v and tostring(v) or ''
+end;
+
+function metatable:__tostring()
+  return 'String'
+end
 
 String.__name = 'String'
 
-String.__isinstance = function(v)
+function String:__isinstance(v)
   return type(v) == 'string'
 end
 
@@ -38,9 +40,10 @@ function String:endswith(ending)
 end
 
 function String:__index(i, v)
-  print(i)
   return self:sub(i, i)
 end
+
+local string_metatable = getmetatable('')
 
 function string_metatable.__index(s, k)
   if type(k) == 'number' then
@@ -68,4 +71,4 @@ function string_metatable:__shr(n)
   return self:sub(-(n)) .. self:sub(1, -(n + 1))
 end
 
-return String
+return setmetatable(String, metatable)

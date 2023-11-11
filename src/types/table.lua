@@ -1,23 +1,62 @@
-Table = table
+require 'llx/src/exceptions/schema_exception'
+
+local Table = table
+
 Table.__name = 'Table';
 
-Table.__isinstance = function(v)
+function Table.__isinstance(v)
   return type(v) == 'table'
+end
+
+local function contains(list, value)
+  for i=1, #list do
+    local element = list[i]
+    if value == element then
+      return true
+    end
+  end
+  return false
+end
+
+function Table:__check_schema(schema, path, level, callback)
+  local properties = schema.properties
+  local required = schema.required
+  local exception_list = {}
+  if properties then
+    for key, property in pairs(properties) do
+      local value = self[key]
+      if value == nil then
+        if required and contains(required, key) then
+          Table.insert(exception_list,
+                       SchemaMissingFieldException(path, key, level + 1))
+        end
+      else
+        Table.insert(path, key)
+        local successful, exception = callback(property, value, path, level + 1)
+        if not successful then
+          Table.insert(exception_list, exception)
+        end
+        Table.remove(path)
+      end
+    end
+    if #exception_list > 0 then
+      return false, ExceptionGroup(exception_list, level + 1)
+    end
+  end
+  return true
 end
 
 local table_instance_metatable = {
   __index = Table
 }
 
-local table_metatable = {
-  __call = function(self, t)
-    return setmetatable(t or {}, table_instance_metatable)
-  end
-}
+local metatable = {}
+
+function metatable:__call(tbl)
+  return setmetatable(tbl or {}, table_instance_metatable)
+end
 
 function Table.__tostring() return 'Table' end;
-
-setmetatable(table, table_metatable)
 
 function Table:remove_if(predicate)
   local j = 1
@@ -110,4 +149,34 @@ function Table:insert_unique(value)
   end
 end
 
-return Table
+function Table:concat(sep, i, j)
+  sep = sep or ''
+  i = i or 1
+  j = j or #self
+
+  local result = ''
+
+  for k=i, j do
+    local value = self[k]
+
+    if type(value) == 'table' or type(value) == 'userdata' then
+      local __tostring = getmetafield(value, '__tostring')
+
+      if __tostring then
+        value = __tostring(value)
+      else
+        error('Attempt to concatenate a table or userdata without a __tostring metamethod')
+      end
+    end
+
+    result = result .. value
+
+    if k < j then
+      result = result .. sep
+    end
+  end
+
+  return result
+end
+
+return setmetatable(Table, metatable)

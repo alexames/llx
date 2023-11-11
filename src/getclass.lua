@@ -1,7 +1,7 @@
-require 'types'
+require 'llx/src/types'
 
-local function getclass(o)
-  local type = type(o)
+function getclass(value)
+  local type = type(value)
   if type == 'nil' then
     return Nil
   elseif type == 'boolean' then
@@ -9,14 +9,14 @@ local function getclass(o)
   elseif type == 'number' then
     return Number
   elseif type == 'string' then
-    return string
+    return String
   elseif type == 'table' then
-    return getmetatable(o) or Table
+    return getmetatable(value) or Table
   elseif type == 'function' then
     return Function
   elseif type == 'thread' then
     return Thread
   elseif type == 'userdata' then
-    return getmetatable(o) or Userdata
+    return getmetatable(value) or Userdata
   end
 end

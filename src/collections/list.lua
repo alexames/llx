@@ -119,7 +119,28 @@ function List:__shr(n)
   end
 end
 
+function List:__check_schema(schema, path, level, callback)
+  local items = schema.items
+  assert(items)
+  local exception_list = {}
+  for i=1, #self do
+    local value = self[i]
+    Table.insert(path, i)
+    local successful, exception = callback(items, value, path, level + 1)
+    if not successful then
+      Table.insert(exception_list, exception)
+    end
+    Table.remove(path)
+  end
+  if #exception_list > 0 then
+    return false, ExceptionGroup(exception_list, level + 1)
+  end
+  return true
+end
+
 List.__iterate = List.ivalues
 List.__call = List.sub
 List.ipairs = ipairs
 List.ivalues = ivalues
+
+return List

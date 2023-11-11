@@ -1,11 +1,15 @@
-Thread = setmetatable({
-  __name = 'Thread';
+local Thread = {}
 
-  __isinstance = function(v)
-    return type(v) == 'thread'
-  end;
-}, {
-  __tostring = function() return 'Thread' end;
-})
+Thread.__name = 'Thread'
 
-return Thread
+function Thread:__isinstance(v)
+  return type(v) == 'thread'
+end
+
+local metatable = {}
+
+function metatable:__tostring()
+  return 'Thread'
+end
+
+return setmetatable(Thread, metatable)

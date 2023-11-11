@@ -1,11 +1,15 @@
-Function = setmetatable({
-  __name = 'function';
+local Function = {}
 
-  __isinstance = function(v)
-    return type(v) == 'function'
-  end
-}, {
-  __tostring = function() return 'Function' end;
-})
+Function.__name = 'function';
 
-return Function
+function Function:__isinstance(value)
+  return type(value) == 'function'
+end
+
+local metatable = {}
+
+function metatable:__tostring()
+  return 'Function'
+end
+
+return setmetatable(Function, metatable)

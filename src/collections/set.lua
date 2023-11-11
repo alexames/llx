@@ -2,7 +2,7 @@ require 'llx/src/class'
 require 'llx/src/collections/list'
 require 'llx/src/types/table'
 
-Set = class 'Set' {
+local Set = class 'Set' {
   __init = function(self, values)
     local _values = {}
     rawset(self, '_values', _values)
@@ -14,7 +14,7 @@ Set = class 'Set' {
 
   copy = function(self)
     local result = Set()
-    rawset(result, '_values', table.copy(rawget(self, '_values')))
+    rawset(result, '_values', Table.copy(rawget(self, '_values')))
     return result
   end,
 
@@ -131,3 +131,5 @@ Set.__bor = Set.union
 Set.__sub = Set.difference
 Set.__band = Set.intersection
 Set.__newindex = Set.set
+
+return Set

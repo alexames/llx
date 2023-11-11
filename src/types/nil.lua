@@ -1,11 +1,13 @@
-Nil = setmetatable({
-  __name = 'nil';
+local Nil = {}
 
-  __isinstance = function(v)
-    return type(v) == 'nil'
-  end;
-}, {
-  __tostring = function() return 'Nil' end;
-})
+Nil.__name = 'nil';
+
+function Nil:__isinstance(v)
+  return type(v) == 'nil'
+end
+
+local metatable = {}
+
+function metatable:__tostring() return 'Nil' end;
 
 return Nil

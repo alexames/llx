@@ -1,15 +1,19 @@
-Boolean = setmetatable({
-  __name = 'Boolean';
+local Boolean = {}
+  
+Boolean.__name = 'Boolean'
 
-  __isinstance = function(v)
-    return type(v) == 'boolean'
-  end;
-},{
-  __call = function(self, v)
-    return v ~= nil and v ~= false
-  end;
+function Boolean:__isinstance(value)
+  return type(value) == 'boolean'
+end
 
-  __tostring = function() return 'Boolean' end;
-})
+local metatable = {}
+
+function Boolean:__call(v)
+  return v ~= nil and v ~= false
+end
+
+function Boolean.__tostring()
+  return 'Boolean'
+end
 
 return boolean

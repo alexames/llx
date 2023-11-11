@@ -1,4 +1,15 @@
 require 'llx/src/types/table'
+require 'llx/src/isinstance'
+
+function find_and_handle_exception(try_block, thrown_exception)
+  local _, matching_entry =
+    try_block:ifind_if(function(i, catcher)
+      return isinstance(thrown_exception, catcher.exception)
+    end, 2)
+  local handler = matching_entry and matching_entry.handler
+                  or error
+  handler(thrown_exception)
+end
 
 -- try {
 --   function()
@@ -12,17 +23,11 @@ require 'llx/src/types/table'
 --   end);
 -- }
 function try(try_block)
-  table(try_block)
+  Table(try_block)
   local body_function = try_block[1]
   local successful, thrown_exception = pcall(body_function)
   if not successful then
-    local _, matching_entry =
-      try_block:ifind_if(function(i, catcher)
-        return isinstance(thrown_exception, catcher.exception)
-      end, 2)
-    local handler = matching_entry and matching_entry.handler
-                    or error
-    handler(thrown_exception)
+    find_and_handle_exception(try_block, thrown_exception)
   end
 end
 
