@@ -22,7 +22,7 @@ local Set = class 'Set' {
     if type(a) ~= "table" or type(b) ~= "table" then
       return false
     end
-    
+
     local a_values = rawget(a, '_values')
     local b_values = rawget(b, '_values')
 
@@ -46,7 +46,7 @@ local Set = class 'Set' {
     end
 
     return true
-  end
+  end,
 
   insert = function(self, key)
     rawget(self, '_values')[key] = true
