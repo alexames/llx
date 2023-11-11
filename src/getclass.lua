@@ -20,3 +20,5 @@ function getclass(value)
     return getmetatable(value) or Userdata
   end
 end
+
+return getclass

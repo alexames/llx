@@ -19,3 +19,5 @@ function zip(...)
     return table.unpack(results)
   end
 end
+
+return zip

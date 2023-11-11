@@ -63,6 +63,4 @@ function repr(value)
   end
 end
 
-return {
-  repr=repr,
-}
+return repr

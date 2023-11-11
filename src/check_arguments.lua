@@ -16,3 +16,5 @@ function check_arguments(expected_types)
     end
   until name == nil
 end
+
+return check_arguments
