@@ -10,12 +10,9 @@ Table = require 'llx/src/types/table'
 Thread = require 'llx/src/types/thread'
 Userdata = require 'llx/src/types/userdata'
 
-Sequence=Table
-
 Any=basic_types.Any
 Union=basic_types.Union
 Optional=basic_types.Optional
-List=basic_types.List
 Dict=basic_types.Dict
 Tuple=basic_types.Tuple
 
@@ -23,7 +20,6 @@ return {
   Any=basic_types.Any,
   Union=basic_types.Union,
   Optional=basic_types.Optional,
-  List=basic_types.List,
   Dict=basic_types.Dict,
   Tuple=basic_types.Tuple,
 
@@ -46,7 +42,4 @@ return {
   ['table']=Table,
   ['thread']=Thread,
   ['userdata']=Userdata,
-
-  Sequence=Table,
-  ['sequence']=Table,
 }

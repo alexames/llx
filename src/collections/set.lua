@@ -2,7 +2,7 @@ require 'llx/src/class'
 require 'llx/src/collections/list'
 require 'llx/src/types/table'
 
-local Set = class 'Set' {
+Set = class 'Set' {
   __init = function(self, values)
     local _values = {}
     rawset(self, '_values', _values)
