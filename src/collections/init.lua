@@ -1,5 +1,5 @@
-local List = require 'llx/src/collections/list'
-local Set = require 'llx/src/collections/set'
+List = require 'llx/src/collections/list'
+Set = require 'llx/src/collections/set'
 
 return {
   List=List,
