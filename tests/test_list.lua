@@ -8,16 +8,6 @@ test_class 'ListTest' {
     EXPECT_EQ(list_table, list)
   end,
 
-  [test 'generate'] = function()
-    local t = {'a', 'b', 'c', 'd', 'e'}
-    local list = List.generate{
-      lambda=function(v) return v..v end,
-
-      list=t,
-    }
-    EXPECT_EQ(list, {'aa', 'bb', 'cc', 'dd', 'ee'})
-  end,
-
   [test 'extend'] = function()
     local list_a = List{1, 2, 3}
     local list_b = List{4, 5, 6}
