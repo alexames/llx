@@ -13,11 +13,11 @@ local function check_field(schema, value, path, level)
   end
 
   -- Validate that the per-type schema check passes.
-  local __check_schema = getclass(value).__check_schema
+  local __schema_validate = getclass(value).__schema_validate
 
-  if __check_schema then
+  if __schema_validate then
     local successful, exception =
-        __check_schema(value, schema, path, level + 1, check_field)
+        __schema_validate(value, schema, path, level + 1, check_field)
     if not successful then
       return successful, exception
     end

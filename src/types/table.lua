@@ -18,7 +18,7 @@ local function contains(list, value)
   return false
 end
 
-function Table:__check_schema(schema, path, level, callback)
+function Table:__schema_validate(schema, path, level, callback)
   local properties = schema.properties
   local required = schema.required
   local exception_list = {}

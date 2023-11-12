@@ -119,7 +119,7 @@ function List:__shr(n)
   end
 end
 
-function List:__check_schema(schema, path, level, callback)
+function List:__schema_validate(schema, path, level, callback)
   local items = schema.items
   if not items then return true end
 
