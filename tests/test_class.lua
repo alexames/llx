@@ -359,3 +359,7 @@ test_class 'derived_class' {
   end,
 
 }
+
+if main_file() then
+  unit.run_unit_tests()
+end
