@@ -121,7 +121,8 @@ end
 
 function List:__check_schema(schema, path, level, callback)
   local items = schema.items
-  assert(items)
+  if not items then return true end
+
   local exception_list = {}
   for i=1, #self do
     local value = self[i]
