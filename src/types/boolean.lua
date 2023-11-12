@@ -1,5 +1,5 @@
 local Boolean = {}
-  
+
 Boolean.__name = 'Boolean'
 
 function Boolean:__isinstance(value)
@@ -16,4 +16,4 @@ function Boolean.__tostring()
   return 'Boolean'
 end
 
-return boolean
+return Boolean
