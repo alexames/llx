@@ -48,14 +48,9 @@
 --------------------------------------------------------------------------------
 -- Utilities
 
-local function startswith(str, start)
-   return str:sub(1, #start) == start
-end
-
 local function try_set_metafield(class_table, key, value)
   if class_table.__metafields[key] == nil then
     rawset(class_table, key, value)
-  else
   end
 end
 
@@ -68,7 +63,7 @@ end
 local function handle_potential_metafield(class_table, key, value)
   -- Assign metafield value to class_table[key] if and only if
   -- class_table.__metafields does not define it.
-  if type(key) == 'string' and startswith(key, '__') then
+  if type(key) == 'string' and key:sub(1, 2) == '__' then
     class_table.__metafields[key] = value
     try_set_metafield_on_subclasses(class_table, key, value)
   end
@@ -100,6 +95,7 @@ local function create_class_definer(class_table, class_table_proxy)
   class_definer = setmetatable({
     extends = function(self, ...)
       local arg = {...}
+      assert(#arg > 0, '%s must list at least one base class when extending')
       for i, base in ipairs(arg) do
         assert(type(base) == 'table', 
                string.format('%s must inherit from table, not %s',
@@ -199,6 +195,7 @@ local function create_internal_class_table(name)
         if value then return value end
       end
     end
+    return nil
   end
 
   local function __isinstance(self, o)
