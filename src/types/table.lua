@@ -1,10 +1,10 @@
 require 'llx/src/exceptions/schema_exception'
 
-local Table = table
+Table = table
 
 Table.__name = 'Table';
 
-function Table.__isinstance(v)
+function Table:__isinstance(v)
   return type(v) == 'table'
 end
 
