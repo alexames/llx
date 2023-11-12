@@ -26,7 +26,7 @@ local function check_field(schema, value, path, level)
   return true
 end
 
-local function matches_schema(schema, value, nothrow)
+function matches_schema(schema, value, nothrow)
   local successful, exception = check_field(schema, value, {}, 2)
   if successful then
     return true
@@ -39,7 +39,7 @@ local function matches_schema(schema, value, nothrow)
   end
 end
 
-local function Schema(schema)
+function Schema(schema)
   function schema:__isinstance(value)
     return matches_schema(schema, value, true)
   end
