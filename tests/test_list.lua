@@ -1,5 +1,5 @@
 local unit = require 'unit'
-require 'llx/src/collections/list'
+require 'llx/src/types/list'
 
 test_class 'ListTest' {
   [test '__new'] = function()

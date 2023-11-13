@@ -1,6 +1,6 @@
 schema = require 'llx/src/schema'
 types = require 'llx/src/types'
-List = require 'llx/src/collections/list'
+List = require 'llx/src/types/list'
 require 'llx/src/check_arguments'
 
 -- local s = schema.Schema{
@@ -42,4 +42,4 @@ function mytestfunc(a, b, c, d)
   return true
 end
 
-print(mytestfunc(10, 10.0, 1, {pitch=100, duration=100}))
+-- print(mytestfunc(10, 10.0, 1, {pitch=100, volume=100, duration=100}))

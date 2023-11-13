@@ -3,7 +3,7 @@ require 'llx/src/exceptions'
 require 'llx/src/types/table'
 require 'llx/src/flow_control/trycatch'
 require 'unit'
-local types = require 'llx/src/types/basic_types'
+local types = require 'llx/src/types/matchers'
 
 local FooException = class 'FooException' : extends(Exception) {}
 local BarException = class 'BarException' : extends(Exception) {}

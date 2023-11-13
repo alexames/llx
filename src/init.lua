@@ -1,5 +1,4 @@
 require 'llx/src/class'
-require 'llx/src/collections'
 require 'llx/src/core'
 require 'llx/src/debug'
 require 'llx/src/exceptions'

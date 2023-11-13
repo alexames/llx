@@ -1,5 +1,5 @@
 require 'llx/src/class'
-require 'llx/src/collections/list'
+require 'llx/src/types/list'
 require 'llx/src/types/table'
 
 Set = class 'Set' {

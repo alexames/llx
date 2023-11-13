@@ -1,4 +1,4 @@
-require 'llx/src/collections/list'
+require 'llx/src/types/list'
 require 'llx/src/exceptions'
 require 'llx/src/getclass'
 require 'llx/src/isinstance'
