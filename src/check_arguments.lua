@@ -12,8 +12,16 @@ function check_arguments(expected_types)
     if name then
       if expected_type == nil then
         error(InvalidArgumentException(1, Table, getclass(value), 1))
-      elseif not isinstance(value, expected_type) then
-        error(InvalidArgumentException(index, expected_type, getclass(value), 3))
+      else
+        local correct_type, exception = isinstance(value, expected_type)
+        if not correct_type then
+          if exception then
+            error(InvalidArgumentException(index, exception.what, 3))
+          else
+            error(InvalidArgumentTypeException(
+                index, expected_type, getclass(value), 3))
+          end
+        end
       end
     end
   until name == nil

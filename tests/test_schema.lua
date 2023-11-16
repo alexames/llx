@@ -29,8 +29,14 @@ local NoteSchema = schema.Schema{
   title="NoteSchema",
   type=Table,
   properties={
-    pitch = {type=Integer},
-    volume = {type=Integer},
+    pitch = {
+      type=Integer,
+      minimum=150,
+    },
+    volume = {
+      type=Integer,
+      maximum=50,
+    },
     duration = {type=Integer},
     time = {type=Integer},
   },
@@ -42,4 +48,4 @@ function mytestfunc(a, b, c, d)
   return true
 end
 
--- print(mytestfunc(10, 10.0, 1, {pitch=100, volume=100, duration=100}))
+print(mytestfunc(10, 10.0, 1, {pitch=100, volume=100, duration=100}))

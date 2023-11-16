@@ -6,11 +6,14 @@ require 'llx/src/flow_control/catch'
 ExceptionGroup =
     class 'ExceptionGroup' : extends(Exception) {
   __init = function(self, exception_list, level)
-    local prologue =
-      string.format('encountered %s exceptions:\n', #exception_list)
-    local epilogue = '\nexceptions gathered at:'
-    local what = Table.concat(exception_list, '\n')
-    Exception.__init(self, prologue .. what .. epilogue, (level or 1) + 1)
+    local what = ''
+    local first = true
+    for i, exception in ipairs(exception_list) do
+      if not first then what = what .. '\n  ' end
+      first = false
+      what = what .. exception.what 
+    end
+    Exception.__init(self, what, (level or 1) + 1)
     self.exception_list = exception_list
   end,
 
@@ -24,7 +27,5 @@ ExceptionGroup =
   --   end
   -- end,
 
-  __tostring = function(self)
-    return self.what
-  end,
+  __tostring = Exception.__tostring,
 }

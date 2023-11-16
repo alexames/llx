@@ -26,6 +26,15 @@ SchemaFieldTypeMismatchException =
   __tostring = SchemaException.__tostring, -- Fix this.
 }
 
+SchemaConstraintFailureException =
+    class 'SchemaConstraintFailureException' : extends(SchemaException) {
+  __init = function(self, path, failure_reason, level)
+    SchemaException.__init(self, path, failure_reason, (level or 1) + 1)
+  end,
+
+  __tostring = SchemaException.__tostring, -- Fix this.
+}
+
 SchemaMissingFieldException =
     class 'SchemaMissingFieldException' : extends(SchemaException) {
   __init = function(self, path, field_key, level)
