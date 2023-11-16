@@ -120,15 +120,21 @@ List = class 'List' : extends(Table) {
     end
   end,
 
-  __validate = function(self, schema, path, level, callback)
+  __validate = function(self, schema, path, level, check_field)
     local items = schema.items
+    local prefix_items = schema.prefix_items or {}
     if not items then return true end
 
     local exception_list = {}
     for i=1, #self do
       local value = self[i]
+      local item_schema = prefix_items[i] or items
+      if not item_schema then
+        break
+      end
       Table.insert(path, i)
-      local successful, exception = callback(items, value, path, level + 1)
+      local successful, exception =
+          check_field(item_schema, value, path, level + 1)
       if not successful then
         Table.insert(exception_list, exception)
       end
