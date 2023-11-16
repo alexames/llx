@@ -18,6 +18,25 @@ function String:__isinstance(v)
   return type(v) == 'string'
 end
 
+function String:__validate(schema, path, level, check_field)
+  if schema.min_length then
+    if #self < schema.min_length then
+      return false
+    end
+  end
+  if schema.max_length then
+    if #self > schema.max_length then
+      return false
+    end
+  end
+  if schema.pattern then
+    if not self:find(pattern) then
+      return false
+    end
+  end
+  return true
+end
+
 function String:join(t)
   local result = ''
   for i=1, #t do
