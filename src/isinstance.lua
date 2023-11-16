@@ -8,7 +8,10 @@ require 'llx/src/core'
 -- @return A value
 function isinstance(value, type)
   local __isinstance = type.__isinstance
-  return __isinstance and __isinstance(type, value)
+  if __isinstance then
+    return __isinstance(type, value)
+  end
+  return false
 end
 
 return isinstance
