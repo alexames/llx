@@ -21,17 +21,29 @@ end
 function String:__validate(schema, path, level, check_field)
   if schema.min_length then
     if #self < schema.min_length then
-      return false
+      local failure_reason = string.format(
+          'expected string with minimum length of %s, got string of length %s',
+           schema.min_length, #self)
+      return false, SchemaConstraintFailureException(
+          path, failure_reason, level + 1)
     end
   end
   if schema.max_length then
     if #self > schema.max_length then
-      return false
+      local failure_reason = string.format(
+          'expected string with maximum length of %s, got string of length %s',
+           schema.max_length, #self)
+      return false, SchemaConstraintFailureException(
+          path, failure_reason, level + 1)
     end
   end
   if schema.pattern then
-    if not self:find(pattern) then
-      return false
+    if not self:find(schema.pattern) then
+      local failure_reason = string.format(
+          'expected string that matched pattern `%s`, got %s',
+           schema.pattern, self)
+      return false, SchemaConstraintFailureException(
+          path, failure_reason, level + 1)
     end
   end
   return true

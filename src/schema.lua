@@ -7,7 +7,6 @@ require 'llx/src/isinstance'
 
 local function check_field(schema, value, path, level)
   local schema_type = schema.type
-
   -- Validate that the value is of the correct type.
   if not isinstance(value, schema_type) then
     return false, SchemaFieldTypeMismatchException(
@@ -15,7 +14,7 @@ local function check_field(schema, value, path, level)
   end
 
   -- Validate that the per-type schema check passes.
-  local __validate = getclass(value).__validate
+  local __validate = schema_type.__validate
 
   if __validate then
     local successful, exception =

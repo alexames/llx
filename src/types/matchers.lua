@@ -22,26 +22,35 @@ local function any_type_check()
   })
 end
 
-local function union_type_check(type_checker_list)
+local function union_type_check(type_list)
+  local expected_typenames = '{' .. table.concat(type_list, ',') .. '}'
+  local typename = 'Union' .. expected_typenames
   return setmetatable({
-    __name = typename;
+    __name = typename,
+
+    type_list = type_list,
 
     __isinstance = function(self, value)
-      for _, type_checker in ipairs(type_checker_list) do
+      for _, type_checker in ipairs(type_list) do
         if isinstance(value, type_checker) then
           return true
         end
       end
       return false
-    end;
-  }, {
-    __tostring = function()
-      local contituent_types = {}
-      for i, type_checker in ipairs(type_checker_list) do
-        contituent_types[i] = type_checker_list[i]
+    end,
+
+    __validate = function(self, schema, path, level, check_field)
+      local type_schemas = schema.type_schemas
+      local cls = getclass(self)
+      local type_schema = type_schemas and type_schemas[cls.__name or cls]
+      if type_schema then
+        return check_field(type_schema, self, path, level + 1)
       end
-      local expected_typenames = '{' .. (','):join(contituent_types) .. '}'
-      return 'Union' .. expected_typenames
+      return true
+    end,
+  }, {
+    __tostring = function(self)
+      return self.__name
     end,
   })
 end
