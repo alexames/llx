@@ -1,5 +1,7 @@
 -- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
 
+local Number = require 'llx/src/types/number'
+
 local Float = {}
 
 Float.__name = 'Float'
@@ -7,6 +9,8 @@ Float.__name = 'Float'
 function Float:__isinstance(v)
   return math.type(v) == 'float'
 end
+
+Float.__validate = Number.__validate
 
 local metatable = {}
 

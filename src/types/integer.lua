@@ -1,5 +1,7 @@
 -- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
 
+local Number = require 'llx/src/types/number'
+
 local Integer = {}
 
 Integer.__name = 'Integer'
@@ -7,6 +9,8 @@ Integer.__name = 'Integer'
 function Integer:__isinstance(v)
   return math.type(v) == 'integer'
 end
+
+Integer.__validate = Number.__validate
 
 local metatable = {}
 
