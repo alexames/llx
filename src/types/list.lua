@@ -9,65 +9,10 @@ List = class 'List' : extends(Table) {
     return t or {}
   end,
 
-  __eq = function(self, other)
-    if #self ~= #other then
-      return false
-    end
-    for i, v in ipairs(self) do
-      if v ~= other[i] then
-        return false
-      end
-    end
-    return true
-  end,
-
-  __tostring = function(self)
-    return 'List{' .. (','):join(self) .. '}'
-  end,
-
-  __index = function(self, index)
-    if isinstance(index, Number) then
-      if index < 0 then
-        index = #self + index + 1
-      end
-      return rawget(self, index)
-    elseif isinstance(index, Table) then
-      local results = List{}
-      for i, v in ipairs(index) do
-        results[i] = self[v]
-      end
-      return results
-    else
-      return List.__defaultindex(self, index)
-    end
-  end,
-
   extend = function(self, other)
     for i, v in ipairs(other) do
       self:insert(v)
     end
-  end,
-
-  __concat = function(self, other)
-    local result = List{}
-    for i=1, #self do
-      result:insert(self[i])
-    end
-    for i=1, #other do
-      result:insert(other[i])
-    end
-    return result
-  end,
-
-  __mul = function(self, num_copies)
-    if type(self) == 'number' then
-      self, num_copies = num_copies, self
-    end
-    local result = List{}
-    for i=1, num_copies do
-      result:extend(self)
-    end
-    return result
   end,
 
   contains = function(self, value)
@@ -106,6 +51,61 @@ List = class 'List' : extends(Table) {
     return self:sub(#self, 1, -1)
   end,
 
+  __eq = function(self, other)
+    if #self ~= #other then
+      return false
+    end
+    for i, v in ipairs(self) do
+      if v ~= other[i] then
+        return false
+      end
+    end
+    return true
+  end,
+
+  __tostring = function(self)
+    return 'List{' .. (','):join(self) .. '}'
+  end,
+
+  __index = function(self, index)
+    if isinstance(index, Number) then
+      if index < 0 then
+        index = #self + index + 1
+      end
+      return rawget(self, index)
+    elseif isinstance(index, Table) then
+      local results = List{}
+      for i, v in ipairs(index) do
+        results[i] = self[v]
+      end
+      return results
+    else
+      return List.__defaultindex(self, index)
+    end
+  end,
+
+  __concat = function(self, other)
+    local result = List{}
+    for i=1, #self do
+      result:insert(self[i])
+    end
+    for i=1, #other do
+      result:insert(other[i])
+    end
+    return result
+  end,
+
+  __mul = function(self, num_copies)
+    if type(self) == 'number' then
+      self, num_copies = num_copies, self
+    end
+    local result = List{}
+    for i=1, num_copies do
+      result:extend(self)
+    end
+    return result
+  end,
+
   __shl = function(self, n)
     if n < 0 then return self >> n
     elseif n == 0 then return self
@@ -120,7 +120,7 @@ List = class 'List' : extends(Table) {
     end
   end,
 
-  __schema_validate = function(self, schema, path, level, callback)
+  __validate = function(self, schema, path, level, callback)
     local items = schema.items
     if not items then return true end
 
