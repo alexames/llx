@@ -1,6 +1,7 @@
 -- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
 
 require 'llx/src/exceptions/schema_exception'
+require 'llx/src/exceptions/exception_group'
 
 Table = table
 
@@ -20,7 +21,7 @@ local function contains(list, value)
   return false
 end
 
-function Table:__schema_validate(schema, path, level, callback)
+function Table:__validate(schema, path, level, check_field)
   local properties = schema.properties
   local required = schema.required
   local exception_list = {}
@@ -34,7 +35,8 @@ function Table:__schema_validate(schema, path, level, callback)
         end
       else
         Table.insert(path, key)
-        local successful, exception = callback(property, value, path, level + 1)
+        local successful, exception =
+            check_field(property, value, path, level + 1)
         if not successful then
           Table.insert(exception_list, exception)
         end
