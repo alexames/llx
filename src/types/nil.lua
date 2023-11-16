@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 local Nil = {}
 
 Nil.__name = 'nil';

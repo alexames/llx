@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 local Integer = {}
 
 Integer.__name = 'Integer'

@@ -1,3 +1,9 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 function Proxy(value)
   local proxy_object = {value}
   local function tovalue(v)
@@ -30,10 +36,18 @@ function Proxy(value)
   })
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 function set_proxy_value(proxy, value)
   rawset(proxy, 1, value)
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 function extract_proxy_value(proxy)
   return rawget(proxy, 1)
 end

@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 require 'llx/src/types/boolean'
 require 'llx/src/types/function'
 require 'llx/src/types/integer'

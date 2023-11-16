@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 function description(v)
   return {
     type = 'description',

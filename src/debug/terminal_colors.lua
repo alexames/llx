@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 local lua_exe = arg[-1]
 local TERMINAL_COLORS = lua_exe ~= 'lua'
 

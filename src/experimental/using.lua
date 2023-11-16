@@ -1,3 +1,4 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
 
 function using(newLocals)
   local callerEnv = getfenv(2)

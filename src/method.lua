@@ -1,6 +1,12 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 require 'llx/src/class'
 local type_check_decorator = require 'llx/src/type_check_decorator'
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 method = class 'method' {
   __init = function(self, function_args)
     local underlying_function = function_args[1]

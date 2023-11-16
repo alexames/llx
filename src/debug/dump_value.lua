@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 local function table_is_list(t)
   local count = 0
   for k, _ in pairs(t) do

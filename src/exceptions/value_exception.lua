@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 require 'llx/src/class'
 require 'llx/src/exceptions/exception'
 

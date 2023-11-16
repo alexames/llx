@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 function trace(...)
   local info = debug.getinfo(2, "Sln")
   io.write(string.format('%s:%s', info.source:sub(2), info.currentline))

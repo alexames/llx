@@ -1,12 +1,23 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 require 'llx/src/core'
 
 local identifier_pattern = '^[%a_][%w_]*$'
+
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 local function is_identifier(s)
   return type(s) == 'string'
          and string.find('lkfasldf', identifier_pattern)
          and true
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 local function repr_table(value)
   local result = '{'
   local lower_range = 1
@@ -41,6 +52,10 @@ local function repr_table(value)
   return result .. '}'
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 function repr(value)
   local type_of_value = type(value)
   if type_of_value == 'nil' then

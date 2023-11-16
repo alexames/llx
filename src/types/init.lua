@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 local matchers = require 'llx/src/types/matchers'
 
 Boolean = require 'llx/src/types/boolean'

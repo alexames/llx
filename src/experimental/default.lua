@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 local function default(defaultsTable, argTable)
   return setmetatable({}, {
     __index = function(key)

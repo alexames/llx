@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 local truthy_table = {
   ['nil']      = function(value) return false              end,
   ['boolean']  = function(value) return value              end,
@@ -9,10 +11,18 @@ local truthy_table = {
   ['userdata'] = function(value) return true               end,
 }
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 function truthy(o)
   return truthy_table[type(o)](o)
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 function falsey(o)
   return not truthy(o)
 end

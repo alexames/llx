@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 function zip(...)
   local iterators = {...}
   for i = 1, #iterators do

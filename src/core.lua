@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 function getmetafield(t, k)
   local metatable = debug.getmetatable(t)
   return metatable and rawget(metatable, k)

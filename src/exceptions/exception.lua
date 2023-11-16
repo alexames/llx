@@ -1,3 +1,4 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
 require 'llx/src/class'
 
 Exception = class 'Exception' {

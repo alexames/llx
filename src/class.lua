@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 -- A class is a designed to mimic class-like behavior from other languages in
 -- Lua. It provides a syntacticaly similar method of initializing the class
 -- definition, and allows for basic inheritance.
@@ -243,6 +245,10 @@ local function create_class(name)
   return class_table, class_table_proxy
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 class = setmetatable({
   extends = function(self, ...)
     local class_table, class_table_proxy = create_class(anonymous_class_name)

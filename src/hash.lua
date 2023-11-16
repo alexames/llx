@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 local FNV_offset_basis = 0x811c9dc5
 local FNV_prime = 0x01000193
 

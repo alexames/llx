@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 require 'llx/src/getclass'
 require 'llx/src/exceptions/invalid_argument_exception'
 

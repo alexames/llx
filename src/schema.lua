@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 require 'llx/src/types/list'
 require 'llx/src/exceptions'
 require 'llx/src/getclass'
@@ -26,6 +28,10 @@ local function check_field(schema, value, path, level)
   return true
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 function matches_schema(schema, value, nothrow)
   local successful, exception = check_field(schema, value, {}, 2)
   if successful then
@@ -39,6 +45,10 @@ function matches_schema(schema, value, nothrow)
   end
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 function Schema(schema)
   function schema:__isinstance(value)
     return matches_schema(schema, value, true)

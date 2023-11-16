@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 require 'llx/src/class'
 require 'llx/src/exceptions'
 require 'llx/src/getclass'
@@ -12,6 +14,10 @@ local function check_types(location, expected_types, argument_list)
   end
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 local function type_check_decorator(underlying_function, expected_types)
   if not expected_types then
     return underlying_function

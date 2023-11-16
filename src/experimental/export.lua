@@ -1,3 +1,5 @@
+-- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+
 export_config = {}
 export_config.types = {}
 export_config.index = 0
