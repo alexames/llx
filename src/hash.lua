@@ -1,5 +1,7 @@
 -- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
 
+require 'llx/src/core'
+
 local FNV_offset_basis = 0x811c9dc5
 local FNV_prime = 0x01000193
 
@@ -97,13 +99,12 @@ function hash_value(hash, value)
   return hash_fn(hash, value)
 end
 
-local function getmetamethod(value, methodname)
-  local mt = getmetatable(methodname)
-  return mt and rawget(mt, methodname)
-end
-
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
 local function fnv1a(value)
-  local hash = getmetamethod(value, '__hash')
+  local hash = getmetafield(value, '__hash')
   if type(hash) == 'function' then
     return hash(value)
   end
