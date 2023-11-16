@@ -2,7 +2,7 @@ require 'llx/src/class'
 require 'llx/src/exceptions'
 require 'llx/src/types/table'
 require 'llx/src/flow_control/trycatch'
-require 'unit'
+local unit = require 'unit'
 local types = require 'llx/src/types/matchers'
 
 local FooException = class 'FooException' : extends(Exception) {}
@@ -164,3 +164,6 @@ test_class 'try' {
   end,
 }
 
+if main_file() then
+  unit.run_unit_tests()
+end
