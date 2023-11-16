@@ -4,7 +4,7 @@ local FNV_offset_basis = 0x811c9dc5
 local FNV_prime = 0x01000193
 
 local function hash_integer(hash, byte)
-  hash = hash ^ byte
+  hash = hash ~ byte
   hash = hash * FNV_prime
   hash = hash & 0xFFFFFFFF
   return hash
