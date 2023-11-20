@@ -1,4 +1,5 @@
 -- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+require 'llx/src/check_arguments'
 require 'llx/src/class'
 require 'llx/src/core'
 require 'llx/src/debug'
@@ -12,6 +13,6 @@ require 'llx/src/repr'
 require 'llx/src/schema'
 require 'llx/src/tointeger'
 require 'llx/src/truthy'
-require 'llx/src/types'
 require 'llx/src/type_check_decorator'
+require 'llx/src/types'
 require 'llx/src/zip'
