@@ -54,6 +54,7 @@ function Schema(schema)
   end
 
   schema.__name = schema.__name or schema.title or 'Schema'
+  setmetatable(schema, {__tostring=function(self) return self.__name end})
 
   return schema
 end
