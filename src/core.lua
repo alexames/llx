@@ -56,3 +56,7 @@ function max(a, b)
 end
 
 function noop(...) return ... end
+
+function tovalue(s)
+  return load('return '.. s)()
+end
