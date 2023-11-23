@@ -64,7 +64,7 @@ function Table.__tostring() return 'Table' end;
 
 function Table:remove_if(predicate)
   local j = 1
-  local size = #self;
+  local size = #self
   for i=1, size do
     if not predicate(self[i]) then
       if (i ~= j) then
@@ -76,7 +76,7 @@ function Table:remove_if(predicate)
       self[i] = nil
     end
   end
-  return self;
+  return self
 end
 
 function Table:get_or_insert_lazy(k, default_func)
