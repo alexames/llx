@@ -18,12 +18,12 @@ local function any_type_check()
       return true
     end;
   }, {
-    __tostring = function() return 'types.Any' end;
+    __tostring = function() return 'Any' end;
   })
 end
 
 local function union_type_check(type_list)
-  local expected_typenames = '{' .. table.concat(type_list, ',') .. '}'
+  local expected_typenames = '{' .. Table.concat(type_list, ',') .. '}'
   local typename = 'Union' .. expected_typenames
   return setmetatable({
     __name = typename,
@@ -56,7 +56,7 @@ local function union_type_check(type_list)
 end
 
 local function optional_type_check(type_checker)
-  return types.Union{types.Nil, type_checker[1]}
+  return union_type_check{Nil, type_checker[1]}
 end
 
 local function dict_type_check(type_checker)

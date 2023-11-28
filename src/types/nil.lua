@@ -12,4 +12,4 @@ local metatable = {}
 
 function metatable:__tostring() return 'Nil' end;
 
-return Nil
+return setmetatable(Nil, metatable)
