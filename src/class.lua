@@ -115,15 +115,18 @@ local function create_class_definer(class_table, class_table_proxy)
         end
       end
 
-      -- TODO: property fixup
-
       return class_definer
     end
   }, {
     __call = function(self, class_definition)
+      local properties = class_table.__properties
       for k, v in pairs(class_definition) do
-        rawset(class_table, k, v)
-        handle_potential_metafield(class_table, k, v)
+        if k.__isproperty then
+          rawset(properties, k.__key, v)
+        else
+          rawset(class_table, k, v)
+          handle_potential_metafield(class_table, k, v)
+        end
       end
       for _, superclass in ipairs(class_table.__superclasses) do
         for k, v in pairs(superclass.__metafields or {}) do
@@ -190,6 +193,18 @@ local function create_internal_class_table(name)
   -- If the object doesn't have a field, check the metatable,
   -- then any base classes
   local function __index(t, k)
+    -- Is this a property?
+    local properties = rawget(class_table, '__properties')
+    local property = rawget(properties, k)
+    if property then
+      assert(type(property) == 'table')
+      local getter = property.get
+      if not getter then
+        -- error
+      end
+      return getter(t)
+    end
+
     -- Does the class metatable have the field?
     local value = rawget(class_table, k)
     if value then return value end
@@ -204,6 +219,22 @@ local function create_internal_class_table(name)
     return nil
   end
 
+  local function __newindex(t, k, v)
+    local properties = rawget(class_table, '__properties')
+    local property = rawget(properties, k)
+    if property then
+      assert(type(property) == 'table')
+      local setter = property.set
+      if not setter then
+        -- error
+        return
+      end
+      setter(t, v)
+      return
+    end
+    rawset(t, k, v)
+  end
+
   local function __isinstance(self, o)
     return isinstance_impl(getmetatable(o), class_table)
   end
@@ -211,12 +242,14 @@ local function create_internal_class_table(name)
   class_table = {
     __name = name;
 
+    __properties = {};
     __superclasses = {};
     __subclasses = {};
     __metafields = {};
 
     __index = __index;
     __defaultindex = __index;
+    __newindex = __newindex;
 
     __isinstance = __isinstance;
   }
@@ -272,5 +305,9 @@ class = setmetatable({
     end
   end;
 })
+
+function property(name)
+  return {__key=name, __isproperty=true}
+end
 
 return class

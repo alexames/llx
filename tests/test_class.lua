@@ -118,6 +118,21 @@ test_class 'class' {
     EXPECT_EQ(foo(1, 2), self_ref)
   end,
 
+  [test 'property'] = function()
+    local foo = class 'foo' {
+      [property 'prop'] = {
+        set=function(self, v)
+          self._prop = v
+        end,
+        get=function(self)
+          return self._prop
+        end,
+      }
+    }
+    local f = foo()
+    f.prop = 100
+    EXPECT_EQ(f.prop, 100)
+  end,
 }
 
 test_class 'derived_class' {
