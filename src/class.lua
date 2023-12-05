@@ -307,7 +307,8 @@ local function create_class(name)
   local class_table_proxy = create_class_table_proxy(class_table)
 
   -- Lock down the class table.
-  class_table.__metatable = class_table_proxy;
+  class_table.__metatable = class_table_proxy
+  class_table.class = class_table_proxy
 
   return class_table, class_table_proxy
 end
