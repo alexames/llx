@@ -63,4 +63,4 @@ function mytestfunc(a, b, c, d)
   return true
 end
 
-print(mytestfunc(10, 10.0, 1, '\t\t 123'))
+-- print(mytestfunc(10, 10.0, 1, '\t\t 123'))
