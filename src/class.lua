@@ -190,25 +190,33 @@ end
 
 local function create_internal_class_table(name)
   local class_table = nil
-  -- If the object doesn't have a field, check the metatable,
-  -- then any base classes
-  local function __index(t, k)
+
+  local function try_get_property(class_table, t, k)
     -- Is this a property?
-    local properties = rawget(class_table, '__properties')
-    local property = rawget(properties, k)
+    local properties = class_table.__properties
+    local property = properties and properties[k]
     if property then
       assert(type(property) == 'table')
       local getter = property.get
       if not getter then
         -- error
+      else
+        local v = getter(t)
+        return v
       end
-      return getter(t)
     end
 
-    -- Does the class metatable have the field?
-    local value = rawget(class_table, k)
-    if value then return value end
+    if class_table.__superclasses then
+      for _, base in ipairs(class_table.__superclasses) do
+        local value = try_get_property(base, t, k)
+        if value then
+          return value
+        end
+      end
+    end
+  end
 
+  local function try_get_superclass_value(k)
     -- Do any of the base classes have the field?
     if class_table.__superclasses then
       for _, base in ipairs(class_table.__superclasses) do
@@ -219,9 +227,17 @@ local function create_internal_class_table(name)
     return nil
   end
 
-  local function __newindex(t, k, v)
-    local properties = rawget(class_table, '__properties')
-    local property = rawget(properties, k)
+  -- If the object doesn't have a field, check the metatable,
+  -- then any base classes
+  local function __index(t, k)
+    return try_get_property(class_table, t, k)
+        or rawget(class_table, k)
+        or try_get_superclass_value(k)
+  end
+
+  local function try_set_property(class_table, t, k, v)
+    local properties = class_table.__properties
+    local property = properties and properties[k]
     if property then
       assert(type(property) == 'table')
       local setter = property.set
@@ -230,9 +246,22 @@ local function create_internal_class_table(name)
         return
       end
       setter(t, v)
-      return
+      return true
     end
-    rawset(t, k, v)
+    if class_table.__superclasses then
+      for _, base in ipairs(class_table.__superclasses) do
+        if try_set_property(base, t, k, v) then
+          return true
+        end
+      end
+    end
+    return false
+  end
+
+  local function __newindex(t, k, v)
+    if try_set_property(class_table, t, k, v) then return
+    else rawset(t, k, v)
+    end
   end
 
   local function __isinstance(self, o)
@@ -247,6 +276,7 @@ local function create_internal_class_table(name)
     __subclasses = {};
     __metafields = {};
 
+    __internalindex = __internalindex;
     __index = __index;
     __defaultindex = __index;
     __newindex = __newindex;

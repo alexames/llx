@@ -118,7 +118,54 @@ test_class 'class' {
     EXPECT_EQ(foo(1, 2), self_ref)
   end,
 
-  [test 'property'] = function()
+  [test 'property' - 'setter' - 'success'] = function()
+    local foo = class 'foo' {
+      [property 'prop'] = {
+        set=function(self, v)
+          self._prop = v
+        end,
+      }
+    }
+    local f = foo()
+    f.prop = 100
+    EXPECT_EQ(f._prop, 100)
+  end,
+
+  [test 'property' - 'setter' - 'failure'] = function()
+    local foo = class 'foo' {
+      [property 'prop'] = {
+        -- No setter
+      }
+    }
+    local f = foo()
+    EXPECT_ERROR(function() f.prop = 100 end)
+  end,
+
+  [test 'property' - 'getter' - 'success'] = function()
+    local foo = class 'foo' {
+      [property 'prop'] = {
+        get=function(self)
+          return self._prop
+        end,
+      }
+    }
+    local f = foo()
+    f._prop = 100
+    EXPECT_EQ(f.prop, 100)
+  end,
+
+  [test 'property' - 'getter' - 'failure'] = function()
+    local foo = class 'foo' {
+      [property 'prop'] = {
+        -- No getter
+      }
+    }
+    local f = foo()
+    f._prop = 100
+    EXPECT_ERROR(function() local x = f.prop end)
+  end,
+
+  [test 'property' - 'both'] = function()
     local foo = class 'foo' {
       [property 'prop'] = {
         set=function(self, v)
@@ -371,6 +418,74 @@ test_class 'derived_class' {
     -- descendant.__meta = 100
     EXPECT_EQ(ancestor.__meta, 200)
     EXPECT_EQ(descendant.__meta, 200)
+  end,
+
+  [test 'property' - 'setter' - 'success'] = function()
+    local foo = class 'foo' {
+      [property 'prop'] = {
+        set=function(self, v)
+          self._prop = v
+        end,
+      }
+    }
+    local bar = class 'bar' : extends(foo) {}
+    local b = bar()
+    b.prop = 100
+    EXPECT_EQ(b._prop, 100)
+  end,
+
+  [test 'property' - 'setter' - 'failure'] = function()
+    local foo = class 'foo' {
+      [property 'prop'] = {
+        -- No setter
+      }
+    }
+    local bar = class 'bar' : extends(foo) {}
+    local b = bar()
+    EXPECT_ERROR(function() b.prop = 100 end)
+  end,
+
+  [test 'property' - 'getter' - 'success'] = function()
+    local foo = class 'foo' {
+      [property 'prop'] = {
+        get=function(self)
+          return self._prop
+        end,
+      }
+    }
+    local bar = class 'bar' : extends(foo) {}
+    local b = bar()
+    b._prop = 100
+    EXPECT_EQ(b.prop, 100)
+  end,
+
+  [test 'property' - 'getter' - 'failure'] = function()
+    local foo = class 'foo' {
+      [property 'prop'] = {
+        -- No getter
+      }
+    }
+    local bar = class 'bar' : extends(foo) {}
+    local b = bar()
+    b._prop = 100
+    EXPECT_ERROR(function() local x = b.prop end)
+  end,
+
+  [test 'property' - 'both'] = function()
+    local foo = class 'foo' {
+      [property 'prop'] = {
+        set=function(self, v)
+          self._prop = v
+        end,
+        get=function(self)
+          return self._prop
+        end,
+      }
+    }
+    local bar = class 'bar' : extends(foo) {}
+    local b = bar()
+    b.prop = 100
+    EXPECT_EQ(b.prop, 100)
   end,
 
 }
