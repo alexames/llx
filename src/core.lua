@@ -60,3 +60,18 @@ function noop(...) return ... end
 function tovalue(s)
   return load('return '.. s)()
 end
+
+return {
+  getmetafield=getmetafield,
+  printf=printf,
+  script_path=script_path,
+  main_file=main_file,
+  metamethod_args=metamethod_args,
+  values=values,
+  ivalues=ivalues,
+  cmp=cmp,
+  max=max,
+  max=max,
+  noop=noop,
+  tovalue=tovalue,
+}
