@@ -50,6 +50,9 @@
 --------------------------------------------------------------------------------
 -- Utilities
 
+local core = require 'llx/src/core'
+local getmetafield = core.getmetafield
+
 local function try_set_metafield(class_table, key, value)
   if class_table.__metafields[key] == nil then
     rawset(class_table, key, value)
@@ -87,6 +90,8 @@ local function isinstance_impl(metatable, class_table)
 end
 
 --------------------------------------------------------------------------------
+
+local anonymous_class_name = '<anonymous class>'
 
 local function create_class_definer(class_table, class_table_proxy)
   -- By returning this class definer object, we can do these things:
@@ -283,10 +288,9 @@ local function create_internal_class_table(name)
 
     __isinstance = __isinstance;
   }
+
   return class_table
 end
-
-local anonymous_class_name = '<anonymous class>'
 
 local function class_argument_resolver(name_or_definition)
   local name = nil
@@ -301,10 +305,33 @@ local function class_argument_resolver(name_or_definition)
   return name, class_definition
 end
 
+local function initialize_conversion_function(
+    name, class_table, class_table_proxy)
+  local to_class
+  if name == anonymous_class_name then
+    function to_class(value)
+      local __to_class = getmetafield(value, class_table_proxy)
+      return __to_class and __to_class(value)
+    end
+    class_table.to_class = to_class
+  else
+    local __to_class_key = '__to_' .. name
+    function to_class(value)
+      local __to_class = getmetafield(value, __to_class_key)
+                         or getmetafield(value, class_table_proxy)
+      return __to_class and __to_class(value)
+    end
+    class_table.to_class = to_class
+    class_table['to_' .. name] = to_class
+  end
+end
+
 local function create_class(name)
   -- This is the metatable for instance of the class.
   local class_table = create_internal_class_table(name)
   local class_table_proxy = create_class_table_proxy(class_table)
+
+  initialize_conversion_function(name, class_table, class_table_proxy)
 
   -- Lock down the class table.
   class_table.__metatable = class_table_proxy
