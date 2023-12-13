@@ -8,20 +8,26 @@
 --
 --     local Line = class 'Line' {
 --       __init = function(self, length)
---         self.length = length
---       end;
+--         self._length = length
+--       end,
 --
 --       get_length = function(self)
---         return self.length
---       end
+--         return self._length
+--       end,
 --     }
 --
--- The result is that the table Line now contains the class definition. Instances
--- of the class can be instantiated like so:
+-- The result is that the table Line now contains all the functions and members
+-- in the class definition. Instances of the class can be instantiated like so:
 --
 --     f = Line(100)
 --
--- (This is because the class definition has itself a `__call` metamethod)
+-- (This is because the class definition itself has a `__call` metamethod)
+--
+-- # Initializer
+--
+--
+--
+-- # Inheritance
 --
 -- Classes also support inheritance:
 --
@@ -29,42 +35,95 @@
 --       __init = function(self, length, width)
 --         self.Line.__init(self, length)
 --         self.width = width
---       end;
+--       end,
 --
 --       get_width = function(self)
 --         return self.width
---       end
+--       end,
+--
+--       get_area = function(self)
+--         return self.width * self.length
+--       end,
 --     }
 --
 -- This Rectangle class inherits the values and functions from the Line
 -- superclass. Additionally, when inheriting from a class, a reference to that
--- class is added to the class definition automatically. (Is this needed 
--- though?)
+-- class is added to the class definition automatically.
 --
--- mention properties
--- mention __metamethods
+-- # Properties
 --
--- Implementation details:
+-- Classes also support Properties. That is, fields that look like look like
+-- a normal field but that are backed by getter and setter functions.
 --
+--     local Rectangle = class 'Rectangle' : extends(Line) {
+--       __init = function(self, length, width)
+--         self.Line.__init(self, length)
+--         self._width = width
+--       end,
+--
+--       [property 'width'] = {
+--         set = function(self, value)
+--           self._width = value
+--         end,
+--         get = function(self)
+--           return self._width
+--         end,
+--       }
+--
+--       [property 'area'] = {
+--         get = function(self)
+--            return self._width * self._length
+--         end,
+--       }
+--     }
+--
+-- # Anonymous classes
+--
+-- # Conversion operators
+--
+-- # Implementation details
+-- ## Proxy Class Tables
+-- ## Superclass metafield
+-- ## Index and Default Index metafield
+-- ## Internal Index metafield
 
 --------------------------------------------------------------------------------
 -- Utilities
 
+-- TODO: remove this, make this file have no dependencies
 local core = require 'llx/src/core'
 local getmetafield = core.getmetafield
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param class_table A parameter
+-- @param key A parameter
+-- @param value A parameter
+-- @return A value
 local function try_set_metafield(class_table, key, value)
   if class_table.__metafields[key] == nil then
     rawset(class_table, key, value)
   end
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param class_table A parameter
+-- @param key A parameter
+-- @param value A parameter
+-- @return A value
 local function try_set_metafield_on_subclasses(class_table, key, value)
   for _, subclass in pairs(class_table.__subclasses) do
     try_set_metafield(subclass, key, value)
   end
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param class_table A parameter
+-- @param key A parameter
+-- @param value A parameter
+-- @return A value
 local function handle_potential_metafield(class_table, key, value)
   -- Assign metafield value to class_table[key] if and only if
   -- class_table.__metafields does not define it.
@@ -74,6 +133,11 @@ local function handle_potential_metafield(class_table, key, value)
   end
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param metatable A parameter
+-- @param class_table A parameter
+-- @return A value
 local function isinstance_impl(metatable, class_table)
   if metatable == class_table then
     return true
@@ -93,13 +157,18 @@ end
 
 local anonymous_class_name = '<anonymous class>'
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param class_table A parameter
+-- @param class_table_proxy A parameter
+-- @return A value
 local function create_class_definer(class_table, class_table_proxy)
   -- By returning this class definer object, we can do these things:
   --   class 'foo' { ... }
   -- or 
   --   class 'foo' : extends(bar) { ... }
   local class_definer = nil
-  class_definer = setmetatable({
+  class_definer = {
     extends = function(self, ...)
       local arg = {...}
       assert(#arg > 0, '%s must list at least one base class when extending')
@@ -122,7 +191,9 @@ local function create_class_definer(class_table, class_table_proxy)
 
       return class_definer
     end
-  }, {
+  }
+
+  local class_definer_metatable = {
     __call = function(self, class_definition)
       local properties = class_table.__properties
       for k, v in pairs(class_definition) do
@@ -140,10 +211,16 @@ local function create_class_definer(class_table, class_table_proxy)
       end
       return class_table_proxy
     end
-  })
+  }
+
+  setmetatable(class_definer, class_definer_metatable)
   return class_definer
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param class_table A parameter
+-- @return A value
 local function create_class_table_proxy(class_table)
   local function class_table_next(unused, index)
     return next(class_table, index)
@@ -193,9 +270,19 @@ local function create_class_table_proxy(class_table)
   return setmetatable(class_table_proxy, class_table_proxy_metatable)
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param name A parameter
+-- @return A value
 local function create_internal_class_table(name)
   local class_table = nil
 
+  --- Placeholder LDoc documentation
+  -- Some description, can be over several lines.
+  -- @param class_table A parameter
+  -- @param t A parameter
+  -- @param k A parameter
+  -- @return A value
   local function try_get_property(class_table, t, k)
     -- Is this a property?
     local properties = class_table.__properties
@@ -221,6 +308,10 @@ local function create_internal_class_table(name)
     end
   end
 
+  --- Placeholder LDoc documentation
+  -- Some description, can be over several lines.
+  -- @param k A parameter
+  -- @return A value
   local function try_get_superclass_value(k)
     -- Do any of the base classes have the field?
     if class_table.__superclasses then
@@ -232,14 +323,26 @@ local function create_internal_class_table(name)
     return nil
   end
 
+  --- Placeholder LDoc documentation
   -- If the object doesn't have a field, check the metatable,
   -- then any base classes
+  -- Some description, can be over several lines.
+  -- @param t A parameter
+  -- @param k A parameter
+  -- @return A value
   local function __index(t, k)
     return try_get_property(class_table, t, k)
         or rawget(class_table, k)
         or try_get_superclass_value(k)
   end
 
+  --- Placeholder LDoc documentation
+  -- Some description, can be over several lines.
+  -- @param class_table A parameter
+  -- @param t A parameter
+  -- @param k A parameter
+  -- @param v A parameter
+  -- @return A value
   local function try_set_property(class_table, t, k, v)
     local properties = class_table.__properties
     local property = properties and properties[k]
@@ -263,12 +366,23 @@ local function create_internal_class_table(name)
     return false
   end
 
+  --- Placeholder LDoc documentation
+  -- Some description, can be over several lines.
+  -- @param t A parameter
+  -- @param k A parameter
+  -- @param v A parameter
+  -- @return A value
   local function __newindex(t, k, v)
     if try_set_property(class_table, t, k, v) then return
     else rawset(t, k, v)
     end
   end
 
+  --- Placeholder LDoc documentation
+  -- Some description, can be over several lines.
+  -- @param self A parameter
+  -- @param o A parameter
+  -- @return A value
   local function __isinstance(self, o)
     return isinstance_impl(getmetatable(o), class_table)
   end
@@ -292,6 +406,10 @@ local function create_internal_class_table(name)
   return class_table
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param name_or_definition A parameter
+-- @return A value
 local function class_argument_resolver(name_or_definition)
   local name = nil
   local class_definition = nil
@@ -305,8 +423,13 @@ local function class_argument_resolver(name_or_definition)
   return name, class_definition
 end
 
-local function initialize_conversion_function(
-    name, class_table, class_table_proxy)
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param name A parameter
+-- @param class_table A parameter
+-- @param class_table_proxy A parameter
+-- @return A value
+local function create_conversion_function(name, class_table, class_table_proxy)
   local to_class
   if name == anonymous_class_name then
     function to_class(value)
@@ -326,12 +449,16 @@ local function initialize_conversion_function(
   end
 end
 
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param name A parameter
+-- @return A value
 local function create_class(name)
   -- This is the metatable for instance of the class.
   local class_table = create_internal_class_table(name)
   local class_table_proxy = create_class_table_proxy(class_table)
 
-  initialize_conversion_function(name, class_table, class_table_proxy)
+  create_conversion_function(name, class_table, class_table_proxy)
 
   -- Lock down the class table.
   class_table.__metatable = class_table_proxy
@@ -344,14 +471,30 @@ end
 -- Some description, can be over several lines.
 -- @param p A parameter
 -- @return A value
-class = setmetatable({
+local class_callable = {
+  --- Placeholder LDoc documentation
+  -- Some description, can be over several lines.
+  -- @param self A parameter
+  -- @param ... A parameter
+  -- @return A value
   extends = function(self, ...)
     local class_table, class_table_proxy = create_class(anonymous_class_name)
     local definer = create_class_definer(class_table, class_table_proxy)
     definer:extends(...)
     return definer
   end;
-}, {
+}
+
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param p A parameter
+-- @return A value
+local class_metatable = {
+  --- Placeholder LDoc documentation
+  -- Some description, can be over several lines.
+  -- @param self A parameter
+  -- @param name_or_definition A parameter
+  -- @return A value
   __call = function(self, name_or_definition)
     local name, class_definition = class_argument_resolver(name_or_definition)
     local class_table, class_table_proxy = create_class(name)
@@ -362,10 +505,24 @@ class = setmetatable({
       return definer
     end
   end;
-})
+}
 
-function property(name)
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+local class = setmetatable(class_callable, class_metatable)
+
+--- Placeholder LDoc documentation
+-- Some description, can be over several lines.
+-- @param name A parameter
+-- @return A value
+local function property(name)
   return {__key=name, __isproperty=true}
 end
 
-return class
+_G.class = class
+_G.property = property
+
+return {
+  class=class,
+  property = property,
+}
