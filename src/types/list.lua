@@ -64,7 +64,7 @@ List = class 'List' : extends(Table) {
   end,
 
   __tostring = function(self)
-    return 'List{' .. (','):join(self) .. '}'
+    return 'List{' .. (', '):join(self) .. '}'
   end,
 
   __index = function(self, index)
