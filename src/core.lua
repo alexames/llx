@@ -47,12 +47,28 @@ function cmp(a, b)
   end
 end
 
-function max(a, b)
-  return a > b and a or b
+function reduce(list, initial_value, lambda)
+  local result = initial_value
+  for i, value in ipairs(list) do
+    result = lambda(result, value)
+  end
+  return result
 end
 
-function max(a, b)
-  return a < b and a or b
+function min(list)
+  return reduce(list, nil, function(a, b) return (a and a < b) and a or b end)
+end
+
+function max(list)
+  return reduce(list, nil, function(a, b) return (a and a > b) and a or b end)
+end
+
+function sum(list)
+  return reduce(list, 0, function(a, b) return a + b end)
+end
+
+function product(list)
+  return reduce(list, 1, function(a, b) return a * b end)
 end
 
 function noop(...) return ... end
@@ -70,8 +86,11 @@ return {
   values=values,
   ivalues=ivalues,
   cmp=cmp,
+  reduce=reduce,
   max=max,
   max=max,
+  sum=sum,
+  product=product,
   noop=noop,
   tovalue=tovalue,
 }
