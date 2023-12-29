@@ -47,30 +47,124 @@ function cmp(a, b)
   end
 end
 
-function reduce(list, initial_value, lambda)
-  local result = initial_value
-  for i, value in ipairs(list) do
-    result = lambda(result, value)
+function reduce(list, lambda, initial_value)
+  local result = initial_value or list[1]
+  for i=initial_value and 1 or 2, #list do
+    result = lambda(result, list[i])
   end
   return result
 end
 
+-- the addition (+) operation.
+function add(a, b)
+  return a + b
+end
+
+-- the subtraction (-) operation.
+function sub(a, b)
+  return a - b
+end
+
+-- the multiplication (*) operation.
+function mul(a, b)
+  return a * b
+end
+
+-- the division (/) operation.
+function div(a, b)
+  return a / b
+end
+
+-- the modulo (%) operation.
+function mod(a, b)
+  return a % b
+end
+
+-- the exponentiation (^) operation.
+function pow(a, b)
+  return a ^ b
+end
+
+-- the negation (unary -) operation.
+function unm(a)
+  return -a
+end
+
+-- the floor division (//) operation.
+function idiv(a, b)
+  return a // b
+end
+
+-- the bitwise AND (&) operation.
+function band(a, b)
+  return a & b
+end
+
+-- the bitwise OR (|) operation.
+function bor(a, b)
+  return a | b
+end
+
+-- the bitwise exclusive OR (binary ~) operation.
+function bxor(a, b)
+  return a ~ b
+end
+
+-- the bitwise NOT (unary ~) operation.
+function bnot(a)
+  return ~a
+end
+
+-- the bitwise left shift (<<) operation.
+function shl(a, b)
+  return a << b
+end
+
+-- the bitwise right shift (>>) operation.
+function shr(a, b)
+  return a >> b
+end
+
+-- the concatenation (..) operation.
+function concat(a, b)
+  return a .. b
+end
+
+-- the length (#) operation.
+function len(a)
+  return #a
+end
+
+-- the equal (==) operation.
+function eq(a, b)
+  return a == b
+end
+
+-- the less than (<) operation.
+function lt(a, b)
+  return a < b
+end
+
+-- the less equal (<=) operation.
+function le(a, b)
+  return a <= b
+end
+
 function min(list)
-  return reduce(list, nil, function(a, b) return (a and a < b) and a or b end)
+  return reduce(list, function(a, b) return a < b and a or b end)
 end
 
 function max(list)
-  return reduce(list, nil, function(a, b) return (a and a > b) and a or b end)
+  return reduce(list, function(a, b) return a > b and a or b end)
 end
 
 function sum(list)
-  return reduce(list, 0, function(a, b) return a + b end)
+  return reduce(list, add)
 end
 
 function product(list)
-  return reduce(list, 1, function(a, b) return a * b end)
+  return reduce(list, mul)
 end
-
 function noop(...) return ... end
 
 function tovalue(s)
@@ -87,7 +181,26 @@ return {
   ivalues=ivalues,
   cmp=cmp,
   reduce=reduce,
-  max=max,
+  add=add,
+  sub=sub,
+  mul=mul,
+  div=div,
+  mod=mod,
+  pow=pow,
+  unm=unm,
+  idiv=idiv,
+  band=band,
+  bor=bor,
+  bxor=bxor,
+  bnot=bnot,
+  shl=shl,
+  shr=shr,
+  concat=concat,
+  len=len,
+  eq=eq,
+  lt=lt,
+  le=le,
+  min=min,
   max=max,
   sum=sum,
   product=product,
