@@ -73,7 +73,7 @@ end
 function transform(list, lambda)
   local result = List{}
   for i=1, #list do
-    result[i] = lambda(i, list[i])
+    result[i] = lambda(list[i])
   end
   return result
 end
