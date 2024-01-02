@@ -70,6 +70,14 @@ function cmp(a, b)
   end
 end
 
+function transform(list, lambda)
+  local result = List{}
+  for i=1, #list do
+    result[i] = lambda(i, list[i])
+  end
+  return result
+end
+
 function reduce(list, lambda, initial_value)
   local result = initial_value or list[1]
   for i=initial_value and 1 or 2, #list do
