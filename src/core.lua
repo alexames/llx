@@ -181,12 +181,22 @@ function le(a, b)
   return a <= b
 end
 
+-- like the less than (<) operation, but returns the lesser value (instead of a boolean)
+function lesser(a, b)
+  return a < b and a or b
+end
+
+-- like the greater than (>) operation, but returns the greater value (instead of a boolean)
+function greater(a, b)
+  return a > b and a or b
+end
+
 function min(list)
-  return reduce(list, function(a, b) return a < b and a or b end)
+  return reduce(list, lesser)
 end
 
 function max(list)
-  return reduce(list, function(a, b) return a > b and a or b end)
+  return reduce(list, greater)
 end
 
 function sum(list)
