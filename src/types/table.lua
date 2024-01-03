@@ -51,7 +51,13 @@ function Table:__validate(schema, path, level, check_field)
 end
 
 local table_instance_metatable = {
-  __index = Table
+  __index = Table,
+
+  __call = function(self, state, control)
+    control = next(self, control)
+    local value = self[control]
+    return value and control, value
+  end,
 }
 
 local metatable = {}

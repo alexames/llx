@@ -16,7 +16,7 @@ test_class 'ListTest' {
     EXPECT_EQ(list_b, {4, 5, 6})
   end,
 
-  [test 'ivalues'] = function()
+  [test 'iterator'] = function()
     local mock <close> = Mock()
     mock:call_count(Equals(3)):call_spec{
       {expected_args={Equals('a')}},
@@ -24,7 +24,7 @@ test_class 'ListTest' {
       {expected_args={Equals('c')}},
     }
     local list = List{'a', 'b', 'c'}
-    for v in list:ivalues() do
+    for i, v in list do
       mock(v)
     end
   end,

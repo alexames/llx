@@ -106,6 +106,12 @@ List = class 'List' : extends(Table) {
     return result
   end,
 
+  __call = function(self, state, control)
+    control = (control or 0) + 1
+    local value = self[control]
+    return value and control, value
+  end,
+
   __shl = function(self, n)
     if n < 0 then return self >> -n
     elseif n == 0 then return self
@@ -146,10 +152,5 @@ List = class 'List' : extends(Table) {
     return true
   end,
 }
-
-List.__iterate = List.ivalues
-List.__call = List.sub
-List.ipairs = ipairs
-List.ivalues = ivalues
 
 return List
