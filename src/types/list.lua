@@ -2,7 +2,9 @@
 
 require 'llx/src/class'
 require 'llx/src/core'
-require 'llx/src/types/table'
+require 'llx/src/isinstance'
+Number = require 'llx/src/types/number'
+Table = require 'llx/src/types/table'
 
 List = class 'List' : extends(Table) {
   __new = function(t)
