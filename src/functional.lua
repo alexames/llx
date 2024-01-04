@@ -10,7 +10,7 @@ local unpack = Table.unpack
 function transform(sequence, lambda)
   local result = List{}
   for i, v in sequence do
-    result[i] = lambda(sequence[i])
+    result[i] = lambda(v)
   end
   return result
 end
