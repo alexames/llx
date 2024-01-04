@@ -44,8 +44,7 @@ function product(sequence)
   return reduce(sequence, mul)
 end
 
-function zip(...)
-  local iterators = {...}
+function zip_impl(iterators, result_handler)
   return function(state, control)
     control = (control or 0) + 1
     local result = {}
@@ -56,8 +55,16 @@ function zip(...)
         return
       end
     end
-    return control, unpack(result)
+    return control, result_handler(result)
   end
+end
+
+function zip(...)
+  return zip_impl({...}, unpack)
+end
+
+function zip_together(...)
+  return zip_impl({...}, noop)
 end
 
 function cartesian_product(...)
