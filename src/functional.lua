@@ -46,7 +46,6 @@ end
 
 function zip_impl(iterators, result_handler)
   return function(state, control)
-    control = (control or 0) + 1
     local result = {}
     for i=1, #iterators do
       local iterator = iterators[i]
@@ -55,6 +54,7 @@ function zip_impl(iterators, result_handler)
         return
       end
     end
+    control = (control or 0) + 1
     return control, result_handler(result)
   end
 end
