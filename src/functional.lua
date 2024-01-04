@@ -84,7 +84,9 @@ function cartesian_product(...)
       else
         local result = {}
         for i=1, #state do
-          result[i] = state[i][control[i]]
+          local list = state[i]
+          local index = control[i]
+          result[i] = list[index]
         end
         return control, unpack(result)
       end
