@@ -104,4 +104,9 @@ function string_metatable:__shr(n)
   return self:sub(-(n)) .. self:sub(1, -(n + 1))
 end
 
+function string_metatable:__call(state, control)
+  control = (control or 0) + 1
+  if control <= #self then return control, self:sub(control, control) end
+end
+
 return setmetatable(String, metatable)
