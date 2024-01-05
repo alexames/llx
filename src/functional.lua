@@ -7,7 +7,7 @@ require 'llx/src/types/table'
 
 local unpack = Table.unpack
 
-function transform(sequence, lambda)
+function map(sequence, lambda)
   local result = List{}
   for i, v in sequence do
     result[i] = lambda(v)
@@ -59,11 +59,11 @@ function zip_impl(iterators, result_handler)
   end
 end
 
-function zip(...)
+function zip_unpacked(...)
   return zip_impl({...}, unpack)
 end
 
-function zip_together(...)
+function zip(...)
   return zip_impl({...}, noop)
 end
 
@@ -72,7 +72,7 @@ function cartesian_product(...)
   local state = {}
   local control = {}
   for i=1, #sequences do
-    state[i] = transform(sequences[i], noop)
+    state[i] = map(sequences[i], noop)
     control[i] = 1
   end
   control[#control] = 0
