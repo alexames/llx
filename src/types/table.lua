@@ -66,7 +66,9 @@ function metatable:__call(tbl)
   return setmetatable(tbl or {}, table_instance_metatable)
 end
 
-function Table.__tostring() return 'Table' end;
+function metatable.__tostring()
+  return 'Table'
+end
 
 function Table:remove_if(predicate)
   local j = 1
