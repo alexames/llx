@@ -4,15 +4,186 @@ require 'llx/src/core'
 require 'llx/src/operators'
 require 'llx/src/types/list'
 require 'llx/src/types/table'
+require 'llx/src/types/string'
 
 local unpack = Table.unpack
 
-function map(sequence, lambda)
+function range(a, b, c)
+  local start = b and a or 1
+  local finish = b or a
+  local step = c or 1
+  local start = start - step
+  local index = 0
+  local i
+  return step > 0 and function()
+    i = (i or start) + step
+    index = index + 1
+    return i < finish and index or nil, i
+  end or function()
+    i = (i or start) + step
+    index = index + 1
+    return i > finish and index or nil, i
+  end
+end
+
+-- Infinite iterators
+
+-- Iterators terminating on the shortest input sequence
+
+-- Combinatoric iterators
+
+local function control_updater(control_holder, new_control, ...)
+  control_holder[1] = new_control
+  return new_control, ...
+end
+
+function generator(iterator, state, control, closing)
+  local control_holder = {control}
+  local function wrapper()
+    return control_updater(control_holder, iterator(state, control_holder[1]))
+  end
+  return wrapper, nil, nil, closing
+end
+
+function map(lambda, ...)
+  local sequences = {...}
   local result = List{}
-  for i, v in sequence do
-    result[i] = lambda(v)
+  -- local states = {}
+  local controls = {}
+  local index = 0
+  while true do
+    local values = List{}
+    local control
+    for i, sequence in ipairs(sequences) do
+      control, values[i] = sequence(nil --[[ states[i] ]], controls[i])
+      if control ~= nil then
+        controls[i] = control
+      else
+        break
+      end
+    end
+    if control == nil then break end
+    index = index + 1
+    result[index] = lambda(unpack(values))
   end
   return result
+end
+
+function even(v) return v % 2 == 0 end
+
+function filter(lambda, sequence)
+  local result = List{}
+  local index = 0
+  lambda = lambda or nonnil
+  for unused, v in ipairs(sequence) do
+    if lambda(v) then
+      index = index + 1
+      result[index] = v
+    end
+  end
+  return result
+end
+
+function count(start, step)
+  local index = 0
+  local value = start - step
+  return function()
+    index = index + 1
+    value = value + step
+    return value
+  end
+end
+
+function cycle(sequence)
+end
+
+function repeat_elem()
+end
+
+function accumulate(sequence, lambda, initial_value)
+  local result = List{}
+  local control
+  if initial_value then
+    control, result[1] = nil, initial_value
+  else
+    control, result[1] = sequence()
+  end
+  for i, v in sequence, nil, control do
+    local previous = result[i-1]
+    result[i] = lambda(previous, v)
+  end
+  return result
+end
+
+function batched(iterable, n)
+  -- Check if n is at least one
+  if n < 1 then
+    error("n must be at least one")
+  end
+
+  -- Create an iterator function
+  local control = nil
+  local index = 0
+  local done = false
+  return function()
+    if done then return end
+    index = index + 1
+    local batch = {}
+    for i = 1, n do
+      local value
+      control, value = iterable(nil, control)
+      done = (control == nil)
+      if done then
+        break
+      end
+      batch[i] = value
+    end
+    if #batch > 0 then
+      return index, batch
+    end
+  end
+end
+
+function chain()
+end
+
+function compress()
+end
+
+function drop_while()
+end
+
+function filterfalse()
+end
+
+function group_by()
+end
+
+function slice()
+end
+
+function pairwise()
+end
+
+function star_map()
+end
+
+function take_while()
+end
+
+function tee()
+end
+
+function slice()
+end
+
+function zip_longest()
+end
+
+function permutations()
+end
+
+function combinations()
 end
 
 function reduce(sequence, lambda, initial_value)
@@ -20,7 +191,7 @@ function reduce(sequence, lambda, initial_value)
   if initial_value then
     control, result = nil, initial_value
   else
-    control, result = sequence(nil, nil)
+    control, result = sequence()
   end
   for i, v in sequence, nil, control do
     result = lambda(result, v)
@@ -45,7 +216,8 @@ function product(sequence)
 end
 
 function zip_impl(iterators, result_handler)
-  return function(state, control)
+  local control
+  return function()
     local result = {}
     for i=1, #iterators do
       local iterator = iterators[i]
@@ -59,12 +231,12 @@ function zip_impl(iterators, result_handler)
   end
 end
 
-function zip_unpacked(...)
-  return zip_impl({...}, unpack)
+function zip_packed(...)
+  return zip_impl({...}, noop)
 end
 
 function zip(...)
-  return zip_impl({...}, noop)
+  return zip_impl({...}, unpack)
 end
 
 function cartesian_product(...)
@@ -72,7 +244,7 @@ function cartesian_product(...)
   local state = {}
   local control = {}
   for i=1, #sequences do
-    state[i] = map(sequences[i], noop)
+    state[i] = map(noop, sequences[i])
     control[i] = 1
   end
   control[#control] = 0
