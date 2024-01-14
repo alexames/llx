@@ -5,10 +5,20 @@ require 'llx/src/core'
 require 'llx/src/isinstance'
 Number = require 'llx/src/types/number'
 Table = require 'llx/src/types/table'
+String = require 'llx/src/types/string'
 
 List = class 'List' : extends(Table) {
-  __new = function(t)
-    return t or {}
+  __new = function(iterable)
+    if is_callable(iterable) then
+      local list = {}
+      local i = 0
+      for k, v in iterable do
+        i = i + 1
+        list[i] = v
+      end
+      return list
+    end
+    return iterable or {}
   end,
 
   extend = function(self, other)
