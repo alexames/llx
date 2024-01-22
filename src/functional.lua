@@ -85,10 +85,10 @@ function filter(lambda, sequence)
 end
 
 function count(start, step)
-  local index = 0
+  start = start or 1
+  step = step or 1
   local value = start - step
   return function()
-    index = index + 1
     value = value + step
     return value
   end
