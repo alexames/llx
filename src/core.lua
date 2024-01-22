@@ -35,7 +35,7 @@ end
 
 function is_callable(v)
   if type(v) == 'function' then return true end
-  local metafield = getmetafield(v, key)
+  local metafield = getmetafield(v, '__call')
   return metafield and type(metafield) == 'function'
 end
 
