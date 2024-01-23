@@ -72,16 +72,14 @@ end
 function even(v) return v % 2 == 0 end
 
 function filter(lambda, sequence)
-  local result = List{}
-  local index = 0
   lambda = lambda or nonnil
-  for unused, v in ipairs(sequence) do
-    if lambda(v) then
-      index = index + 1
-      result[index] = v
-    end
+  return function(state, control)
+    local v
+    repeat
+      control, v = sequence(state, control)
+    until control == nil or lambda(v)
+    return control, v
   end
-  return result
 end
 
 function count(start, step)
