@@ -25,7 +25,9 @@
 --
 -- # Initializer
 --
---
+-- The "__init" function serves as the class initializer, invoked automatically
+-- when creating instances. It initializes class members and sets up the initial
+-- state of the object.
 --
 -- # Inheritance
 --
@@ -79,13 +81,22 @@
 --
 -- # Anonymous classes
 --
+-- TODO
+--
 -- # Conversion operators
 --
+-- TODO
+--
 -- # Implementation details
+-- TODO
 -- ## Proxy Class Tables
+-- TODO
 -- ## Superclass metafield
+-- TODO
 -- ## Index and Default Index metafield
+-- TODO
 -- ## Internal Index metafield
+-- TODO
 
 --------------------------------------------------------------------------------
 -- Utilities
@@ -94,36 +105,48 @@
 local core = require 'llx/src/core'
 local getmetafield = core.getmetafield
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param class_table A parameter
--- @param key A parameter
--- @param value A parameter
--- @return A value
+--- Tries to set a metafield in a class table if it does not already exist.
+--
+-- This function attempts to set a metafield in a class table only if the
+-- specified metafield does not already exist. If the metafield exists, it does
+-- nothing.
+--
+-- @param class_table The class table in which to set the metafield
+-- @param key The key of the metafield to set
+-- @param value The value to set for the metafield
 local function try_set_metafield(class_table, key, value)
   if class_table.__metafields[key] == nil then
     rawset(class_table, key, value)
   end
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param class_table A parameter
--- @param key A parameter
--- @param value A parameter
--- @return A value
+--- Tries to set a metafield on subclasses of a given class table.
+--
+-- This function iterates through the subclasses of a given class table and
+-- tries to set a metafield on each subclass. It calls the `try_set_metafield`
+-- function for each subclass to attempt to set the metafield.
+--
+-- @param class_table The class table whose subclasses to set the metafield on
+-- @param key The key of the metafield to set
+-- @param value The value to set for the metafield
 local function try_set_metafield_on_subclasses(class_table, key, value)
   for _, subclass in pairs(class_table.__subclasses) do
     try_set_metafield(subclass, key, value)
   end
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param class_table A parameter
--- @param key A parameter
--- @param value A parameter
--- @return A value
+--- Handles potential metafield assignment on a class table.
+--
+-- This function checks if the provided key is a potential metafield (i.e.,
+-- starts with '__') and assigns the given value to it in the class table's
+-- `__metafields` table if the metafield is not already defined. Additionally,
+-- it attempts to set the same metafield on all subclasses of the class table
+-- using the `try_set_metafield_on_subclasses` function.
+--
+-- @param class_table The class table to handle the potential metafield
+--                    assignment for
+-- @param key The key of the potential metafield
+-- @param value The value to assign to the potential metafield
 local function handle_potential_metafield(class_table, key, value)
   -- Assign metafield value to class_table[key] if and only if
   -- class_table.__metafields does not define it.
@@ -133,11 +156,18 @@ local function handle_potential_metafield(class_table, key, value)
   end
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param metatable A parameter
--- @param class_table A parameter
--- @return A value
+--- Checks if a class table is an instance of a given metatable or one of its
+--- superclasses.
+--
+-- This function recursively checks if a class table is an instance of a given
+-- metatable or one of its superclasses. It traverses through the inheritance
+-- hierarchy and returns true if the class table matches the metatable or any
+-- of its superclasses, otherwise returns false.
+--
+-- @param metatable The metatable to check against
+-- @param class_table The class table to check
+-- @return True if the class table is an instance of the metatable or one of its
+--         superclasses, otherwise false
 local function isinstance_impl(metatable, class_table)
   if metatable == class_table then
     return true
@@ -157,16 +187,24 @@ end
 
 local anonymous_class_name = '<anonymous class>'
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param class_table A parameter
--- @param class_table_proxy A parameter
--- @return A value
+--- Creates a class definer for defining Lua classes with inheritance.
+--
+-- This function creates a class definer object that facilitates the definition
+-- of Lua classes, including inheritance. The returned class definer object
+-- supports syntax such as:
+--    class 'ClassName' { ... }
+-- or
+--    class 'DerivedClass' : extends(BaseClass) { ... }
+--
+-- The class definer object returned by this function allows for specifying
+-- inheritance from one or more base classes using the 'extends' method.
+-- Additionally, it enables the definition of properties and methods for
+-- the class.
+--
+-- @param class_table The table representing the class
+-- @param class_table_proxy Proxy table for the class
+-- @return A class definer object for defining Lua classes
 local function create_class_definer(class_table, class_table_proxy)
-  -- By returning this class definer object, we can do these things:
-  --   class 'foo' { ... }
-  -- or 
-  --   class 'foo' : extends(bar) { ... }
   local class_definer = nil
   class_definer = {
     extends = function(self, ...)
@@ -225,10 +263,16 @@ local function create_class_definer(class_table, class_table_proxy)
   return class_definer
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param class_table A parameter
--- @return A value
+--- Creates a proxy for the class table to manage instantiation and access.
+--
+-- This function creates a proxy for the class table to handle instance
+-- creation, property access, and iteration. It sets up various metamethods to
+-- initialize instances, handle property access and modification, and enable
+-- iteration over class members. Additionally, it ensures that instances of the
+-- proxy are distinct from the original class table.
+--
+-- @param class_table The class table to create a proxy for
+-- @return The created class table proxy
 local function create_class_table_proxy(class_table)
   local function class_table_next(unused, index)
     return next(class_table, index)
@@ -278,19 +322,30 @@ local function create_class_table_proxy(class_table)
   return setmetatable(class_table_proxy, class_table_proxy_metatable)
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param name A parameter
--- @return A value
+--- Creates an internal table for managing class properties and inheritance.
+--
+-- This function creates an internal class table used for managing class
+-- properties, inheritance relationships, and instance checking. It sets up
+-- various metamethods for property access (`__index` and `__newindex`),
+-- inheritance resolution (`__isinstance`), and default behavior
+-- (`__internalindex`, `__defaultindex`). Additionally, it initializes internal
+-- fields for storing properties, superclasses, subclasses, and metafields.
+--
+-- @param name The name of the class
+-- @return The created internal class table
 local function create_internal_class_table(name)
   local class_table = nil
 
-  --- Placeholder LDoc documentation
-  -- Some description, can be over several lines.
-  -- @param class_table A parameter
-  -- @param t A parameter
-  -- @param k A parameter
-  -- @return A value
+  --- Tries to retrieve a property from the class table or its superclasses.
+  --
+  -- This function attempts to retrieve the value of a property from the class
+  -- table or its superclasses. It traverses through the inheritance hierarchy
+  -- and returns the value if found, otherwise returns nil.
+  --
+  -- @param class_table The class table to check for properties
+  -- @param t The instance table from which to get the property value
+  -- @param k The key of the property to retrieve
+  -- @return The value of the property if found, otherwise nil
   local function try_get_property(class_table, t, k)
     -- Is this a property?
     local properties = class_table.__properties
@@ -316,10 +371,14 @@ local function create_internal_class_table(name)
     end
   end
 
-  --- Placeholder LDoc documentation
-  -- Some description, can be over several lines.
-  -- @param k A parameter
-  -- @return A value
+  --- Tries to retrieve the value of a field from the superclasses.
+  --
+  -- This function attempts to retrieve the value of a field from the
+  -- superclasses of the class table. It checks each superclass in order and
+  -- returns the value of the field if found, otherwise returns nil.
+  --
+  -- @param k The key of the field to retrieve
+  -- @return The value of the field if found, otherwise nil
   local function try_get_superclass_value(k)
     -- Do any of the base classes have the field?
     if class_table.__superclasses then
@@ -331,26 +390,36 @@ local function create_internal_class_table(name)
     return nil
   end
 
-  --- Placeholder LDoc documentation
-  -- If the object doesn't have a field, check the metatable,
-  -- then any base classes
-  -- Some description, can be over several lines.
-  -- @param t A parameter
-  -- @param k A parameter
-  -- @return A value
+  --- Metamethod for indexing class instances.
+  --
+  -- This metamethod is invoked when attempting to access a field or property
+  -- of a class instance. It first tries to retrieve the value from properties,
+  -- then from the class table itself, and finally from the superclasses.
+  --
+  -- @param t The instance table
+  -- @param k The key of the field or property to retrieve
+  -- @return The value of the field or property if found, otherwise nil
   local function __index(t, k)
     return try_get_property(class_table, t, k)
         or rawget(class_table, k)
         or try_get_superclass_value(k)
   end
 
-  --- Placeholder LDoc documentation
-  -- Some description, can be over several lines.
-  -- @param class_table A parameter
-  -- @param t A parameter
-  -- @param k A parameter
-  -- @param v A parameter
-  -- @return A value
+
+  --- Tries to set a property in the class table or its superclasses.
+  --
+  -- This function attempts to set a property in the class table or its
+  -- superclasses. It first checks if the property exists in the class table's
+  -- `__properties` table. If the property is found, it invokes the property's
+  -- setter function, if available, to set the value in the instance table. If
+  -- the property is not found in the class table, it recursively checks the
+  -- superclasses' properties.
+  --
+  -- @param class_table The class table to check for properties
+  -- @param t The instance table to set the property in
+  -- @param k The key of the property to set
+  -- @param v The value to set
+  -- @return True if the property was set successfully, otherwise false
   local function try_set_property(class_table, t, k, v)
     local properties = class_table.__properties
     local property = properties and properties[k]
@@ -374,27 +443,36 @@ local function create_internal_class_table(name)
     return false
   end
 
-  --- Placeholder LDoc documentation
-  -- Some description, can be over several lines.
-  -- @param t A parameter
-  -- @param k A parameter
-  -- @param v A parameter
-  -- @return A value
+  --- Metamethod for setting class instance properties.
+  --
+  -- This metamethod is invoked when attempting to set a property of a class
+  -- instance. It first tries to set the property if it exists, otherwise sets
+  -- the value directly in the instance table.
+  --
+  -- @param t The instance table
+  -- @param k The key of the property to set
+  -- @param v The value to set
   local function __newindex(t, k, v)
     if try_set_property(class_table, t, k, v) then return
     else rawset(t, k, v)
     end
   end
 
-  --- Placeholder LDoc documentation
-  -- Some description, can be over several lines.
-  -- @param self A parameter
-  -- @param o A parameter
-  -- @return A value
+  --- Checks if an object is an instance of the class.
+  --
+  -- This function checks if an object is an instance of the class represented
+  -- by the internal class table. It traverses through the inheritance
+  -- hierarchy to determine if the object is an instance of any of the
+  -- superclasses.
+  --
+  -- @param self The internal class table
+  -- @param o The object to check
+  -- @return True if the object is an instance of the class, otherwise false
   local function __isinstance(self, o)
     return isinstance_impl(getmetatable(o), class_table)
   end
 
+  -- Initialize the class table with internal fields and metamethods
   class_table = {
     __name = name;
 
@@ -414,10 +492,19 @@ local function create_internal_class_table(name)
   return class_table
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param name_or_definition A parameter
--- @return A value
+--- Metatable for defining and instantiating classes.
+--
+-- This metatable is used for defining and instantiating classes. It defines a
+-- `__call` metamethod, which is invoked when the metatable is called like a
+-- function. Depending on the argument provided, it either defines a new class
+-- or instantiates an existing class.
+--
+-- @param self The metatable object
+-- @param name_or_definition The name of the class or a table containing the
+--                           class definition
+-- @return A class definer object for defining a new class, or an instance of
+--         the specified class
+
 local function class_argument_resolver(name_or_definition)
   local name = nil
   local class_definition = nil
@@ -431,12 +518,17 @@ local function class_argument_resolver(name_or_definition)
   return name, class_definition
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param name A parameter
--- @param class_table A parameter
--- @param class_table_proxy A parameter
--- @return A value
+--- Creates a conversion function for instances of a class.
+--
+-- This function creates a conversion function for instances of a class to
+-- convert them to instances of another class. It sets up a function `to_class`
+-- that attempts to retrieve a metamethod named `__to_class` or
+-- `__to_<classname>` from the object's metatable. If found, it invokes the
+-- metamethod to perform the conversion.
+--
+-- @param name The name of the class
+-- @param class_table The class table of the original class
+-- @param class_table_proxy The proxy table for the original class
 local function create_conversion_function(name, class_table, class_table_proxy)
   local to_class
   if name == anonymous_class_name then
@@ -457,10 +549,15 @@ local function create_conversion_function(name, class_table, class_table_proxy)
   end
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param name A parameter
--- @return A value
+--- Creates a new Lua class.
+--
+-- This function creates a new Lua class with the given name. It internally
+-- generates the class table and its proxy, sets up conversion functions, and
+-- locks down the class table to prevent direct modification. The class table
+-- and its proxy are returned for further manipulation and instantiation.
+--
+-- @param name The name of the class
+-- @return The created class table and its proxy
 local function create_class(name)
   -- This is the metatable for instance of the class.
   local class_table = create_internal_class_table(name)
@@ -475,16 +572,24 @@ local function create_class(name)
   return class_table, class_table_proxy
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Callable object for defining classes with inheritance.
+--
+-- This object provides a method, `extends`, for defining classes with
+-- inheritance. When called with the `extends` method, it creates a new class
+-- table, sets up inheritance relationships, and returns a class definer object
+-- for further class definition.
 local class_callable = {
-  --- Placeholder LDoc documentation
-  -- Some description, can be over several lines.
-  -- @param self A parameter
-  -- @param ... A parameter
-  -- @return A value
+  --- Method to specify inheritance from one or more base classes.
+  --
+  -- This method creates a new class definition by invoking the 'create_class'
+  -- function with an anonymous class name. It then creates a class definer
+  -- using 'create_class_definer' and calls its 'extends' method with the
+  -- provided arguments, representing the base classes. Finally, it returns the
+  -- class definer for further class definition.
+  --
+  -- @param self The class callable object
+  -- @param ... One or more base classes to inherit from
+  -- @return A class definer object for defining Lua classes
   extends = function(self, ...)
     local class_table, class_table_proxy = create_class(anonymous_class_name)
     local definer = create_class_definer(class_table, class_table_proxy)
@@ -493,16 +598,31 @@ local class_callable = {
   end;
 }
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Metatable for defining and instantiating classes.
+--
+-- This metatable is used for defining and instantiating classes. It defines a
+-- `__call` metamethod, which is invoked when the metatable is called like a
+-- function. Depending on the argument provided, it either defines a new class
+-- or instantiates an existing class.
+--
+-- @param self The metatable object
+-- @param name_or_definition The name of the class or a table containing the 
+--                           class definition
+-- @return A class definer object for defining a new class, or an instance of
+--         the specified class
 local class_metatable = {
-  --- Placeholder LDoc documentation
-  -- Some description, can be over several lines.
-  -- @param self A parameter
-  -- @param name_or_definition A parameter
-  -- @return A value
+  --- Method to define a Lua class by providing a name and definition.
+  --
+  -- This method resolves the class name and definition
+  -- using 'class_argument_resolver', creates a class using 'create_class', and
+  -- creates a class definer using 'create_class_definer'. If a class
+  -- definition is provided, it directly returns the result of class definition
+  -- using the definer, otherwise, it returns the definer for further class
+  -- definition.
+  --
+  -- @param self The class metatable object
+  -- @param name_or_definition The name of the class or the class definition
+  -- @return A class definer object for defining Lua classes
   __call = function(self, name_or_definition)
     local name, class_definition = class_argument_resolver(name_or_definition)
     local class_table, class_table_proxy = create_class(name)
@@ -515,14 +635,22 @@ local class_metatable = {
   end;
 }
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
+--- Metatable for defining and instantiating classes.
+--
+-- This metatable is used for defining and instantiating classes. It defines a
+-- `__call` metamethod, which is invoked when the metatable is called like a
+-- function. Depending on the argument provided, it either defines a new class
+-- or instantiates an existing class.
 local class = setmetatable(class_callable, class_metatable)
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param name A parameter
--- @return A value
+--- Creates a property definition.
+--
+-- This function creates a property definition for use in class definitions. It
+-- returns a table with metadata indicating that it represents a property. The
+-- property name is specified as an argument to the function.
+--
+-- @param name The name of the property
+-- @return A property definition table
 local function property(name)
   return {__key=name, __isproperty=true}
 end
