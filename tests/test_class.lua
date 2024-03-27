@@ -2,6 +2,8 @@ local unit = require 'unit'
 require 'llx/src/class'
 require 'llx/src/proxy'
 
+local decorator = require 'llx/src/decorator'
+
 local function CallSpec(t)
   return t
 end
@@ -13,15 +15,26 @@ function ProxySetter(proxy)
   end
 end
 
+local test_index = 0
+local Test = class 'Test' : extends(decorator.Decorator) {
+  decorate = function(self, class, name, value)
+    test_index = test_index + 1
+    local key = {index = test_index, name={name}, parameter={}, __istest=true}
+    return class, key, value
+  end,
+}
+local test = Test()
+
+
 test_class 'class' {
-  [test 'class_fields'] = function()
+  ['class_fields' | test] = function()
     local foo = class 'foo' {
       field = 100
     }
     EXPECT_EQ(foo.field, 100)
   end,
 
-  [test 'member_fields'] = function()
+  ['member_fields' | test] = function()
     local foo = class 'foo' {
       field = 100
     }
@@ -29,7 +42,7 @@ test_class 'class' {
     EXPECT_EQ(f.field, 100)
   end,
 
-  [test 'class_functions'] = function()
+  ['class_functions' | test] = function()
     local mock <close> = Mock()
     local foo = class 'foo' {
       func = mock:call_count(Equals(1)):call_spec{
@@ -39,7 +52,7 @@ test_class 'class' {
     EXPECT_EQ(foo.func(), 100)
   end,
 
-  [test 'member_functions'] = function()
+  ['member_functions' | test] = function()
     local mock <close> = Mock()
     local self_ref = Proxy()
     local foo = class 'foo' {
@@ -53,20 +66,20 @@ test_class 'class' {
     EXPECT_EQ(f, self_ref)
   end,
 
-  [test 'metatable'] = function()
+  ['metatable' | test] = function()
     local foo = class 'foo' {}
     local f = foo()
     EXPECT_EQ(getmetatable(f), foo)
   end,
 
-  [test 'set_instance_field'] = function()
+  ['set_instance_field' | test] = function()
     local foo = class 'foo' {}
     local f = foo()
     f.bar = 100
     EXPECT_EQ(f.bar, 100)
   end,
 
-  [test 'set_class_field'] = function()
+  ['set_class_field' | test] = function()
     local foo = class 'foo' {}
     local f = foo()
     foo.bar = 100
@@ -76,13 +89,13 @@ test_class 'class' {
     EXPECT_EQ(g.bar, 100)
   end,
 
-  [test 'default_tostring'] = function()
+  ['default_tostring' | test] = function()
     local foo = class 'foo' {}
     local f = foo()
     EXPECT_THAT(tostring(f), StartsWith('foo: '))
   end,
 
-  [test 'custom_tostring'] = function()
+  ['custom_tostring' | test] = function()
     local mock <close> = Mock()
     local foo = class 'foo' {
       __tostring = mock:call_spec {
@@ -93,7 +106,7 @@ test_class 'class' {
     EXPECT_EQ(tostring(f), 'custom tostring')
   end,
 
-  [test 'init'] = function()
+  ['init' | test] = function()
     local mock <close> = Mock()
     local self_ref = Proxy()
     local foo = class 'foo' {
@@ -106,7 +119,7 @@ test_class 'class' {
     EXPECT_EQ(f, self_ref)
   end,
 
-  [test 'new'] = function()
+  ['new' | test] = function()
     local mock <close> = Mock()
     local self_ref = {}
     local foo = class 'foo' {
@@ -118,7 +131,7 @@ test_class 'class' {
     EXPECT_EQ(foo(1, 2), self_ref)
   end,
 
-  [test 'property' - 'setter' - 'success'] = function()
+  ['property - setter - success' | test] = function()
     local foo = class 'foo' {
       [property 'prop'] = {
         set=function(self, v)
@@ -131,7 +144,7 @@ test_class 'class' {
     EXPECT_EQ(f._prop, 100)
   end,
 
-  [test 'property' - 'setter' - 'failure'] = function()
+  ['property - setter - failure' | test] = function()
     local foo = class 'foo' {
       [property 'prop'] = {
         -- No setter
@@ -141,7 +154,7 @@ test_class 'class' {
     EXPECT_ERROR(function() f.prop = 100 end)
   end,
 
-  [test 'property' - 'getter' - 'success'] = function()
+  ['property - getter - success' | test] = function()
     local foo = class 'foo' {
       [property 'prop'] = {
         get=function(self)
@@ -154,7 +167,7 @@ test_class 'class' {
     EXPECT_EQ(f.prop, 100)
   end,
 
-  [test 'property' - 'getter' - 'failure'] = function()
+  ['property - getter - failure' | test] = function()
     local foo = class 'foo' {
       [property 'prop'] = {
         -- No getter
@@ -165,7 +178,7 @@ test_class 'class' {
     EXPECT_ERROR(function() local x = f.prop end)
   end,
 
-  [test 'property' - 'both'] = function()
+  ['property - both' | test] = function()
     local foo = class 'foo' {
       [property 'prop'] = {
         set=function(self, v)
@@ -183,7 +196,7 @@ test_class 'class' {
 }
 
 test_class 'derived_class' {
-  [test 'class_fields'] = function()
+  ['class_fields' | test] = function()
     local foo = class 'foo' {
       foo_field = 100
     }
@@ -196,7 +209,7 @@ test_class 'derived_class' {
     EXPECT_EQ(bar.bar_field, 200)
   end,
 
-  [test 'member_fields'] = function()
+  ['member_fields' | test] = function()
     local foo = class 'foo' {
       foo_field = 100
     }
@@ -211,7 +224,7 @@ test_class 'derived_class' {
     EXPECT_EQ(b.bar_field, 200)
   end,
 
-  [test 'class_functions'] = function()
+  ['class_functions' | test] = function()
     local foo_mock <close> = Mock()
     local bar_mock <close> = Mock()
     local foo = class 'foo' {
@@ -228,7 +241,7 @@ test_class 'derived_class' {
     EXPECT_EQ(bar.bar_func(), 200)
   end,
 
-  [test 'member_functions'] = function()
+  ['member_functions' | test] = function()
     local foo_mock <close> = Mock()
     local bar_mock <close> = Mock()
     local foo = class 'foo' {
@@ -246,7 +259,7 @@ test_class 'derived_class' {
     EXPECT_EQ(b.bar_func(), 200)
   end,
 
-  [test 'metatable'] = function()
+  ['metatable' | test] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local f = foo()
@@ -255,7 +268,7 @@ test_class 'derived_class' {
     EXPECT_EQ(getmetatable(b), bar)
   end,
 
-  [test 'set_class_field'] = function()
+  ['set_class_field' | test] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
@@ -270,14 +283,14 @@ test_class 'derived_class' {
     EXPECT_EQ(c.bar_value, 200)
   end,
 
-  [test 'default_tostring'] = function()
+  ['default_tostring' | test] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
     EXPECT_THAT(tostring(b), StartsWith('bar: '))
   end,
 
-  [test 'custom_tostring'] = function()
+  ['custom_tostring' | test] = function()
     local mock <close> = Mock()
     local foo = class 'foo' {
       __tostring = mock:call_count(Equals(1)):call_spec{
@@ -289,7 +302,7 @@ test_class 'derived_class' {
     EXPECT_EQ(tostring(b), 'custom tostring')
   end,
 
-  [test 'custom_tostring_on_derived'] = function()
+  ['custom_tostring_on_derived' | test] = function()
     local mock <close> = Mock()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {
@@ -301,7 +314,7 @@ test_class 'derived_class' {
     EXPECT_EQ(tostring(b), 'custom tostring')
   end,
 
-  [test 'custom_tostring_override'] = function()
+  ['custom_tostring_override' | test] = function()
     local foo_mock <close> = Mock()
     local bar_mock <close> = Mock()
     local foo = class 'foo' {
@@ -317,7 +330,7 @@ test_class 'derived_class' {
   end,
 
 --------------------------------------------------------------------------------
-  [test 'init'] = function()
+  ['init' | test] = function()
     local self_ref = nil
     local a_ref = nil
     local b_ref = nil
@@ -335,7 +348,7 @@ test_class 'derived_class' {
   end,
 
 --------------------------------------------------------------------------------
-  [test 'new'] = function()
+  ['new' | test] = function()
     local self_ref = nil
     local a_ref = nil
     local b_ref = nil
@@ -353,7 +366,7 @@ test_class 'derived_class' {
     EXPECT_EQ(b_ref, 2)
   end,
 
-  [test 'descendant_metainheritance'] = function()
+  ['descendant_metainheritance' | test] = function()
     local foo = class 'foo' {
       __meta = 'value'
     }
@@ -364,7 +377,7 @@ test_class 'derived_class' {
     EXPECT_EQ(baz.__meta, 'value')
   end,
 
-  [test 'descendant_metainheritance_late'] = function()
+  ['descendant_metainheritance_late' | test] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local baz = class 'baz' : extends(bar) {}
@@ -374,7 +387,7 @@ test_class 'derived_class' {
     EXPECT_EQ(baz.__meta, 100)
   end,
 
-  [test 'descendant_metainheritance_changed'] = function()
+  ['descendant_metainheritance_changed' | test] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local baz = class 'baz' : extends(bar) {}
@@ -385,7 +398,7 @@ test_class 'derived_class' {
     EXPECT_EQ(baz.__meta, 200)
   end,
 
-  [test 'descendant_metainheritance_changed_intercepted'] = function()
+  ['descendant_metainheritance_changed_intercepted' | test] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local baz = class 'baz' : extends(bar) {}
@@ -396,7 +409,7 @@ test_class 'derived_class' {
     EXPECT_EQ(baz.__meta, 200)
   end,
 
-  [test 'descendant_metainheritance_changed_intercepted_out_of_order'] = function()
+  ['descendant_metainheritance_changed_intercepted_out_of_order' | test] = function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local baz = class 'baz' : extends(bar) {}
@@ -407,7 +420,7 @@ test_class 'derived_class' {
     EXPECT_EQ(baz.__meta, 200)
   end,
 
-  [test 'descendant_metainheritance_descendant'] = function()
+  ['descendant_metainheritance_descendant' | test] = function()
     local ancestor = class 'foo' {}
     local descendant = ancestor
     for i=1, 10 do
@@ -420,7 +433,7 @@ test_class 'derived_class' {
     EXPECT_EQ(descendant.__meta, 200)
   end,
 
-  [test 'property' - 'setter' - 'success'] = function()
+  ['property - setter - success' | test] = function()
     local foo = class 'foo' {
       [property 'prop'] = {
         set=function(self, v)
@@ -434,7 +447,7 @@ test_class 'derived_class' {
     EXPECT_EQ(b._prop, 100)
   end,
 
-  [test 'property' - 'setter' - 'failure'] = function()
+  ['property - setter - failure' | test] = function()
     local foo = class 'foo' {
       [property 'prop'] = {
         -- No setter
@@ -445,7 +458,7 @@ test_class 'derived_class' {
     EXPECT_ERROR(function() b.prop = 100 end)
   end,
 
-  [test 'property' - 'getter' - 'success'] = function()
+  ['property - getter - success' | test] = function()
     local foo = class 'foo' {
       [property 'prop'] = {
         get=function(self)
@@ -459,7 +472,7 @@ test_class 'derived_class' {
     EXPECT_EQ(b.prop, 100)
   end,
 
-  [test 'property' - 'getter' - 'failure'] = function()
+  ['property - getter - failure' | test] = function()
     local foo = class 'foo' {
       [property 'prop'] = {
         -- No getter
@@ -471,7 +484,7 @@ test_class 'derived_class' {
     EXPECT_ERROR(function() local x = b.prop end)
   end,
 
-  [test 'property' - 'both'] = function()
+  ['property - both' | test] = function()
     local foo = class 'foo' {
       [property 'prop'] = {
         set=function(self, v)

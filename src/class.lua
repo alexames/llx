@@ -197,7 +197,15 @@ local function create_class_definer(class_table, class_table_proxy)
     __call = function(self, class_definition)
       local properties = class_table.__properties
       for k, v in pairs(class_definition) do
-        if k.__isproperty then
+        -- change this to a check to see if the key is a function
+        if k.__isdecorator then
+          local target_table, name, value = class_table, k.name, v
+          for i, decorator in ipairs(k.decorator_table) do
+            target_table, name, value =
+              decorator:decorate(target_table, name, value)
+          end
+          rawset(target_table, name, value)
+        elseif k.__isproperty then
           rawset(properties, k.__key, v)
         else
           rawset(class_table, k, v)
