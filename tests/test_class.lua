@@ -3,6 +3,7 @@ require 'llx/src/class'
 require 'llx/src/proxy'
 
 local decorator = require 'llx/src/decorator'
+local property = require 'llx/src/property'
 
 local function CallSpec(t)
   return t
@@ -133,7 +134,7 @@ test_class 'class' {
 
   ['property - setter - success' | test] = function()
     local foo = class 'foo' {
-      [property 'prop'] = {
+      ['prop' | property.property] = {
         set=function(self, v)
           self._prop = v
         end,
@@ -146,7 +147,7 @@ test_class 'class' {
 
   ['property - setter - failure' | test] = function()
     local foo = class 'foo' {
-      [property 'prop'] = {
+      ['prop' | property.property] = {
         -- No setter
       }
     }
@@ -156,7 +157,7 @@ test_class 'class' {
 
   ['property - getter - success' | test] = function()
     local foo = class 'foo' {
-      [property 'prop'] = {
+      ['prop' | property.property] = {
         get=function(self)
           return self._prop
         end,
@@ -169,7 +170,7 @@ test_class 'class' {
 
   ['property - getter - failure' | test] = function()
     local foo = class 'foo' {
-      [property 'prop'] = {
+      ['prop' | property.property] = {
         -- No getter
       }
     }
@@ -180,7 +181,7 @@ test_class 'class' {
 
   ['property - both' | test] = function()
     local foo = class 'foo' {
-      [property 'prop'] = {
+      ['prop' | property.property] = {
         set=function(self, v)
           self._prop = v
         end,
@@ -435,7 +436,7 @@ test_class 'derived_class' {
 
   ['property - setter - success' | test] = function()
     local foo = class 'foo' {
-      [property 'prop'] = {
+      ['prop' | property.property] = {
         set=function(self, v)
           self._prop = v
         end,
@@ -449,7 +450,7 @@ test_class 'derived_class' {
 
   ['property - setter - failure' | test] = function()
     local foo = class 'foo' {
-      [property 'prop'] = {
+      ['prop' | property.property] = {
         -- No setter
       }
     }
@@ -460,7 +461,7 @@ test_class 'derived_class' {
 
   ['property - getter - success' | test] = function()
     local foo = class 'foo' {
-      [property 'prop'] = {
+      ['prop' | property.property] = {
         get=function(self)
           return self._prop
         end,
@@ -474,7 +475,7 @@ test_class 'derived_class' {
 
   ['property - getter - failure' | test] = function()
     local foo = class 'foo' {
-      [property 'prop'] = {
+      ['prop' | property.property] = {
         -- No getter
       }
     }
@@ -486,7 +487,7 @@ test_class 'derived_class' {
 
   ['property - both' | test] = function()
     local foo = class 'foo' {
-      [property 'prop'] = {
+      ['prop' | property.property] = {
         set=function(self, v)
           self._prop = v
         end,
