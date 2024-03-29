@@ -63,7 +63,7 @@
 --         self._width = width
 --       end,
 --
---       [property 'width'] = {
+--       ['width' | property] = {
 --         set = function(self, value)
 --           self._width = value
 --         end,
@@ -72,7 +72,7 @@
 --         end,
 --       }
 --
---       [property 'area'] = {
+--       ['area' | property] = {
 --         get = function(self)
 --            return self._width * self._length
 --         end,
@@ -233,18 +233,15 @@ local function create_class_definer(class_table, class_table_proxy)
 
   local class_definer_metatable = {
     __call = function(self, class_definition)
-      local properties = class_table.__properties
       for k, v in pairs(class_definition) do
         -- change this to a check to see if the key is a function
         if k.__isdecorator then
-          local target_table, name, value = class_table, k.name, v
+          local target_table, name, value = class_table_proxy, k.name, v
           for i, decorator in ipairs(k.decorator_table) do
             target_table, name, value =
               decorator:decorate(target_table, name, value)
           end
-          rawset(target_table, name, value)
-        elseif k.__isproperty then
-          rawset(properties, k.__key, v)
+          target_table[name] = value
         else
           rawset(class_table, k, v)
           handle_potential_metafield(class_table, k, v)
@@ -336,41 +333,6 @@ end
 local function create_internal_class_table(name)
   local class_table = nil
 
-  --- Tries to retrieve a property from the class table or its superclasses.
-  --
-  -- This function attempts to retrieve the value of a property from the class
-  -- table or its superclasses. It traverses through the inheritance hierarchy
-  -- and returns the value if found, otherwise returns nil.
-  --
-  -- @param class_table The class table to check for properties
-  -- @param t The instance table from which to get the property value
-  -- @param k The key of the property to retrieve
-  -- @return The value of the property if found, otherwise nil
-  local function try_get_property(class_table, t, k)
-    -- Is this a property?
-    local properties = class_table.__properties
-    local property = properties and properties[k]
-    if property then
-      assert(type(property) == 'table')
-      local getter = property.get
-      if not getter then
-        -- error
-      else
-        local v = getter(t)
-        return v
-      end
-    end
-
-    if class_table.__superclasses then
-      for _, base in ipairs(class_table.__superclasses) do
-        local value = try_get_property(base, t, k)
-        if value then
-          return value
-        end
-      end
-    end
-  end
-
   --- Tries to retrieve the value of a field from the superclasses.
   --
   -- This function attempts to retrieve the value of a field from the
@@ -400,62 +362,7 @@ local function create_internal_class_table(name)
   -- @param k The key of the field or property to retrieve
   -- @return The value of the field or property if found, otherwise nil
   local function __index(t, k)
-    return try_get_property(class_table, t, k)
-        or rawget(class_table, k)
-        or try_get_superclass_value(k)
-  end
-
-
-  --- Tries to set a property in the class table or its superclasses.
-  --
-  -- This function attempts to set a property in the class table or its
-  -- superclasses. It first checks if the property exists in the class table's
-  -- `__properties` table. If the property is found, it invokes the property's
-  -- setter function, if available, to set the value in the instance table. If
-  -- the property is not found in the class table, it recursively checks the
-  -- superclasses' properties.
-  --
-  -- @param class_table The class table to check for properties
-  -- @param t The instance table to set the property in
-  -- @param k The key of the property to set
-  -- @param v The value to set
-  -- @return True if the property was set successfully, otherwise false
-  local function try_set_property(class_table, t, k, v)
-    local properties = class_table.__properties
-    local property = properties and properties[k]
-    if property then
-      assert(type(property) == 'table')
-      local setter = property.set
-      if not setter then
-        -- error
-        return
-      end
-      setter(t, v)
-      return true
-    end
-    if class_table.__superclasses then
-      for _, base in ipairs(class_table.__superclasses) do
-        if try_set_property(base, t, k, v) then
-          return true
-        end
-      end
-    end
-    return false
-  end
-
-  --- Metamethod for setting class instance properties.
-  --
-  -- This metamethod is invoked when attempting to set a property of a class
-  -- instance. It first tries to set the property if it exists, otherwise sets
-  -- the value directly in the instance table.
-  --
-  -- @param t The instance table
-  -- @param k The key of the property to set
-  -- @param v The value to set
-  local function __newindex(t, k, v)
-    if try_set_property(class_table, t, k, v) then return
-    else rawset(t, k, v)
-    end
+    return rawget(class_table, k) or try_get_superclass_value(k)
   end
 
   --- Checks if an object is an instance of the class.
@@ -476,7 +383,6 @@ local function create_internal_class_table(name)
   class_table = {
     __name = name;
 
-    __properties = {};
     __superclasses = {};
     __subclasses = {};
     __metafields = {};
@@ -484,7 +390,6 @@ local function create_internal_class_table(name)
     __internalindex = __internalindex;
     __index = __index;
     __defaultindex = __index;
-    __newindex = __newindex;
 
     __isinstance = __isinstance;
   }
@@ -643,22 +548,8 @@ local class_metatable = {
 -- or instantiates an existing class.
 local class = setmetatable(class_callable, class_metatable)
 
---- Creates a property definition.
---
--- This function creates a property definition for use in class definitions. It
--- returns a table with metadata indicating that it represents a property. The
--- property name is specified as an argument to the function.
---
--- @param name The name of the property
--- @return A property definition table
-local function property(name)
-  return {__key=name, __isproperty=true}
-end
-
 _G.class = class
-_G.property = property
 
 return {
   class=class,
-  property = property,
 }
