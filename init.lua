@@ -1,1 +1,1 @@
-require 'llx/src'
+return require 'llx/src'

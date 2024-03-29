@@ -1,21 +1,23 @@
 -- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
-require 'llx/src/check_arguments'
-require 'llx/src/class'
-require 'llx/src/core'
-require 'llx/src/debug'
-require 'llx/src/decorator'
-require 'llx/src/exceptions'
-require 'llx/src/flow_control'
-require 'llx/src/functional'
-require 'llx/src/hash'
-require 'llx/src/isinstance'
-require 'llx/src/method'
-require 'llx/src/operators'
-require 'llx/src/property'
-require 'llx/src/proxy'
-require 'llx/src/repr'
-require 'llx/src/schema'
-require 'llx/src/tointeger'
-require 'llx/src/truthy'
-require 'llx/src/type_check_decorator'
-require 'llx/src/types'
+return {
+  check_arguments = require 'llx/src/check_arguments',
+  class = require 'llx/src/class',
+  core = require 'llx/src/core',
+  debug = require 'llx/src/debug',
+  decorator = require 'llx/src/decorator',
+  exceptions = require 'llx/src/exceptions',
+  flow_control = require 'llx/src/flow_control',
+  functional = require 'llx/src/functional',
+  hash = require 'llx/src/hash',
+  isinstance = require 'llx/src/isinstance',
+  method = require 'llx/src/method',
+  operators = require 'llx/src/operators',
+  property = require 'llx/src/property',
+  proxy = require 'llx/src/proxy',
+  repr = require 'llx/src/repr',
+  schema = require 'llx/src/schema',
+  tointeger = require 'llx/src/tointeger',
+  truthy = require 'llx/src/truthy',
+  type_check_decorator = require 'llx/src/type_check_decorator',
+  types = require 'llx/src/types',
+}
