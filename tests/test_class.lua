@@ -18,10 +18,10 @@ end
 
 local test_index = 0
 local Test = class 'Test' : extends(decorator.Decorator) {
-  decorate = function(self, class, name, value)
+  decorate = function(self, class_table, name, value)
     test_index = test_index + 1
-    local key = {index = test_index, name={name}, parameter={}, __istest=true}
-    return class, key, value
+    local key = {index=test_index, name={name}, parameter={}, __istest=true}
+    return class_table, key, value
   end,
 }
 local test = Test()

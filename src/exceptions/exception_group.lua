@@ -3,8 +3,7 @@ require 'llx/src/class'
 require 'llx/src/exceptions/exception'
 require 'llx/src/flow_control/catch'
 
-ExceptionGroup =
-    class 'ExceptionGroup' : extends(Exception) {
+ExceptionGroup = class 'ExceptionGroup' : extends(Exception) {
   __init = function(self, exception_list, level)
     local what = ''
     local first = true
