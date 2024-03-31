@@ -3,6 +3,7 @@ return {
   check_arguments = require 'llx/src/check_arguments',
   class = require 'llx/src/class',
   core = require 'llx/src/core',
+  coroutine = require 'llx/src/coroutine',
   debug = require 'llx/src/debug',
   decorator = require 'llx/src/decorator',
   exceptions = require 'llx/src/exceptions',
