@@ -17,6 +17,7 @@ return {
   proxy = require 'llx/src/proxy',
   repr = require 'llx/src/repr',
   schema = require 'llx/src/schema',
+  scoped_environment = require 'llx/src/scoped_environment',
   tointeger = require 'llx/src/tointeger',
   truthy = require 'llx/src/truthy',
   type_check_decorator = require 'llx/src/type_check_decorator',
