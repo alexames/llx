@@ -1,5 +1,5 @@
 -- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
-return {
+return require 'llx/src/flatten_submodules' {
   check_arguments = require 'llx/src/check_arguments',
   class = require 'llx/src/class',
   core = require 'llx/src/core',
