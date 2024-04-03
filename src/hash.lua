@@ -1,30 +1,33 @@
 -- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
 
 require 'llx/src/core'
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
 
 local FNV_offset_basis = 0x811c9dc5
 local FNV_prime = 0x01000193
 
-local function hash_integer(hash, byte)
-  hash = hash ~ byte
+function hash_integer(hash, value)
+  hash = hash ~ value
   hash = hash * FNV_prime
   hash = hash & 0xFFFFFFFF
   return hash
 end
 
-local function hash_nil(hash)
+function hash_nil(hash)
   return hash
 end
 
-local function hash_boolean(hash, value)
+function hash_boolean(hash, value)
   return hash_integer(hash, value and 1 or 0)
 end
 
-local function hash_number(hash, value)
+function hash_number(hash, value)
   return hash_integer(hash, value)
 end
 
-local function hash_string(hash, value)
+function hash_string(hash, value)
   for i=1, #value do
     hash = hash_integer(hash, value:sub(i,i):byte())
   end
@@ -65,9 +68,7 @@ local function get_ordered_keys(value)
   return result
 end
 
-local hash_value
-
-local function hash_table(hash, value)
+function hash_table(hash, value)
   local keys = get_ordered_keys(value)
   for _, k in ipairs(keys) do
     hash = hash_value(hash, k)
@@ -77,6 +78,7 @@ local function hash_table(hash, value)
 end
 
 local function hash_error(hash, value)
+  -- TODO: error with Exception
   error(string.format('type %s not supported', type(value)))
 end
 
@@ -94,21 +96,17 @@ local hash_functions = {
 
 function hash_value(hash, value)
   local value_type = type(value)
-  local hash_fn = hash_functions[value_type]
-  local hash = hash_string(hash, value_type)
-  return hash_fn(hash, value)
-end
-
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
-local function fnv1a(value)
-  local hash = getmetafield(value, '__hash')
-  if type(hash) == 'function' then
-    return hash(value)
+  local type_name = getmetafield(value, '__name') or value_type
+  local hash_function = getmetafield(value, '__hash')
+  if type(hash_function) ~= 'function' then
+    hash_function = hash_functions[value_type]
   end
-  return hash or hash_value(FNV_offset_basis, value)
+  hash = hash_string(hash, value_type)
+  return hash_function(hash, value)
 end
 
-return fnv1a
+function hash(value)
+  return hash_value(FNV_offset_basis, value)
+end
+
+return _M
