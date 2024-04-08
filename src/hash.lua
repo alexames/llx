@@ -8,7 +8,7 @@ local _ENV, _M = environment.create_module_environment()
 local FNV_offset_basis = 0x811c9dc5
 local FNV_prime = 0x01000193
 
-function hash_integer(hash, value)
+function hash_integer(value, hash)
   hash = hash ~ value
   hash = hash * FNV_prime
   hash = hash & 0xFFFFFFFF
@@ -19,17 +19,17 @@ function hash_nil(hash)
   return hash
 end
 
-function hash_boolean(hash, value)
-  return hash_integer(hash, value and 1 or 0)
+function hash_boolean(value, hash)
+  return hash_integer(value and 1 or 0, hash)
 end
 
-function hash_number(hash, value)
-  return hash_integer(hash, value)
+function hash_number(value, hash)
+  return hash_integer(value, hash)
 end
 
-function hash_string(hash, value)
+function hash_string(value, hash)
   for i=1, #value do
-    hash = hash_integer(hash, value:sub(i,i):byte())
+    hash = hash_integer(value:sub(i,i):byte(), hash)
   end
   return hash
 end
@@ -68,16 +68,16 @@ local function get_ordered_keys(value)
   return result
 end
 
-function hash_table(hash, value)
+function hash_table(value, hash)
   local keys = get_ordered_keys(value)
   for _, k in ipairs(keys) do
-    hash = hash_value(hash, k)
-    hash = hash_value(hash, value[k])
+    hash = hash_value(k, hash)
+    hash = hash_value(value[k], hash)
   end
   return hash
 end
 
-local function hash_error(hash, value)
+local function hash_error(value, hash)
   -- TODO: error with Exception
   error(string.format('type %s not supported', type(value)))
 end
@@ -94,19 +94,19 @@ local hash_functions = {
   ['thread']=hash_error,
 }
 
-function hash_value(hash, value)
+function hash_value(value, hash)
   local value_type = type(value)
   local type_name = getmetafield(value, '__name') or value_type
   local hash_function = getmetafield(value, '__hash')
   if type(hash_function) ~= 'function' then
     hash_function = hash_functions[value_type]
   end
-  hash = hash_string(hash, value_type)
-  return hash_function(hash, value)
+  hash = hash_string(type_name, hash)
+  return hash_function(value, hash)
 end
 
 function hash(value)
-  return hash_value(FNV_offset_basis, value)
+  return hash_value(value, FNV_offset_basis)
 end
 
 return _M

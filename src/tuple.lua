@@ -23,11 +23,10 @@ Tuple = class 'Tuple' {
     return #self.__values
   end,
 
-  -- todo: make self first
-  __hash = function(result, self)
+  __hash = function(self, result)
     for i=1, #self do
-      result = hash.hash_value(result, i)
-      result = hash.hash_value(result, self[i])
+      result = hash.hash_value(i, result)
+      result = hash.hash_value(self[i], result)
     end
     return result
   end,
