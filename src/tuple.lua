@@ -15,8 +15,12 @@ Tuple = class 'Tuple' {
     end
   end,
 
+  unpack = function(self)
+    return table.unpack(self)
+  end,
+
   __index = function(self, key)
-    return self.__values[key]
+    return Tuple.__defaultindex(self, key) or self.__values[key]
   end,
 
   __len = function(self, key)
