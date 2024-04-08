@@ -66,15 +66,26 @@
 -- @return environment The newly created environment table.
 -- @return module The module table.
 local function create_module_environment()
-  local module = {}
-  local environment_metatable = {}
-  function environment_metatable:__index(k)
-    return rawget(module, k) or _ENV[k]
-  end
-  function environment_metatable:__newindex(k, v)
-    module[k] = v
-  end
-  return setmetatable({}, environment_metatable), module
+  local module = setmetatable({}, {
+    __call = function(self, t)
+      local result = {}
+      for i, v in ipairs(t) do
+        local module_value = self[v]
+        assert(module_value)
+        result[i] = module_value
+      end
+      return table.unpack(result)
+    end
+  })
+  local environment = setmetatable({}, {
+    __index = function(self, k)
+      return rawget(module, k) or _ENV[k]
+    end,
+    __newindex = function(self, k, v)
+      module[k] = v
+    end,
+  })
+  return environment, module
 end
 
 return {
