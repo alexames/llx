@@ -2,7 +2,6 @@
 
 local class = require 'llx/src/class' . class
 local environment = require 'llx/src/environment'
-local decorator = require 'llx/src/decorator'
 local hash = require 'llx/src/hash'
 local tuple = require 'llx/src/tuple'
 
@@ -28,7 +27,7 @@ HashTable = class 'HashTable' {
 
   __index = function(self, k)
     local hashed_key = hash.hash(k)
-    local entry = self[hashed_key]
+    local entry = rawget(self, hashed_key)
     return entry and entry.value or HashTable.__defaultindex(k, v)
   end,
 
