@@ -23,7 +23,8 @@ local function submodule_flattener(submodules)
       copy_into(module, name_or_index, submodule)
     end
   end
-  return setmetatable(module, environment.module_metatable)
+
+  return setmetatable({}, environment.make_module_metatable(module))
 end
 
 return submodule_flattener

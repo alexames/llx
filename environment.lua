@@ -56,25 +56,35 @@
 --
 --------------------------------------------------------------------------------
 
-local module_metatable = {
-  __call = function(self, t)
-    local result = {}
-    for i, v in ipairs(t) do
-      local module_value = self[v]
-      assert(module_value)
-      result[i] = module_value
-    end
-    return table.unpack(result)
-  end,
+local function make_module_metatable(module)
+  return {
+    __call = function(self, t)
+      local result = {}
+      for i, v in ipairs(t) do
+        local module_value = rawget(module, v)
+        assert(module_value)
+        result[i] = module_value
+      end
+      return table.unpack(result)
+    end,
 
-  __index = function(self, k)
-    local result = rawget(self, k)
-    if result == nil then
-      error(string.format("module does not contain field '%s'", k), 2)
-    end
-    return result
-  end,
-}
+    __index = function(self, k)
+      local result = rawget(module, k)
+      if result == nil then
+        error(string.format("module does not contain field '%s'", k), 2)
+      end
+      return result
+    end,
+
+    __newindex = function(self, k, v)
+      error('module tables are locked')
+    end,
+
+    __pairs = function(self)
+      return next, module, nil
+    end,
+  }
+end
 
 --- Creates a new module environment.
 --
@@ -86,7 +96,8 @@ local module_metatable = {
 -- @return environment The newly created environment table.
 -- @return module The module table.
 local function create_module_environment()
-  local module = setmetatable({}, module_metatable)
+  local module = {}
+  local module_proxy = setmetatable({}, make_module_metatable(module))
   local environment = setmetatable({}, {
     __index = function(self, k)
       local result = rawget(module, k) or _ENV[k]
@@ -96,13 +107,14 @@ local function create_module_environment()
       return result
     end,
     __newindex = function(self, k, v)
-      module[k] = v
+      rawset(module, k, v)
     end,
   })
-  return environment, module
+
+  return environment, module_proxy
 end
 
 return {
   create_module_environment=create_module_environment,
-  module_metatable=module_metatable,
+  make_module_metatable=make_module_metatable,
 }
