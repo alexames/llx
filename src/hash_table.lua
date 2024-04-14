@@ -3,7 +3,6 @@
 local class = require 'llx/src/class' . class
 local environment = require 'llx/src/environment'
 local hash = require 'llx/src/hash'
-local tuple = require 'llx/src/tuple'
 
 local _ENV, _M = environment.create_module_environment()
 
