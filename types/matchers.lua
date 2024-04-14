@@ -47,6 +47,7 @@ local function union_type_check(type_list)
 
     __validate = function(self, schema, path, level, check_field)
       local type_schemas = schema.type_schemas
+      local getclass = require 'llx/getclass' . getclass
       local cls = getclass(self)
       local type_schema = type_schemas and type_schemas[cls.__name or cls]
       if type_schema then
