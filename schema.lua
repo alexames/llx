@@ -1,12 +1,16 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local environment = require 'llx/environment'
-local List = require 'llx/types/list' . List
 local exceptions = require 'llx/exceptions'
-local getclass = require 'llx/getclass' . getclass
-local isinstance = require 'llx/isinstance' . isinstance
+local getclass_module = require 'llx/getclass'
+local isinstance_module = require 'llx/isinstance'
+local list = require 'llx/types/list'
 
 local _ENV, _M = environment.create_module_environment()
+
+local getclass = getclass_module.getclass
+local isinstance = isinstance_module.isinstance
+local List = list.List
 
 local function check_field(schema, value, path, level)
   local schema_type = schema.type

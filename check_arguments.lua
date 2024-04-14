@@ -1,13 +1,19 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local class = require 'llx/class' . class
-local Decorator = require 'llx/decorator' . Decorator
+local class_module = require 'llx/class'
+local decorator = require 'llx/decorator'
 local environment = require 'llx/environment'
-local getclass = require 'llx/getclass'
-local InvalidArgumentException = require 'llx/exceptions' . InvalidArgumentException
-local isinstance = require 'llx/isinstance' . isinstance
+local exceptions = require 'llx/exceptions'
+local getclass_module = require 'llx/getclass'
+local isinstance_module = require 'llx/isinstance'
 
 local _ENV, _M = environment.create_module_environment()
+
+local class = class_module.class
+local Decorator = decorator.Decorator
+local getclass = getclass_module.getclass
+local InvalidArgumentException = exceptions.InvalidArgumentException
+local isinstance = isinstance_module.isinstance
 
 local function check_argument(index, value, expected_type)
   if expected_type == nil then

@@ -1,9 +1,11 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local environment = require 'llx/environment'
-local getmetafield = require 'llx/core' . getmetafield
+local core = require 'llx/core'
 
 local _ENV, _M = environment.create_module_environment()
+
+local getmetafield =core.getmetafield
 
 --- Placeholder LDoc documentation
 -- Some description, can be over several lines.

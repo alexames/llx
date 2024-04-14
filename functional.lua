@@ -2,14 +2,17 @@
 
 local core = require 'llx/core'
 local environment = require 'llx/environment'
-local List = require 'llx/types/list' . List
+local list = require 'llx/types/list'
 local operators = require 'llx/operators'
-local String = require 'llx/types/string' . String
-local Table = require 'llx/types/table' . Table
+local string_module = require 'llx/types/string'
+local table_module = require 'llx/types/table'
 
 local _ENV, _M = environment.create_module_environment()
 
-local unpack = Table.unpack
+local List = list.List
+local String = string_module.String
+local Table = table_module.Table
+local unpack = table_module.Table.unpack
 
 function range(a, b, c)
   local start = b and a or 1

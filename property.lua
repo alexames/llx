@@ -1,10 +1,13 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local class = require 'llx/class' . class
-local Decorator = require 'llx/decorator' . Decorator
+local class_module = require 'llx/class'
+local decorator = require 'llx/decorator'
 local environment = require 'llx/environment'
 
 local _ENV, _M = environment.create_module_environment()
+
+local class = class_module.class
+local Decorator = decorator.Decorator
 
 --- Tries to retrieve a property from the class table or its superclasses.
 --

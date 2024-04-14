@@ -1,11 +1,15 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local class = require 'llx/class' . class
+local class_module = require 'llx/class'
 local environment = require 'llx/environment'
-local getclass = require 'llx/getclass' . getclass
-local InvalidArgumentException = require 'llx/exceptions' . InvalidArgumentException
+local exceptions = require 'llx/exceptions'
+local getclass_module = require 'llx/getclass'
 
 local _ENV, _M = environment.create_module_environment()
+
+local class = class_module.class
+local getclass = getclass_module.getclass
+local InvalidArgumentException = exceptions.InvalidArgumentException
 
 local function check_types(location, expected_types, argument_list)
   for index, expected_type in ipairs(expected_types or {}) do

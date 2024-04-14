@@ -101,8 +101,12 @@
 --------------------------------------------------------------------------------
 -- Utilities
 
--- TODO: remove this, make this file have no dependencies
-local getmetafield = require 'llx/core' . getmetafield
+local core = require 'llx/core'
+local environment = require 'llx/environment'
+
+local _ENV, _M = environment.create_module_environment()
+
+local getmetafield = core.getmetafield
 
 --- Tries to set a metafield in a class table if it does not already exist.
 --
@@ -386,7 +390,6 @@ local function create_internal_class_table(name)
     __subclasses = {};
     __metafields = {};
 
-    __internalindex = __internalindex;
     __index = __index;
     __defaultindex = __index;
 
@@ -545,8 +548,6 @@ local class_metatable = {
 -- `__call` metamethod, which is invoked when the metatable is called like a
 -- function. Depending on the argument provided, it either defines a new class
 -- or instantiates an existing class.
-local class = setmetatable(class_callable, class_metatable)
+class = setmetatable(class_callable, class_metatable)
 
-return {
-  class=class,
-}
+return _M

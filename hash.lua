@@ -1,9 +1,11 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local core = require 'llx/core'
 local environment = require 'llx/environment'
-local getmetafield = require 'llx/core' . getmetafield
 
 local _ENV, _M = environment.create_module_environment()
+
+local getmetafield = core.getmetafield
 
 local FNV_offset_basis = 0x811c9dc5
 local FNV_prime = 0x01000193
