@@ -5,14 +5,15 @@ local strict = require 'llx/strict'
 local lock <close> = strict.lock_global_table()
 
 return require 'llx/flatten_submodules' {
-  require 'llx/class',
   require 'llx/check_arguments',
-  require 'llx/types',
-  require 'llx/isinstance',
-  require 'llx/schema',
-  require 'llx/tointeger',
-  require 'llx/repr',
+  require 'llx/class',
   require 'llx/core',
+  require 'llx/isinstance',
+  require 'llx/repr',
+  require 'llx/schema',
+  require 'llx/strict',
+  require 'llx/tointeger',
+  require 'llx/types',
   coroutine = require 'llx/coroutine',
   debug = require 'llx/debug',
   decorator = require 'llx/decorator',
