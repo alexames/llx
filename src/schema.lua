@@ -1,15 +1,23 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/types/list'
-require 'llx/src/exceptions'
-require 'llx/src/getclass'
-require 'llx/src/isinstance'
+local environment = require 'llx/src/environment'
+local List = require 'llx/src/types/list' . List
+local exceptions = require 'llx/src/exceptions'
+local getclass = require 'llx/src/getclass' . getclass
+local isinstance = require 'llx/src/isinstance' . isinstance
+
+local _ENV, _M = environment.create_module_environment()
 
 local function check_field(schema, value, path, level)
   local schema_type = schema.type
+
+  if schema_type == nil then
+    error('nil schema type', 5)
+  end
+
   -- Validate that the value is of the correct type.
   if not isinstance(value, schema_type) then
-    return false, SchemaFieldTypeMismatchException(
+    return false, exceptions.SchemaFieldTypeMismatchException(
         path, schema_type, getclass(value), level + 1)
   end
 
@@ -59,7 +67,4 @@ function Schema(schema)
   return schema
 end
 
-return {
-  Schema=Schema,
-  matches_schema=matches_schema,
-}
+return _M

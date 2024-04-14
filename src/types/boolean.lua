@@ -1,14 +1,16 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local Boolean = {}
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
+
+Boolean = {}
 
 Boolean.__name = 'Boolean'
 
 function Boolean:__isinstance(value)
   return type(value) == 'boolean'
 end
-
-local metatable = {}
 
 function Boolean:__call(v)
   return v ~= nil and v ~= false
@@ -18,4 +20,4 @@ function Boolean.__tostring()
   return 'Boolean'
 end
 
-return Boolean
+return _M

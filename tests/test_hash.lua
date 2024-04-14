@@ -1,3 +1,4 @@
+local class = require 'llx' . class
 local Tuple = require 'llx/src/tuple' . Tuple
 local hash = require 'llx/src/hash'
 
@@ -56,19 +57,18 @@ FunctionCall = class 'FunctionCall' {
   end,
 }
 
-registry = FunctionRegistry('registry')
+-- registry = FunctionRegistry('registry')
 
-registry.print = print
-registry.add = function(a, b) return a + b end
+-- registry.print = print
+-- registry.add = function(a, b) return a + b end
 
-print(registry.print)
+-- print(registry.print)
 
-fc = FunctionCall(registry.add, 1, 2)
+-- fc = FunctionCall(registry.add, 1, 2)
 
-print(fc)
-print(fc())
+-- print(fc)
+-- print(fc())
 
 
 
-registry.print('this is a test')
-
+-- registry.print('this is a test')

@@ -1,4 +1,8 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
+
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
 
 local function table_is_list(t)
   local count = 0
@@ -45,4 +49,4 @@ local function dump_value(t, visited)
   return result
 end
 
-return dump_value
+return _M

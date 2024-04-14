@@ -8,7 +8,7 @@ local Tuple = require 'llx/src/tuple'. Tuple
 
 local _ENV, _M = environment.create_module_environment()
 
-local cache = class 'cache' : extends(Decorator) {
+cache = class 'cache' : extends(Decorator) {
   __init = function(self, params)
     self.include_self = params and params.include_self
   end,
@@ -35,17 +35,5 @@ local cache = class 'cache' : extends(Decorator) {
     return class_table, name, wrapped_function
   end,
 }
-
--- FibTester = class 'FibTester' {
---   ['fib' | cache{include_self=false}] = function(self, n)
---     print(n)
---     if n < 2 then return n
---     else return self:fib(n-1) + self:fib(n-2)
---     end
---   end,
--- }
-
--- f = FibTester()
--- print(f:fib(100))
 
 return _M

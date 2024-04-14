@@ -1,14 +1,20 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/types/boolean'
-require 'llx/src/types/function'
-require 'llx/src/types/integer'
-require 'llx/src/types/nil'
-require 'llx/src/types/number'
-require 'llx/src/types/string'
-require 'llx/src/types/table'
-require 'llx/src/types/thread'
-require 'llx/src/types/userdata'
+local environment = require 'llx/src/environment'
+
+-- TODO: I believe these can be removed.
+local Boolean = require 'llx/src/types/boolean' . Boolean
+local Function = require 'llx/src/types/function' . Function
+local Integer = require 'llx/src/types/integer' . Integer
+local Nil = require 'llx/src/types/nil' . Nil
+local Number = require 'llx/src/types/number' . Number
+local String = require 'llx/src/types/string' . String
+local Table = require 'llx/src/types/table' . Table
+local Thread = require 'llx/src/types/thread' . Thread
+local Userdata = require 'llx/src/types/userdata' . Userdata
+local isinstance = require 'llx/src/isinstance' . isinstance
+
+local _ENV, _M = environment.create_module_environment()
 
 local function any_type_check()
   return setmetatable({
@@ -62,10 +68,10 @@ end
 local function dict_type_check(type_checker)
 end
 
-return {
-  Any=any_type_check(),
-  Union=union_type_check,
-  Optional=optional_type_check,
-  Dict=dict_type_check,
-  Tuple=tuple_type_check,
-}
+Any=any_type_check()
+Union=union_type_check
+Optional=optional_type_check
+Dict=dict_type_check
+-- Tuple=tuple_type_check
+
+return _M

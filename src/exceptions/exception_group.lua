@@ -1,7 +1,11 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
-require 'llx/src/class'
-require 'llx/src/exceptions/exception'
-require 'llx/src/flow_control/catch'
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
+local class = require 'llx/src/class' . class
+local Exception = require 'llx/src/exceptions/Exception' . Exception
+-- require 'llx/src/flow_control/catch'
+
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
 
 ExceptionGroup = class 'ExceptionGroup' : extends(Exception) {
   __init = function(self, exception_list, level)
@@ -25,6 +29,6 @@ ExceptionGroup = class 'ExceptionGroup' : extends(Exception) {
   --     end
   --   end
   -- end,
-
-  __tostring = Exception.__tostring,
 }
+
+return _M

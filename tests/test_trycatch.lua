@@ -1,7 +1,9 @@
-require 'llx/src/class'
-require 'llx/src/exceptions'
-require 'llx/src/types/table'
-require 'llx/src/flow_control/trycatch'
+local llx = require 'llx'
+local class = require 'llx/src/class' . class
+local Exception = require 'llx/src/exceptions' . Exception
+local Table = require 'llx/src/types/table' . Table
+local try = require 'llx/src/flow_control/trycatch' . try
+local catch = require 'llx/src/flow_control/catch' . catch
 local unit = require 'unit'
 local types = require 'llx/src/types/matchers'
 
@@ -164,6 +166,6 @@ test_class 'try' {
   end,
 }
 
-if main_file() then
+if llx.main_file() then
   unit.run_unit_tests()
 end

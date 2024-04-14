@@ -1,4 +1,8 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
+
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
 
 function p(...)
   print(...)
@@ -12,3 +16,5 @@ end
 function printlist(t)
   for i, v in ipairs(t) do print(i, v) end
 end
+
+return _M

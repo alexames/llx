@@ -23,7 +23,13 @@
 -- Decorators can also be chained, so you can apply more than by simply using
 -- the or operator again for each decorator. Classes have special handling for
 -- decorators, and will apply them in the order they appear
-local Decorator = class 'Decorator' {
+
+local class  = require 'llx/src/class' . class
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
+
+Decorator = class 'Decorator' {
   __bor = function(lhs, self)
     if type(lhs) == 'table' and lhs.__isdecorator then
       table.insert(lhs.decorator_table, self)
@@ -38,6 +44,4 @@ local Decorator = class 'Decorator' {
   end
 }
 
-return {
-  Decorator=Decorator,
-}
+return _M

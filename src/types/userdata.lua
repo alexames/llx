@@ -1,6 +1,10 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local Userdata = {}
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
+
+Userdata = {}
 
 Userdata.__name = 'Userdata'
 
@@ -14,4 +18,6 @@ function metatable:__tostring()
   return 'Userdata'
 end
 
-return setmetatable(Userdata, metatable)
+setmetatable(Userdata, metatable)
+
+return _M

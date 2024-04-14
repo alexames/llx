@@ -1,5 +1,9 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
+
 -- the addition (+) operation.
 function add(a, b)
   return a + b
@@ -94,3 +98,5 @@ end
 function le(a, b)
   return a <= b
 end
+
+return _M

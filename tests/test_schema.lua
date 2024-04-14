@@ -1,6 +1,4 @@
-schema = require 'llx/src/schema'
-types = require 'llx/src/types'
-List = require 'llx/src/types/list'
+local llx = require 'llx'
 require 'llx/src/check_arguments'
 
 -- local s = schema.Schema{
@@ -25,33 +23,33 @@ require 'llx/src/check_arguments'
 --   required = {'id','name','age'},
 -- }
 
-local NoteSchema = schema.Schema{
+local NoteSchema = llx.Schema{
   title="NoteSchema",
-  type=Table,
+  type=llx.Table,
   properties={
-    pitch = {
-      type=Integer,
+    pitch={
+      type=llx.Integer,
       minimum=150,
     },
-    volume = {
-      type=Integer,
+    volume={
+      type=llx.Integer,
       maximum=50,
     },
-    duration = {type=Integer},
-    time = {type=Integer},
+    duration={type=llx.Integer},
+    time={type=llx.Integer},
   },
   required = {'pitch','volume','duration'},
 }
 
-local UnionSchema = schema.Schema{
+local UnionSchema = llx.Schema{
   __name='UnionSchema',
-  type=Union{Number,String},
+  type=llx.Union{llx.Number, llx.String},
   type_schemas={
     Number={
-      type=Number,
+      type=llx.Number,
     },
     String={
-      type=String,
+      type=llx.String,
       min_length=3,
       pattern='%s%s 123',
     },
@@ -59,7 +57,7 @@ local UnionSchema = schema.Schema{
 }
 
 function mytestfunc(a, b, c, d)
-  check_arguments{a=Integer, b=Float, c=Number, d=UnionSchema}
+  llx.check_arguments{a=llx.Integer, b=llx.Float, c=llx.Number, d=UnionSchema}
   return true
 end
 

@@ -1,6 +1,9 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/core'
+local environment = require 'llx/src/environment'
+local core = require 'llx/src/core'
+
+local _ENV, _M = environment.create_module_environment()
 
 local identifier_pattern = '^[%a_][%w_]*$'
 
@@ -78,4 +81,4 @@ function repr(value)
   end
 end
 
-return repr
+return _M

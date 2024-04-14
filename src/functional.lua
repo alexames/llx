@@ -1,10 +1,13 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/core'
-require 'llx/src/operators'
-require 'llx/src/types/list'
-require 'llx/src/types/table'
-require 'llx/src/types/string'
+local core = require 'llx/src/core'
+local environment = require 'llx/src/environment'
+local List = require 'llx/src/types/list' . List
+local operators = require 'llx/src/operators'
+local String = require 'llx/src/types/string' . String
+local Table = require 'llx/src/types/table' . Table
+
+local _ENV, _M = environment.create_module_environment()
 
 local unpack = Table.unpack
 
@@ -198,19 +201,19 @@ function reduce(sequence, lambda, initial_value)
 end
 
 function min(sequence)
-  return reduce(sequence, lesser)
+  return reduce(sequence, operators.lesser)
 end
 
 function max(sequence)
-  return reduce(sequence, greater)
+  return reduce(sequence, operators.greater)
 end
 
 function sum(sequence)
-  return reduce(sequence, add)
+  return reduce(sequence, operators.add)
 end
 
 function product(sequence)
-  return reduce(sequence, mul)
+  return reduce(sequence, operators.mul)
 end
 
 function zip_impl(iterators, result_handler)
@@ -219,6 +222,7 @@ function zip_impl(iterators, result_handler)
     local result = {}
     for i=1, #iterators do
       local iterator = iterators[i]
+      local iterator_control
       iterator_control, result[i] = iterator(nil, control)
       if not iterator_control then
         return
@@ -263,3 +267,5 @@ function cartesian_product(...)
     end
   end, state, control
 end
+
+return _M

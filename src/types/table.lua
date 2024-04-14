@@ -1,7 +1,11 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/exceptions/schema_exception'
-require 'llx/src/exceptions/exception_group'
+local environment = require 'llx/src/environment'
+local ExceptionGroup = require 'llx/src/exceptions/exception_group' . ExceptionGroup
+local getmetafield = require 'llx/src/core' . getmetafield
+local SchemaMissingFieldException = require 'llx/src/exceptions/schema_exception' . SchemaMissingFieldException
+
+local _ENV, _M = environment.create_module_environment()
 
 Table = table
 
@@ -142,7 +146,7 @@ end
 function Table:ifind(value, init)
   for i=init or 1, #self do
     if self[i] == value then
-      return i, v
+      return i, value
     end
   end
 end
@@ -173,12 +177,11 @@ function Table:concat(sep, i, j)
 
     if type(value) == 'table' or type(value) == 'userdata' then
       local __tostring = getmetafield(value, '__tostring')
-
-      if __tostring then
-        value = __tostring(value)
-      else
+      if type(__tostring) ~= 'function' then
+        print('>', i, __tostring)
         error('Attempt to concatenate a table or userdata without a __tostring metamethod')
       end
+      value = __tostring(value)
     end
 
     result = result .. value
@@ -191,4 +194,6 @@ function Table:concat(sep, i, j)
   return result
 end
 
-return setmetatable(Table, metatable)
+setmetatable(Table, metatable)
+
+return _M

@@ -1,6 +1,10 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local Function = {}
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
+
+Function = {}
 
 Function.__name = 'function';
 
@@ -14,4 +18,6 @@ function metatable:__tostring()
   return 'Function'
 end
 
-return setmetatable(Function, metatable)
+setmetatable(Function, metatable)
+
+return _M

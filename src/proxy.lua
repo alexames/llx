@@ -1,4 +1,8 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
+
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
 
 --- Placeholder LDoc documentation
 -- Some description, can be over several lines.
@@ -52,8 +56,4 @@ function extract_proxy_value(proxy)
   return rawget(proxy, 1)
 end
 
-return {
-  Proxy=Proxy,
-  set_proxy_value=set_proxy_value,
-  extract_proxy_value=extract_proxy_value,
-}
+return _M

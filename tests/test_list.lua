@@ -1,5 +1,7 @@
 local unit = require 'unit'
-require 'llx/src/types/list'
+local llx = require 'llx'
+
+local List = llx.List
 
 test_class 'ListTest' {
   [test '__new'] = function()
@@ -113,6 +115,6 @@ test_class 'ListTest' {
   end,
 }
 
-if main_file() then
+if llx.main_file() then
   unit.run_unit_tests()
 end

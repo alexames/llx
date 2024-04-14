@@ -1,6 +1,10 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local Nil = {}
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
+
+Nil = {}
 
 Nil.__name = 'nil';
 
@@ -12,4 +16,6 @@ local metatable = {}
 
 function metatable:__tostring() return 'Nil' end;
 
-return setmetatable(Nil, metatable)
+setmetatable(Nil, metatable)
+
+return _M

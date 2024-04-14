@@ -1,7 +1,10 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/class'
-require 'llx/src/exceptions/exception'
+local class = require 'llx/src/class' . class
+local environment = require 'llx/src/environment'
+local Exception = require 'llx/src/exceptions/exception' . Exception
+
+local _ENV, _M = environment.create_module_environment()
 
 SchemaException = class 'SchemaException' : extends(Exception) {
   __init = function(self, path, failure_reason, level)
@@ -42,6 +45,8 @@ SchemaMissingFieldException =
         'missing required field %s', field_key)
     SchemaException.__init(self, path, failure_reason, (level or 1) + 1)
   end,
-  
+
   __tostring = SchemaException.__tostring, -- Fix this.
 }
+
+return _M

@@ -1,51 +1,19 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local matchers = require 'llx/src/types/matchers'
+return require 'llx/src/flatten_submodules' {
+  require 'llx/src/types/boolean',
+  require 'llx/src/types/float',
+  require 'llx/src/types/function',
+  require 'llx/src/types/integer',
+  require 'llx/src/types/nil',
+  require 'llx/src/types/number',
+  require 'llx/src/types/string',
+  require 'llx/src/types/table',
+  require 'llx/src/types/thread',
+  require 'llx/src/types/userdata',
 
-Boolean = require 'llx/src/types/boolean'
-Float = require 'llx/src/types/float'
-Function = require 'llx/src/types/function'
-Integer = require 'llx/src/types/integer'
-Nil = require 'llx/src/types/nil'
-Number = require 'llx/src/types/number'
-String = require 'llx/src/types/string'
-Table = require 'llx/src/types/table'
-Thread = require 'llx/src/types/thread'
-Userdata = require 'llx/src/types/userdata'
+  require 'llx/src/types/list',
+  require 'llx/src/types/set',
 
-List = require 'llx/src/types/list'
-Set = require 'llx/src/types/set'
-
-Any=matchers.Any
-Union=matchers.Union
-Optional=matchers.Optional
-Dict=matchers.Dict
-Tuple=matchers.Tuple
-
-return {
-  Any=matchers.Any,
-  Union=matchers.Union,
-  Optional=matchers.Optional,
-  Dict=matchers.Dict,
-  Tuple=matchers.Tuple,
-
-  Boolean=Boolean,
-  Float=Float,
-  Function=Function,
-  Integer=Integer,
-  Nil=Nil,
-  Number=Number,
-  String=String,
-  Table=Table,
-  Thread=Thread,
-  Userdata=Userdata,
-
-  ['boolean']=Boolean,
-  ['function']=Function,
-  ['nil']=Nil,
-  ['number']=Number,
-  ['string']=String,
-  ['table']=Table,
-  ['thread']=Thread,
-  ['userdata']=Userdata,
+  require 'llx/src/types/matchers'
 }

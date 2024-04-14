@@ -1,20 +1,25 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/getclass'
-require 'llx/src/exceptions/invalid_argument_exception'
+local class = require 'llx/src/class' . class
+local Decorator = require 'llx/src/decorator' . Decorator
+local environment = require 'llx/src/environment'
+local getclass = require 'llx/src/getclass'
+local InvalidArgumentException = require 'llx/src/exceptions' . InvalidArgumentException
+local isinstance = require 'llx/src/isinstance' . isinstance
+
+local _ENV, _M = environment.create_module_environment()
 
 local function check_argument(index, value, expected_type)
   if expected_type == nil then
     error(InvalidArgumentException(1, Table, getclass(value), 2))
-  else
-    local correct_type, exception = isinstance(value, expected_type)
-    if not correct_type then
-      if exception then
-        error(InvalidArgumentException(index, exception.what, 4))
-      else
-        error(InvalidArgumentTypeException(
-            index, expected_type, getclass(value), 4))
-      end
+  end
+  local correct_type, exception = isinstance(value, expected_type)
+  if not correct_type then
+    if exception then
+      error(InvalidArgumentException(index, exception.what, 4))
+    else
+      error(InvalidArgumentTypeException(
+          index, expected_type, getclass(value), 4))
     end
   end
 end
@@ -39,7 +44,7 @@ function check_arguments(expected_types)
       check_argument(index, value, expected_type)
     end
   until name == nil
-  return check_return
+  return check_returns
 end
 
-return check_arguments
+return _M

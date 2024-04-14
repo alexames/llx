@@ -1,26 +1,29 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/types'
+local environment = require 'llx/src/environment'
+local types = require 'llx/src/types'
+
+local _ENV, _M = environment.create_module_environment()
 
 function getclass(value)
   local type = type(value)
   if type == 'nil' then
-    return Nil
+    return types.Nil
   elseif type == 'boolean' then
-    return Boolean
+    return types.Boolean
   elseif type == 'number' then
-    return Number
+    return types.Number
   elseif type == 'string' then
-    return String
+    return types.String
   elseif type == 'table' then
-    return getmetatable(value) or Table
+    return getmetatable(value) or types.Table
   elseif type == 'function' then
-    return Function
+    return types.Function
   elseif type == 'thread' then
-    return Thread
+    return types.Thread
   elseif type == 'userdata' then
-    return getmetatable(value) or Userdata
+    return getmetatable(value) or types.Userdata
   end
 end
 
-return getclass
+return _M

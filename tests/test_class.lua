@@ -1,6 +1,7 @@
 local unit = require 'unit'
-require 'llx/src/class'
-require 'llx/src/proxy'
+local llx = require 'llx'
+local class = require 'llx/src/class' . class
+local Proxy, set_proxy_value = require 'llx/src/proxy' {'Proxy', 'set_proxy_value'}
 
 local decorator = require 'llx/src/decorator'
 local property = require 'llx/src/property'
@@ -504,6 +505,6 @@ test_class 'derived_class' {
 
 }
 
-if main_file() then
+if llx.main_file() then
   unit.run_unit_tests()
 end

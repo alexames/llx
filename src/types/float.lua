@@ -1,8 +1,11 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local Number = require 'llx/src/types/number'
+local environment = require 'llx/src/environment'
+local Number = require 'llx/src/types/number' . Number
 
-local Float = {}
+local _ENV, _M = environment.create_module_environment()
+
+Float = {}
 
 Float.__name = 'Float'
 
@@ -28,4 +31,6 @@ function metatable:__tostring()
   return 'Float'
 end
 
-return setmetatable(Float, metatable)
+setmetatable(Float, metatable)
+
+return _M

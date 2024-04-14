@@ -1,11 +1,14 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/class'
-require 'llx/src/core'
-require 'llx/src/isinstance'
-Number = require 'llx/src/types/number'
-Table = require 'llx/src/types/table'
-String = require 'llx/src/types/string'
+local class = require 'llx/src/class' . class
+local environment = require 'llx/src/environment'
+local is_callable = require 'llx/src/core' . is_callable
+local isinstance = require 'llx/src/isinstance' . isinstance
+local Number = require 'llx/src/types/number' . Number
+local String = require 'llx/src/types/string' . String
+local Table = require 'llx/src/types/table' . Table
+
+local _ENV, _M = environment.create_module_environment()
 
 List = class 'List' : extends(Table) {
   __new = function(iterable)
@@ -165,4 +168,4 @@ List = class 'List' : extends(Table) {
   end,
 }
 
-return List
+return _M

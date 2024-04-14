@@ -1,8 +1,11 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/class'
-require 'llx/src/types/list'
-require 'llx/src/types/table'
+local class = require 'llx/src/class' . class
+local environment = require 'llx/src/environment'
+local List = require 'llx/src/types/list' . List
+local Table = require 'llx/src/types/table' . Table
+
+local _ENV, _M = environment.create_module_environment()
 
 Set = class 'Set' {
   __init = function(self, values)
@@ -134,4 +137,4 @@ Set.__sub = Set.difference
 Set.__band = Set.intersection
 Set.__newindex = Set.set
 
-return Set
+return _M

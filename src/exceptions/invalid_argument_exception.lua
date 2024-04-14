@@ -1,7 +1,10 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/class'
-require 'llx/src/exceptions/exception'
+local class = require 'llx/src/class' . class
+local environment = require 'llx/src/environment'
+local Exception = require 'llx/src/exceptions/exception' . Exception
+
+local _ENV, _M = environment.create_module_environment()
 
 InvalidArgumentException =
     class 'InvalidArgumentException' : extends(Exception) {
@@ -25,3 +28,5 @@ InvalidArgumentTypeException =
 
   __tostring = InvalidArgumentException.__tostring, -- Fix this.
 }
+
+return _M

@@ -1,6 +1,10 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local String = string
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
+
+String = string
 
 local metatable = {}
 
@@ -109,4 +113,6 @@ function string_metatable:__call(state, control)
   if control <= #self then return control, self:sub(control, control) end
 end
 
-return setmetatable(String, metatable)
+setmetatable(String, metatable)
+
+return _M

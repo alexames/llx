@@ -1,4 +1,8 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
+
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
 
 local lua_exe = arg[-1]
 local TERMINAL_COLORS = lua_exe ~= 'lua'
@@ -20,7 +24,6 @@ bright_magenta = {fg=95, bg=105}
 bright_cyan    = {fg=96, bg=106}
 bright_white   = {fg=97, bg=107}
 
-
 function color(fg, bg)
   if not TERMINAL_COLORS then return '' end
   fg = fg and fg.fg
@@ -37,3 +40,5 @@ function reset()
   if not TERMINAL_COLORS then return '' end
   return '\27[0m'
 end
+
+return _M

@@ -1,6 +1,10 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local Thread = {}
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
+
+Thread = {}
 
 Thread.__name = 'Thread'
 
@@ -14,4 +18,6 @@ function metatable:__tostring()
   return 'Thread'
 end
 
-return setmetatable(Thread, metatable)
+setmetatable(Thread, metatable)
+
+return _M

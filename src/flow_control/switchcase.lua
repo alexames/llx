@@ -1,6 +1,6 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/types/table'
+local Table = require 'llx/src/types/table' . Table
 
 -- switch {
 --   value;

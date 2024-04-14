@@ -1,7 +1,7 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/core'
 local environment = require 'llx/src/environment'
+local getmetafield = require 'llx/src/core' . getmetafield
 
 local _ENV, _M = environment.create_module_environment()
 

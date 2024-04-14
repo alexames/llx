@@ -1,6 +1,9 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/core'
+local environment = require 'llx/src/environment'
+local getmetafield = require 'llx/src/core' . getmetafield
+
+local _ENV, _M = environment.create_module_environment()
 
 --- Placeholder LDoc documentation
 -- Some description, can be over several lines.
@@ -11,4 +14,4 @@ function tointeger(value)
   return __tointeger and __tointeger(value) or math.floor(value)
 end
 
-return tointeger
+return _M

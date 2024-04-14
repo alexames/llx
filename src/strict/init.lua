@@ -1,2 +1,5 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
-require 'strict/disallow_globals'
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
+
+return require 'llx/src/flatten_submodules'{
+  require 'llx/src/strict/disallow_globals',
+}

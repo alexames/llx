@@ -1,7 +1,10 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/class'
+local class = require 'llx/src/class' . class
+local environment = require 'llx/src/environment'
 local type_check_decorator = require 'llx/src/type_check_decorator'
+
+local _ENV, _M = environment.create_module_environment()
 
 --- Placeholder LDoc documentation
 -- Some description, can be over several lines.
@@ -21,7 +24,7 @@ method = class 'method' {
   end;
 }
 
-return method
+return _M
 
 -- TODO:
 -- Improve lists so they are intrinsically typed

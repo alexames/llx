@@ -1,8 +1,11 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/types/table'
-require 'llx/src/isinstance'
-require 'llx/src/flow_control/catch'
+local catch = require 'llx/src/flow_control/catch' . catch
+local environment = require 'llx/src/environment'
+local isinstance = require 'llx/src/isinstance' . isinstance
+local Table = require 'llx/src/types/table' . Table
+
+local _ENV, _M = environment.create_module_environment()
 
 function find_and_handle_exception(try_block, thrown_exception)
   local _, matching_entry =
@@ -33,4 +36,4 @@ function try(try_block)
   end
 end
 
-return 
+return _M

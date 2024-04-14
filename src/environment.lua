@@ -56,6 +56,26 @@
 --
 --------------------------------------------------------------------------------
 
+local module_metatable = {
+  __call = function(self, t)
+    local result = {}
+    for i, v in ipairs(t) do
+      local module_value = self[v]
+      assert(module_value)
+      result[i] = module_value
+    end
+    return table.unpack(result)
+  end,
+
+  __index = function(self, k)
+    local result = rawget(self, k)
+    if result == nil then
+      error(string.format("module does not contain field '%s'", k), 2)
+    end
+    return result
+  end,
+}
+
 --- Creates a new module environment.
 --
 -- This function creates a new Lua environment table along with a module table.
@@ -66,20 +86,14 @@
 -- @return environment The newly created environment table.
 -- @return module The module table.
 local function create_module_environment()
-  local module = setmetatable({}, {
-    __call = function(self, t)
-      local result = {}
-      for i, v in ipairs(t) do
-        local module_value = self[v]
-        assert(module_value)
-        result[i] = module_value
-      end
-      return table.unpack(result)
-    end
-  })
+  local module = setmetatable({}, module_metatable)
   local environment = setmetatable({}, {
     __index = function(self, k)
-      return rawget(module, k) or _ENV[k]
+      local result = rawget(module, k) or _ENV[k]
+      if result == nil then
+        error(string.format("module does not contain field '%s'", k), 2)
+      end
+      return result
     end,
     __newindex = function(self, k, v)
       module[k] = v
@@ -90,4 +104,5 @@ end
 
 return {
   create_module_environment=create_module_environment,
+  module_metatable=module_metatable,
 }

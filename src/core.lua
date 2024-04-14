@@ -1,4 +1,9 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
+
+local environment = require 'llx/src/environment'
+local isinstance = require 'llx/src/isinstance' . isinstance
+
+local _ENV, _M = environment.create_module_environment()
 
 function getmetafield(t, k)
   local metatable = debug.getmetatable(t)
@@ -105,17 +110,4 @@ function tovalue(s)
   return load('return '.. s)()
 end
 
-return {
-  getmetafield=getmetafield,
-  printf=printf,
-  script_path=script_path,
-  main_file=main_file,
-  metamethod_args=metamethod_args,
-  values=values,
-  ivalues=ivalues,
-  cmp=cmp,
-  lesser=lesser,
-  greater=greater,
-  noop=noop,
-  tovalue=tovalue,
-}
+return _M

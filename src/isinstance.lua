@@ -1,6 +1,8 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/core'
+local environment = require 'llx/src/environment'
+
+local _ENV, _M = environment.create_module_environment()
 
 --- Placeholder LDoc documentation
 -- Some description, can be over several lines.
@@ -14,4 +16,4 @@ function isinstance(value, type)
   return false
 end
 
-return isinstance
+return _M

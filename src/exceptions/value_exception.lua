@@ -1,7 +1,10 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/class'
-require 'llx/src/exceptions/exception'
+local class = require 'llx/src/class' . class
+local environment = require 'llx/src/environment'
+local Exception = require 'llx/src/exceptions/exception' . Exception
+
+local _ENV, _M = environment.create_module_environment()
 
 ValueException =
     class 'InvalidArgumentException' : extends(Exception) {
@@ -9,3 +12,5 @@ ValueException =
     Exception.__init(self, what, (level or 1) + 1)
   end,
 }
+
+return _M

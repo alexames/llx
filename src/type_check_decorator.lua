@@ -1,8 +1,11 @@
--- Copyright 2023 Alexander Ames <Alexander.Ames@gmail.com>
+-- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/class'
-require 'llx/src/exceptions'
-require 'llx/src/getclass'
+local class = require 'llx/src/class' . class
+local environment = require 'llx/src/environment'
+local getclass = require 'llx/src/getclass' . getclass
+local InvalidArgumentException = require 'llx/src/exceptions' . InvalidArgumentException
+
+local _ENV, _M = environment.create_module_environment()
 
 local function check_types(location, expected_types, argument_list)
   for index, expected_type in ipairs(expected_types or {}) do
@@ -18,7 +21,7 @@ end
 -- Some description, can be over several lines.
 -- @param p A parameter
 -- @return A value
-local function type_check_decorator(underlying_function, expected_types)
+function type_check_decorator(underlying_function, expected_types)
   if not expected_types then
     return underlying_function
   end
@@ -35,4 +38,4 @@ local function type_check_decorator(underlying_function, expected_types)
   return type_checker(underlying_function)
 end
 
-return type_check_decorator
+return _M
