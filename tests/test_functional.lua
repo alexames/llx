@@ -1,11 +1,11 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-require 'llx/src/core'
-require 'llx/src/debug/trace'
-require 'llx/src/operators'
-require 'llx/src/types/list'
-require 'llx/src/types/table'
-require 'llx/src/types/string'
+require 'llx/core'
+require 'llx/debug/trace'
+require 'llx/operators'
+require 'llx/types/list'
+require 'llx/types/table'
+require 'llx/types/string'
 
 test_class 'RangeTest' {
   [test ''] = function()

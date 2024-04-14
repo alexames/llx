@@ -1,6 +1,6 @@
 local class = require 'llx' . class
-local Tuple = require 'llx/src/tuple' . Tuple
-local hash = require 'llx/src/hash'
+local Tuple = require 'llx/tuple' . Tuple
+local hash = require 'llx/hash'
 
 RegisteredFunction = class 'RegisteredFunction' {
   __init = function(self, name, fn)
