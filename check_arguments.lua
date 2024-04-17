@@ -6,6 +6,7 @@ local environment = require 'llx/environment'
 local exceptions = require 'llx/exceptions'
 local getclass_module = require 'llx/getclass'
 local isinstance_module = require 'llx/isinstance'
+local table_module = require 'llx/types/Table'
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -13,13 +14,20 @@ local class = class_module.class
 local Decorator = decorator.Decorator
 local getclass = getclass_module.getclass
 local InvalidArgumentException = exceptions.InvalidArgumentException
+local InvalidArgumentTypeException = exceptions.InvalidArgumentTypeException
 local isinstance = isinstance_module.isinstance
+local Table = table_module.Table
 
 local function check_argument(index, value, expected_type)
   if expected_type == nil then
     error(InvalidArgumentException(1, Table, getclass(value), 2))
   end
-  local correct_type, exception = isinstance(value, expected_type)
+  local correct_type, exception
+  if type(expected_type) == 'string' then
+    correct_type = getclass(value).__name == expected_type
+  else
+    correct_type, exception = isinstance(value, expected_type)
+  end
   if not correct_type then
     if exception then
       error(InvalidArgumentException(index, exception.what, 4))
@@ -30,14 +38,12 @@ local function check_argument(index, value, expected_type)
   end
 end
 
-function check_returns(expected_types)
-  return function(...)
-    local return_values = {...}
-    for i=1, #expected_types do
-      check_argument(i, return_values[i], expected_types[i])
-    end
-    return ...
+function check_returns(expected_types, ...)
+  local return_values = {...}
+  for i=1, #expected_types do
+    check_argument(i, return_values[i], expected_types[i])
   end
+  return ...
 end
 
 function check_arguments(expected_types)
