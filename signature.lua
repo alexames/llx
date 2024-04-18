@@ -12,18 +12,26 @@ local check_returns = check_arguments_module.check_returns
 local class = class_module.class
 local Decorator = decorator.Decorator
 
+local Function = class 'Function' {
+  __new = function(args)
+    return args
+  end,
+
+  __call = function(self, ...)
+    check_returns(self.params, ...)
+    return check_returns(self.returns, self.func(...))
+  end,
+}
+
 Signature = class 'Signature' : extends(Decorator) {
   __new = function(args)
     return args
   end,
 
   decorate = function(self, t, k, v)
-    local params = self.params
-    local returns = self.returns
-    return t, k, function(self, ...)
-      check_returns(params, self, ...)
-      return check_returns(returns, v(self, ...))
-    end
+    return t, k, Function{params=self.params,
+                          returns=self.returns,
+                          func=v}
   end,
 }
 
@@ -34,7 +42,7 @@ local Integer = types.Integer
 local Self = types.Any
 
 local TestClass = class 'TestClass' {
-  ['testfunc' 
+  ['testfunc'
   | Signature{params={'TestClass', Integer, Integer, Integer},
               returns={Integer}}] =
   function(self, a, b, c)
@@ -46,5 +54,9 @@ local TestClass = class 'TestClass' {
 tc = TestClass()
 
 print(tc:testfunc(1, 2, 3))
+
+print(tc.testfunc.params)
+print(tc.testfunc.returns)
+print(tc.testfunc.func)
 
 return _M
