@@ -22,13 +22,13 @@ local function check_argument(index, value, expected_type)
   if expected_type == nil then
     error(InvalidArgumentException(1, Table, getclass(value), 2))
   end
-  local correct_type, exception
+  local is_correct_type, exception
   if type(expected_type) == 'string' then
-    correct_type = getclass(value).__name == expected_type
+    is_correct_type = getclass(value).__name == expected_type
   else
-    correct_type, exception = isinstance(value, expected_type)
+    is_correct_type, exception = isinstance(value, expected_type)
   end
-  if not correct_type then
+  if not is_correct_type then
     if exception then
       error(InvalidArgumentException(index, exception.what, 4))
     else
@@ -38,12 +38,10 @@ local function check_argument(index, value, expected_type)
   end
 end
 
-function check_returns(expected_types, ...)
-  local return_values = {...}
+function check_returns(expected_types, return_values)
   for i=1, #expected_types do
     check_argument(i, return_values[i], expected_types[i])
   end
-  return ...
 end
 
 function check_arguments(expected_types)
@@ -56,7 +54,6 @@ function check_arguments(expected_types)
       check_argument(index, value, expected_type)
     end
   until name == nil
-  return check_returns
 end
 
 return _M

@@ -178,7 +178,6 @@ function Table:concat(sep, i, j)
     if type(value) == 'table' or type(value) == 'userdata' then
       local __tostring = getmetafield(value, '__tostring')
       if type(__tostring) ~= 'function' then
-        print('>', i, __tostring)
         error('Attempt to concatenate a table or userdata without a __tostring metamethod')
       end
       value = __tostring(value)

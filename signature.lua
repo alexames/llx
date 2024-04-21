@@ -18,9 +18,30 @@ local Function = class 'Function' {
   end,
 
   __call = function(self, ...)
-    check_returns(self.params, ...)
-    return check_returns(self.returns, self.func(...))
+    self:check_preconditions({...})
+    local results = {self.func(...)}
+    self:check_postconditions(results)
+    return table.unpack(results)
   end,
+
+  check_preconditions = function(self, arguments)
+    check_returns(self.params, arguments)
+  end,
+
+  check_postconditions = function(self, results)
+    check_returns(self.returns, results)
+  end,
+
+  __tostring = function(self)
+    print('test')
+    local function_format_str = [=[Function{
+  params={%s},
+  returns={%s},
+  func=function(...) --[[ ... ]] end,
+}]=]
+    return function_format_str:format(
+      table.concat(self.params, ', '), table.concat(self.returns, ', '))
+  end
 }
 
 Signature = class 'Signature' : extends(Decorator) {
@@ -57,6 +78,5 @@ print(tc:testfunc(1, 2, 3))
 
 print(tc.testfunc.params)
 print(tc.testfunc.returns)
-print(tc.testfunc.func)
-
+print(tc.testfunc)
 return _M
