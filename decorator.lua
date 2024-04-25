@@ -11,7 +11,7 @@
 -- like so:
 --
 --     Fibonacci = class 'Fibonacci' {
---       ['fib' | Cache()] = function(self, i)
+--       ['fib' | cache] = function(self, i)
 --         if i <= 1 then
 --           return i
 --         else

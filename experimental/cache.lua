@@ -8,25 +8,15 @@ local Tuple = require 'llx/tuple'. Tuple
 
 local _ENV, _M = environment.create_module_environment()
 
-cache = class 'cache' : extends(Decorator) {
-  __init = function(self, params)
-    self.include_self = params and params.include_self
-  end,
-
+local Cache = class 'Cache' : extends(Decorator) {
   decorate = function(self, class_table, name, underlying_function)
     local cache = HashTable{}
-    local include_self = self.include_self
-    local function wrapped_function(self, ...)
-      local key
-      if include_self then
-        key = Tuple{self, ...}
-      else
-        key = Tuple{...}
-      end
+    local function wrapped_function(...)
+      local key = Tuple{...}
       local result = cache[key]
       if result == nil then
         result = {
-          value = underlying_function(self, ...),
+          value = underlying_function(...),
         }
         cache[key] = result
       end
@@ -35,5 +25,7 @@ cache = class 'cache' : extends(Decorator) {
     return class_table, name, wrapped_function
   end,
 }
+
+cache = Cache()
 
 return _M
