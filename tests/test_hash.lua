@@ -7,11 +7,13 @@ local hash = require 'llx/hash'
 local Decorator = require 'llx/decorator' . Decorator
 local isinstance_module = require 'llx/isinstance'
 local getclass_module = require 'llx/getclass'
+local cache_module = require 'llx/experimental/cache'
 
 local _ENV, _M = environment.create_module_environment()
 
 local isinstance = isinstance_module.isinstance
 local getclass = getclass_module.getclass
+local cache = cache_module.cache
 
 RegisteredFunction = class 'RegisteredFunction' {
   __init = function(self, name, fn)
@@ -54,7 +56,6 @@ TracedValue = class 'TracedValue' {
 
   __tostring = function(self)
     return tostring(self.value)
-    -- return string.format('%s: from %s, %s', self.value, self.source, self.index)
   end,
 
   __repr = function(self)
@@ -63,37 +64,48 @@ TracedValue = class 'TracedValue' {
 }
 
 TracedFunctionInvocation = class 'TracedFunctionInvocation' {
-  __init = function(self, fn, arguments)
+  __init = function(self, fn, arguments, invocation_id)
     self.fn = fn
     self.arguments = arguments
+    self.invocation_id = invocation_id
     self.results = nil
   end,
 
   __tostring = function(self)
-    local result = 'TracedFunctionInvocation(' .. tostring(self.fn)
-    if #self.arguments > 0 then
-      result = result  .. ',' .. table.concat(self.arguments, ',')
-    end
-    return result .. ')'
+    return string.format(
+      'TracedFunctionInvocation(%s(%s), %s)', self.fn, 
+      table.concat(self.arguments, ','), self.invocation_id)
   end,
 }
+
+TracedValuePack = class 'TracedValuePack' {
+  __init = function(self, args)
+    local raw_arguments = {}
+    local traced_arguments = {}
+    for i, v in ipairs(args) do
+      if isinstance(v, TracedValue) then
+        raw_arguments[i] = v.value
+        traced_arguments[i] = v
+      else
+        raw_arguments[i] = v
+        traced_arguments[i] = TracedValue(v)
+      end
+    end
+    self.raw_arguments = Tuple(raw_arguments)
+    self.traced_arguments = traced_arguments
+  end,
+
+  __index = function(self, k)
+    return self.traced_arguments[k] or TracedValuePack.__defaultindex(self, k)
+  end,
+}
+
+local invocation_id = 1
 
 Tracer = class 'Tracer' : extends(Decorator) {
   class_registries = {},
 
   _process_arguments = function(args)
-      local raw_arguments = {}
-      local traced_arguments = {}
-      for i, v in ipairs(args) do
-        if isinstance(v, TracedValue) then
-          raw_arguments[i] = v.value
-          traced_arguments[i] = v
-        else
-          raw_arguments[i] = v
-          traced_arguments[i] = TracedValue(v)
-        end
-      end
-      return raw_arguments, traced_arguments
   end,
 
   _getfunctionregistry = function(class_table)
@@ -106,20 +118,23 @@ Tracer = class 'Tracer' : extends(Decorator) {
   end,
 
   decorate = function(self, class_table, name, value)
+    -- Assume functions are pure, cache results.
+    class_table, name, value = cache:decorate(class_table, name, value)
     -- Register the function in the registry.
     local registry = Tracer._getfunctionregistry(class_table)
     registry[name] = value
     local registered_function = registry[name]
     -- Trace the values and results.
     local function wrapped_function(...)
-      local raw_arguments, traced_arguments = Tracer._process_arguments({...})
-      local traced_function = TracedFunctionInvocation(registered_function, traced_arguments)
-      local raw_results = {registered_function(table.unpack(raw_arguments))}
+      local argument_pack = TracedValuePack{...}
+      local traced_function = TracedFunctionInvocation(registered_function, argument_pack.traced_arguments, invocation_id)
+      invocation_id = invocation_id + 1
+      local raw_results = {registered_function(table.unpack(argument_pack.raw_arguments))}
       local traced_results = {}
       for i, raw_result in ipairs(raw_results) do
         traced_results[i] = TracedValue(raw_result, traced_function, i)
       end
-      return traced_results
+      return TracedValuePack(traced_results)
     end
     return class_table, name, wrapped_function
   end,
@@ -146,10 +161,10 @@ TestClass = class 'TestClass' {
 local start = TestClass.square(2)
 local finish = TestClass.square(4)
 local results = TestClass.alphabet(start[1], finish[1])
+
 print(results[1].value)
 print(results[1].source)
 print(results[1].source.arguments[1].source)
-for k, v in pairs(results[1].source.arguments) do print(k, v) end
 
 
 
