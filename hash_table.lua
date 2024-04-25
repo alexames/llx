@@ -29,7 +29,7 @@ HashTable = class 'HashTable' {
   __index = function(self, k)
     local hashed_key = hash.hash(k)
     local entry = rawget(self, hashed_key)
-    return entry and entry.value or HashTable.__defaultindex(k, v)
+    return entry and entry.value or HashTable.__defaultindex(self, k)
   end,
 
   __pairs = function(self)
