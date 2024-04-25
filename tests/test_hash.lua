@@ -1,19 +1,20 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local class = require 'llx' . class
-local environment = require 'llx/environment'
-local Tuple = require 'llx/tuple' . Tuple
-local hash = require 'llx/hash'
-local Decorator = require 'llx/decorator' . Decorator
-local isinstance_module = require 'llx/isinstance'
-local getclass_module = require 'llx/getclass'
 local cache_module = require 'llx/experimental/cache'
+local class = require 'llx' . class
+local Decorator = require 'llx/decorator' . Decorator
+local environment = require 'llx/environment'
+local getclass_module = require 'llx/getclass'
+local hash = require 'llx/hash'
+local isinstance_module = require 'llx/isinstance'
+local List = require 'llx/types/list' . List
+local Tuple = require 'llx/tuple' . Tuple
 
 local _ENV, _M = environment.create_module_environment()
 
-local isinstance = isinstance_module.isinstance
-local getclass = getclass_module.getclass
 local cache = cache_module.cache
+local getclass = getclass_module.getclass
+local isinstance = isinstance_module.isinstance
 
 RegisteredFunction = class 'RegisteredFunction' {
   __init = function(self, name, fn)
@@ -47,6 +48,29 @@ FunctionRegistry = class 'FunctionRegistry' {
   end,
 }
 
+invocationGraphEdge = class 'invocationGraphEdge' {
+  __init = function(self, source_node, source_slot, destination_node, destination_slot, expected_type)
+    self.source_node = source_node
+    self.source_slot = source_slot
+    self.destination_node = destination_node
+    self.destination_slot = destination_slot
+    self.expected_type = expected_type
+  end,
+}
+
+invocationGraphNode = class 'invocationGraphNode' {
+  __init = function(self, func)
+    self.func = func
+  end,
+}
+
+invocationGraph = class 'invocationGraph' {
+  __init = function(self)
+    self.nodes = List{}
+    self.edges = List{}
+  end,
+}
+
 TracedValue = class 'TracedValue' {
   __init = function(self, value, source, index)
     self.value = value
@@ -60,6 +84,13 @@ TracedValue = class 'TracedValue' {
 
   __repr = function(self)
     return tostring(self.value)
+  end,
+
+  generate_invocation_graph = function(self)
+    local graph = invocationGraph()
+    -- graph.nodes
+
+    return graph
   end,
 }
 
@@ -162,12 +193,12 @@ local start = TestClass.square(2)
 local finish = TestClass.square(4)
 local results = TestClass.alphabet(start[1], finish[1])
 
+print(results)
 print(results[1].value)
 print(results[1].source)
 print(results[1].source.arguments[1].source)
 
-
-
+results[1]:generate_invocation_graph()
 
 -- ResultantValue = class 'ResultantValue' {
 --   __init = function(self, function_call, result)
