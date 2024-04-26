@@ -17,18 +17,18 @@ local getclass = getclass_module.getclass
 local isinstance = isinstance_module.isinstance
 
 RegisteredFunction = class 'RegisteredFunction' {
-  __init = function(self, name, fn)
+  __init = function(self, name, func)
     self.name = name
-    self._fn = fn
+    self._func = func
   end,
 
   __call = function(self, ...)
-    return self._fn(...)
+    return self._func(...)
   end,
 
   __hash = function(self, result)
     result = hash.hash_value(result, self.name)
-    result = hash.hash_value(result, tostring(self._fn))
+    result = hash.hash_value(result, tostring(self._func))
     return result
   end,
 
@@ -48,7 +48,7 @@ FunctionRegistry = class 'FunctionRegistry' {
   end,
 }
 
-invocationGraphEdge = class 'invocationGraphEdge' {
+InvocationGraphEdge = class 'InvocationGraphEdge' {
   __init = function(self, source_node, source_slot, destination_node, destination_slot, expected_type)
     self.source_node = source_node
     self.source_slot = source_slot
@@ -56,25 +56,40 @@ invocationGraphEdge = class 'invocationGraphEdge' {
     self.destination_slot = destination_slot
     self.expected_type = expected_type
   end,
-}
 
-invocationGraphNode = class 'invocationGraphNode' {
-  __init = function(self, func)
-    self.func = func
+  __tostring = function(self)
+    return string.format('InvocationGraphEdge(%s, %s, %s, %s)',
+      self.source_node, self.source_slot, self.destination_node, 
+      self.destination_slot)
   end,
 }
 
-invocationGraph = class 'invocationGraph' {
-  __init = function(self)
-    self.nodes = List{}
-    self.edges = List{}
+InvocationGraphNode = class 'InvocationGraphNode' {
+  __init = function(self, func)
+    self.func = func
+  end,
+
+  __tostring = function(self)
+    return string.format('InvocationGraphNode(%s)', self.func)
+  end,
+}
+
+InvocationGraph = class 'InvocationGraph' {
+  __init = function(self, args)
+    self.nodes = args and args.nodes or List{}
+    self.edges = args and args.edges or List{}
+  end,
+
+  __tostring = function(self)
+    return string.format(
+      'InvocationGraph{nodes=%s,edges=%s}', self.nodes, self.edges)
   end,
 }
 
 TracedValue = class 'TracedValue' {
   __init = function(self, value, source, index)
     self.value = value
-    self.source = source or '<given>'
+    self.source = source
     self.index = index
   end,
 
@@ -87,16 +102,41 @@ TracedValue = class 'TracedValue' {
   end,
 
   generate_invocation_graph = function(self)
-    local graph = invocationGraph()
-    -- graph.nodes
+    local graph = InvocationGraph()
 
+    local invocations = {}
+    local function collet_invocations(traced_value)
+      local invocation = traced_value.source
+      if invocations[invocation.invocation_id] then
+        return
+      end
+      invocations[invocation.invocation_id] = invocation
+      for i, argument in ipairs(invocation.arguments) do
+        collet_invocations(argument)
+      end
+    end
+    collet_invocations(self)
+    local node_index_map = {}
+    for k, invocation in pairs(invocations) do
+      graph.nodes:insert(InvocationGraphNode(invocation.func))
+      node_index_map[invocation] = #graph.nodes
+    end
+    for k, invocation in pairs(invocations) do
+      for i, argument in ipairs(invocation.arguments) do
+        local src_node = node_index_map[argument.source]
+        local src_slot = argument.index
+        local dst_node = node_index_map[invocation]
+        local dst_slot = i
+        graph.edges:insert(InvocationGraphEdge(src_node, src_slot, dst_node, dst_slot))
+      end
+    end
     return graph
   end,
 }
 
 TracedFunctionInvocation = class 'TracedFunctionInvocation' {
-  __init = function(self, fn, arguments, invocation_id)
-    self.fn = fn
+  __init = function(self, func, arguments, invocation_id)
+    self.func = func
     self.arguments = arguments
     self.invocation_id = invocation_id
     self.results = nil
@@ -104,10 +144,20 @@ TracedFunctionInvocation = class 'TracedFunctionInvocation' {
 
   __tostring = function(self)
     return string.format(
-      'TracedFunctionInvocation(%s(%s), %s)', self.fn, 
+      'TracedFunctionInvocation(%s(%s), %s)', self.func, 
       table.concat(self.arguments, ','), self.invocation_id)
   end,
 }
+
+local invocation_id = 1
+local function get_invocation_id()
+  local result = invocation_id
+  invocation_id = invocation_id + 1
+  return result
+end
+
+local given = TracedFunctionInvocation('_GIVEN', {}, get_invocation_id())
+local given_index = 1
 
 TracedValuePack = class 'TracedValuePack' {
   __init = function(self, args)
@@ -119,7 +169,8 @@ TracedValuePack = class 'TracedValuePack' {
         traced_arguments[i] = v
       else
         raw_arguments[i] = v
-        traced_arguments[i] = TracedValue(v)
+        traced_arguments[i] = TracedValue(v, given, given_index)
+        given_index = given_index + 1
       end
     end
     self.raw_arguments = Tuple(raw_arguments)
@@ -130,8 +181,6 @@ TracedValuePack = class 'TracedValuePack' {
     return self.traced_arguments[k] or TracedValuePack.__defaultindex(self, k)
   end,
 }
-
-local invocation_id = 1
 
 Tracer = class 'Tracer' : extends(Decorator) {
   class_registries = {},
@@ -158,14 +207,13 @@ Tracer = class 'Tracer' : extends(Decorator) {
     -- Trace the values and results.
     local function wrapped_function(...)
       local argument_pack = TracedValuePack{...}
-      local traced_function = TracedFunctionInvocation(registered_function, argument_pack.traced_arguments, invocation_id)
-      invocation_id = invocation_id + 1
+      local traced_function = TracedFunctionInvocation(registered_function, argument_pack.traced_arguments, get_invocation_id())
       local raw_results = {registered_function(table.unpack(argument_pack.raw_arguments))}
       local traced_results = {}
       for i, raw_result in ipairs(raw_results) do
         traced_results[i] = TracedValue(raw_result, traced_function, i)
       end
-      return TracedValuePack(traced_results)
+      return table.unpack(traced_results)
     end
     return class_table, name, wrapped_function
   end,
@@ -191,40 +239,11 @@ TestClass = class 'TestClass' {
 
 local start = TestClass.square(2)
 local finish = TestClass.square(4)
-local results = TestClass.alphabet(start[1], finish[1])
+local result = TestClass.alphabet(start, finish)
 
-print(results)
-print(results[1].value)
-print(results[1].source)
-print(results[1].source.arguments[1].source)
+print(result)
+print(result.value)
+print(result.source)
+print(result.source.arguments[1].source)
 
-results[1]:generate_invocation_graph()
-
--- ResultantValue = class 'ResultantValue' {
---   __init = function(self, function_call, result)
---   end,
--- }
-
-
-
--- function traced_call(registered_function, ...)
---   local result = ResultantValue(registered_function, )
---   registered_function
-
--- end
-
--- local result = traced_call(registry.alphabetkkkkkkkkkkkkk)
-
--- registry = FunctionRegistry('registry')
-
--- registry.print = print
--- registry.add = function(a, b) return a + b end
-
--- print(registry.print)
-
--- fc = FunctionCall(registry.add, 1, 2)
-
--- print(fc)
--- print(fc())
-
--- registry.print('this is a test')
+print(result:generate_invocation_graph())
