@@ -13,7 +13,7 @@ local function table_is_list(t)
   return count == #t
 end
 
-local function dump_value(t, visited)
+function dump_value(t, visited)
   local result = ""
   visited = visited or {}
   if type(t) == 'table' then
