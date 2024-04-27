@@ -1,6 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local cache_module = require 'llx/experimental/cache'
+local cache_module = require 'llx/cache'
 local class_module = require 'llx/class'
 local decorator = require 'llx/decorator'
 local environment = require 'llx/environment'
