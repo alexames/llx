@@ -10,6 +10,8 @@ local isinstance_module = require 'llx/isinstance'
 local list = require 'llx/types/list'
 local tuple = require 'llx/tuple'
 
+local dump_value = require 'llx/debug/dump_value' . dump_value
+
 local _ENV, _M = environment.create_module_environment()
 
 local cache = cache_module.cache
@@ -71,6 +73,7 @@ InvocationGraphEdge = class 'InvocationGraphEdge' {
 InvocationGraphNode = class 'InvocationGraphNode' {
   __init = function(self, func)
     self.func = func
+    self.argument_edges = {}
   end,
 
   __tostring = function(self)
@@ -87,6 +90,30 @@ InvocationGraph = class 'InvocationGraph' {
   __tostring = function(self)
     return string.format(
       'InvocationGraph{nodes=%s,edges=%s}', self.nodes, self.edges)
+  end,
+
+  __call = function(self, args)
+    local function eval_node(results, nodes, index)
+      local arguments = {}
+      local node = nodes[index]
+      for i, inputs in ipairs(node.argument_edges) do
+        local src_node = inputs.src_node
+        local src_slot = inputs.src_slot
+        local node_results = results[src_node]
+        if node_results == nil then
+          node_results = eval_node(results, nodes, src_node)
+          results[src_node] = node_results
+        end
+        arguments[i] = node_results[src_slot]
+      end
+      return {node.func(table.unpack(arguments))}
+    end
+
+    local results = {} 
+    for i, node in ipairs(self.nodes) do
+      results[i] = results[i] or eval_node(results, self.nodes, i)
+    end
+    return results
   end,
 }
 
@@ -127,11 +154,14 @@ TracedValue = class 'TracedValue' {
     end
     for k, invocation in pairs(invocations) do
       for i, argument in ipairs(invocation.arguments) do
+        local target_node_index = node_index_map[invocation]
+        local target_node = graph.nodes[target_node_index]
         local src_node = node_index_map[argument.source]
         local src_slot = argument.index
-        local dst_node = node_index_map[invocation]
+        local dst_node = target_node_index
         local dst_slot = i
         graph.edges:insert(InvocationGraphEdge(src_node, src_slot, dst_node, dst_slot))
+        target_node.argument_edges[i] = {src_node=src_node, src_slot=src_slot}
       end
     end
     return graph
@@ -160,11 +190,23 @@ local function get_invocation_id()
   return result
 end
 
-local given = TracedFunctionInvocation('_GIVEN', {}, get_invocation_id())
-local given_index = 1
+local parameters = TracedFunctionInvocation('Parameters', {}, get_invocation_id())
+local parameters_index = 1
+
+function TracedParameter(value)
+  local traced_value = TracedValue(value, parameters, parameters_index)
+  parameters_index = parameters_index + 1
+  return traced_value
+end
 
 TracedValuePack = class 'TracedValuePack' {
   __init = function(self, args)
+    local constants_values = {}
+    local function constants_fn() return table.unpack(constants_values) end
+    local constants = TracedFunctionInvocation(constants_fn, {}, get_invocation_id())
+    local constants_index = 1
+
+
     local raw_arguments = {}
     local traced_arguments = {}
     for i, v in ipairs(args) do
@@ -173,8 +215,9 @@ TracedValuePack = class 'TracedValuePack' {
         traced_arguments[i] = v
       else
         raw_arguments[i] = v
-        traced_arguments[i] = TracedValue(v, given, given_index)
-        given_index = given_index + 1
+        traced_arguments[i] = TracedValue(v, constants, constants_index)
+        constants_values[constants_index] = v
+        constants_index = constants_index + 1
       end
     end
     self.raw_arguments = Tuple(raw_arguments)
@@ -210,8 +253,11 @@ Tracer = class 'Tracer' : extends(Decorator) {
     -- Trace the values and results.
     local function wrapped_function(...)
       local argument_pack = TracedValuePack{...}
-      local traced_function = TracedFunctionInvocation(registered_function, argument_pack.traced_arguments, get_invocation_id())
-      local raw_results = {registered_function(table.unpack(argument_pack.raw_arguments))}
+      local traced_function = TracedFunctionInvocation(
+        registered_function, argument_pack.traced_arguments,
+        get_invocation_id())
+      local raw_results = 
+        {registered_function(table.unpack(argument_pack.raw_arguments))}
       local traced_results = {}
       for i, raw_result in ipairs(raw_results) do
         traced_results[i] = TracedValue(raw_result, traced_function, i)
