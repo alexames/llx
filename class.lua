@@ -394,6 +394,8 @@ local function create_internal_class_table(name)
     __defaultindex = __index;
 
     __isinstance = __isinstance;
+
+    __is_llx_class = true;
   }
 
   return class_table
