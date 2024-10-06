@@ -1,16 +1,16 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local cache_module = require 'llx/cache'
-local class_module = require 'llx/class'
-local decorator = require 'llx/decorator'
-local environment = require 'llx/environment'
-local getclass_module = require 'llx/getclass'
-local hash = require 'llx/hash'
-local isinstance_module = require 'llx/isinstance'
-local list = require 'llx/types/list'
-local tuple = require 'llx/tuple'
+local cache_module = require 'llx.cache'
+local class_module = require 'llx.class'
+local decorator = require 'llx.decorator'
+local environment = require 'llx.environment'
+local getclass_module = require 'llx.getclass'
+local hash = require 'llx.hash'
+local isinstance_module = require 'llx.isinstance'
+local list = require 'llx.types.list'
+local tuple = require 'llx.tuple'
 
-local dump_value = require 'llx/debug/dump_value' . dump_value
+local dump_value = require 'llx.debug.dump_value' . dump_value
 
 local _ENV, _M = environment.create_module_environment()
 

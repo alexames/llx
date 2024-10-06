@@ -1,8 +1,8 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local class_module = require 'llx/class'
-local environment = require 'llx/environment'
-local type_check_decorator = require 'llx/type_check_decorator'
+local class_module = require 'llx.class'
+local environment = require 'llx.environment'
+local type_check_decorator = require 'llx.type_check_decorator'
 
 local _ENV, _M = environment.create_module_environment()
 

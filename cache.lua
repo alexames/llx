@@ -1,10 +1,10 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local class = require 'llx/class' . class
-local Decorator = require 'llx/decorator' . Decorator
-local environment = require 'llx/environment'
-local HashTable = require 'llx/hash_table' . HashTable
-local Tuple = require 'llx/tuple'. Tuple
+local class = require 'llx.class' . class
+local Decorator = require 'llx.decorator' . Decorator
+local environment = require 'llx.environment'
+local HashTable = require 'llx.hash_table' . HashTable
+local Tuple = require 'llx.tuple'. Tuple
 
 local _ENV, _M = environment.create_module_environment()
 

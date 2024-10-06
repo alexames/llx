@@ -1,11 +1,11 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local core = require 'llx/core'
-local environment = require 'llx/environment'
-local list = require 'llx/types/list'
-local operators = require 'llx/operators'
-local string_module = require 'llx/types/string'
-local table_module = require 'llx/types/table'
+local core = require 'llx.core'
+local environment = require 'llx.environment'
+local list = require 'llx.types.list'
+local operators = require 'llx.operators'
+local string_module = require 'llx.types.string'
+local table_module = require 'llx.types.table'
 
 local _ENV, _M = environment.create_module_environment()
 

@@ -1,9 +1,9 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local environment = require 'llx/environment'
-local ExceptionGroup = require 'llx/exceptions/exception_group' . ExceptionGroup
-local getmetafield = require 'llx/core' . getmetafield
-local SchemaMissingFieldException = require 'llx/exceptions/schema_exception' . SchemaMissingFieldException
+local environment = require 'llx.environment'
+local ExceptionGroup = require 'llx.exceptions.exception_group' . ExceptionGroup
+local getmetafield = require 'llx.core' . getmetafield
+local SchemaMissingFieldException = require 'llx.exceptions.schema_exception' . SchemaMissingFieldException
 
 local _ENV, _M = environment.create_module_environment()
 

@@ -1,8 +1,8 @@
 
-local class_module  = require 'llx/class'
-local environment = require 'llx/environment'
-local exceptions = require 'llx/exceptions'
-local hash = require 'llx/hash'
+local class_module  = require 'llx.class'
+local environment = require 'llx.environment'
+local exceptions = require 'llx.exceptions'
+local hash = require 'llx.hash'
 
 local _ENV, _M = environment.create_module_environment()
 

@@ -1,10 +1,10 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local environment = require 'llx/environment'
-local exceptions = require 'llx/exceptions'
-local getclass_module = require 'llx/getclass'
-local isinstance_module = require 'llx/isinstance'
-local list = require 'llx/types/list'
+local environment = require 'llx.environment'
+local exceptions = require 'llx.exceptions'
+local getclass_module = require 'llx.getclass'
+local isinstance_module = require 'llx.isinstance'
+local list = require 'llx.types.list'
 
 local _ENV, _M = environment.create_module_environment()
 

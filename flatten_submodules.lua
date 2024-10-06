@@ -1,6 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local environment = require 'llx/environment'
+local environment = require 'llx.environment'
 
 local function copy_into(target_module, k, v)
   assert(target_module[k] == nil,

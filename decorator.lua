@@ -24,8 +24,8 @@
 -- the or operator again for each decorator. Classes have special handling for
 -- decorators, and will apply them in the order they appear
 
-local class  = require 'llx/class' . class
-local environment = require 'llx/environment'
+local class  = require 'llx.class' . class
+local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
 

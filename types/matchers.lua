@@ -1,18 +1,18 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local environment = require 'llx/environment'
+local environment = require 'llx.environment'
 
 -- TODO: I believe these can be removed.
-local Boolean = require 'llx/types/boolean' . Boolean
-local Function = require 'llx/types/function' . Function
-local Integer = require 'llx/types/integer' . Integer
-local Nil = require 'llx/types/nil' . Nil
-local Number = require 'llx/types/number' . Number
-local String = require 'llx/types/string' . String
-local Table = require 'llx/types/table' . Table
-local Thread = require 'llx/types/thread' . Thread
-local Userdata = require 'llx/types/userdata' . Userdata
-local isinstance = require 'llx/isinstance' . isinstance
+local Boolean = require 'llx.types.boolean' . Boolean
+local Function = require 'llx.types.function' . Function
+local Integer = require 'llx.types.integer' . Integer
+local Nil = require 'llx.types.nil' . Nil
+local Number = require 'llx.types.number' . Number
+local String = require 'llx.types.string' . String
+local Table = require 'llx.types.table' . Table
+local Thread = require 'llx.types.thread' . Thread
+local Userdata = require 'llx.types.userdata' . Userdata
+local isinstance = require 'llx.isinstance' . isinstance
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -47,7 +47,7 @@ local function union_type_check(type_list)
 
     __validate = function(self, schema, path, level, check_field)
       local type_schemas = schema.type_schemas
-      local getclass = require 'llx/getclass' . getclass
+      local getclass = require 'llx.getclass' . getclass
       local cls = getclass(self)
       local type_schema = type_schemas and type_schemas[cls.__name or cls]
       if type_schema then

@@ -1,8 +1,8 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local class  = require 'llx/class' . class
-local Decorator = require 'llx/decorator' . Decorator
-local environment = require 'llx/environment'
+local class  = require 'llx.class' . class
+local Decorator = require 'llx.decorator' . Decorator
+local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
 

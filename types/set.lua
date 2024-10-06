@@ -1,9 +1,9 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local class = require 'llx/class' . class
-local environment = require 'llx/environment'
-local List = require 'llx/types/list' . List
-local Table = require 'llx/types/table' . Table
+local class = require 'llx.class' . class
+local environment = require 'llx.environment'
+local List = require 'llx.types.list' . List
+local Table = require 'llx.types.table' . Table
 
 local _ENV, _M = environment.create_module_environment()
 

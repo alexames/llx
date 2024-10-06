@@ -1,7 +1,7 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local environment = require 'llx/environment'
-local isinstance = require 'llx/isinstance' . isinstance
+local environment = require 'llx.environment'
+local isinstance = require 'llx.isinstance' . isinstance
 
 local _ENV, _M = environment.create_module_environment()
 

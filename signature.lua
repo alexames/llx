@@ -1,9 +1,9 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local check_arguments_module = require 'llx/check_arguments'
-local class_module = require 'llx/class'
-local decorator = require 'llx/decorator'
-local environment = require 'llx/environment'
+local check_arguments_module = require 'llx.check_arguments'
+local class_module = require 'llx.class'
+local decorator = require 'llx.decorator'
+local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -58,7 +58,7 @@ Signature = class 'Signature' : extends(Decorator) {
 
 -------------------------------------------------------------------------------
 
-local types = require 'llx/types'
+local types = require 'llx.types'
 local Integer = types.Integer
 local Self = types.Any
 
