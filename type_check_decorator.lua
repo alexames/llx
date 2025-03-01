@@ -1,9 +1,9 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local class_module = require 'llx/class'
-local environment = require 'llx/environment'
-local exceptions = require 'llx/exceptions'
-local getclass_module = require 'llx/getclass'
+local class_module = require 'llx.class'
+local environment = require 'llx.environment'
+local exceptions = require 'llx.exceptions'
+local getclass_module = require 'llx.getclass'
 
 local _ENV, _M = environment.create_module_environment()
 

@@ -1,5 +1,5 @@
 local llx = require 'llx'
-require 'llx/check_arguments'
+require 'llx.check_arguments'
 
 -- local s = schema.Schema{
 --   type=Table,

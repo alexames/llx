@@ -1,7 +1,7 @@
 local unit = require 'unit'
-require 'llx/check_arguments'
-require 'llx/types'
-require 'llx/schema'
+require 'llx.check_arguments'
+require 'llx.types'
+require 'llx.schema'
 
 test_class 'check_arguments' {
   [test 'numbers' - 'success'] = function()

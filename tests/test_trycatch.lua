@@ -1,11 +1,11 @@
 local llx = require 'llx'
-local class = require 'llx/class' . class
-local Exception = require 'llx/exceptions' . Exception
-local Table = require 'llx/types/table' . Table
-local try = require 'llx/flow_control/trycatch' . try
-local catch = require 'llx/flow_control/catch' . catch
+local class = require 'llx.class' . class
+local Exception = require 'llx.exceptions' . Exception
+local Table = require 'llx.types.table' . Table
+local try = require 'llx.flow_control.trycatch' . try
+local catch = require 'llx.flow_control.catch' . catch
 local unit = require 'unit'
-local types = require 'llx/types/matchers'
+local types = require 'llx.types.matchers'
 
 local FooException = class 'FooException' : extends(Exception) {}
 local BarException = class 'BarException' : extends(Exception) {}

@@ -1,6 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local Table = require 'llx/types/table' . Table
+local Table = require 'llx.types.table' . Table
 
 -- switch {
 --   value;

@@ -1,7 +1,7 @@
-local cache_module = require 'llx/cache'
-local class_module = require 'llx/class'
-local tracing = require 'llx/tracing'
-local dump_value = require 'llx/debug/dump_value' . dump_value
+local cache_module = require 'llx.cache'
+local class_module = require 'llx.class'
+local tracing = require 'llx.tracing'
+local dump_value = require 'llx.debug.dump_value' . dump_value
 
 local class = class_module.class
 local cache = cache_module.cache

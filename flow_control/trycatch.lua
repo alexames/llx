@@ -1,9 +1,9 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local catch = require 'llx/flow_control/catch' . catch
-local environment = require 'llx/environment'
-local isinstance = require 'llx/isinstance' . isinstance
-local Table = require 'llx/types/table' . Table
+local catch = require 'llx.flow_control.catch' . catch
+local environment = require 'llx.environment'
+local isinstance = require 'llx.isinstance' . isinstance
+local Table = require 'llx.types.table' . Table
 
 local _ENV, _M = environment.create_module_environment()
 

@@ -1,12 +1,12 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local class = require 'llx/class' . class
-local environment = require 'llx/environment'
-local is_callable = require 'llx/core' . is_callable
-local isinstance = require 'llx/isinstance' . isinstance
-local Number = require 'llx/types/number' . Number
-local String = require 'llx/types/string' . String
-local Table = require 'llx/types/table' . Table
+local class = require 'llx.class' . class
+local environment = require 'llx.environment'
+local is_callable = require 'llx.core' . is_callable
+local isinstance = require 'llx.isinstance' . isinstance
+local Number = require 'llx.types.number' . Number
+local String = require 'llx.types.string' . String
+local Table = require 'llx.types.table' . Table
 
 local _ENV, _M = environment.create_module_environment()
 
