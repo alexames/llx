@@ -13,6 +13,7 @@ return require 'llx.flatten_submodules' {
   require 'llx.repr',
   require 'llx.schema',
   require 'llx.strict',
+  require 'llx.string_view',
   require 'llx.tointeger',
   require 'llx.types',
   coroutine = require 'llx.coroutine',

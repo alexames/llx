@@ -1,10 +1,13 @@
-local unit = require 'unit'
-local llx = require 'llx'
-local class = require 'llx.class' . class
-local Proxy, set_proxy_value = require 'llx.proxy' {'Proxy', 'set_proxy_value'}
-
+local class_module = require 'llx.class'
 local decorator = require 'llx.decorator'
 local property = require 'llx.property'
+local proxy = require 'llx.proxy'
+local unit = require 'unit'
+
+local test_class = unit.test_class
+local class = class_module.class
+local Proxy = proxy.Proxy
+local set_proxy_value = proxy.set_proxy_value
 
 local function CallSpec(t)
   return t
