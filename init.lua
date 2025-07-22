@@ -8,6 +8,7 @@ return require 'llx.flatten_submodules' {
   require 'llx.check_arguments',
   require 'llx.class',
   require 'llx.core',
+  require 'llx.enum',
   require 'llx.getclass',
   require 'llx.isinstance',
   require 'llx.repr',
