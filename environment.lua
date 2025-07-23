@@ -6,9 +6,9 @@
 --
 --------------------------------------------------------------------------------
 --
--- local environment = require 'llx' . environment
+-- local llx = require 'llx'
 --
--- local _ENV, _M = environment.create_module_environment()
+-- local _ENV, _M = llx.environment.create_module_environment()
 --
 -- -- Define a variable in the scoped environment
 -- my_variable = 42
@@ -95,12 +95,36 @@ end
 --
 -- @return environment The newly created environment table.
 -- @return module The module table.
-local function create_module_environment()
+local function create_module_environment(using_modules)
+  -- The contents module itself. Inside the module, this is populated by the
+  -- environment. Outside the module, it is treated as read only by the proxy.
   local module = {}
   local module_proxy = setmetatable({}, make_module_metatable(module))
+
+  -- The using_table is for importing things into the 'global' namespace,
+  -- without exporting them to the symbols to the module. This function takes a
+  -- list of tables, and performs a shallow copy into the using table so that
+  -- the symbols can be used directly without being qualified. In other words,
+  -- you can do this:
+  --
+  --   require 'file_reader_module'
+  --   _ENV, _M = llx.environment.create_module_environment{file_reader_module}
+  --   -- No need to qualify function call with `file_reader_module.`
+  --   read_file('./foo')
+  local using_table = {}
+  if using_modules then
+    for i, using_module in ipairs(using_modules) do
+      for k, v in pairs(using_module) do
+        assert(using_table[k] == nil,
+               string.format('key collision in using statement (%s)', k), 2)
+        rawset(using_table, k, v)
+      end
+    end
+  end
+  
   local environment = setmetatable({}, {
     __index = function(self, k)
-      local result = rawget(module, k) or _ENV[k]
+      local result = rawget(module, k) or rawget(using_table, k) or _ENV[k]
       if result == nil then
         error(string.format("module does not contain field '%s'", k), 2)
       end
