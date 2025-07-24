@@ -16,6 +16,7 @@ return require 'llx.flatten_submodules' {
   require 'llx.strict',
   require 'llx.string_view',
   require 'llx.tointeger',
+  require 'llx.tostringf',
   require 'llx.types',
   coroutine = require 'llx.coroutine',
   debug = require 'llx.debug',
