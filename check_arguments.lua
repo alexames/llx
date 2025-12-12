@@ -6,7 +6,7 @@ local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
 local getclass_module = require 'llx.getclass'
 local isinstance_module = require 'llx.isinstance'
-local table_module = require 'llx.types.Table'
+local table_module = require 'llx.types.table'
 
 local _ENV, _M = environment.create_module_environment()
 

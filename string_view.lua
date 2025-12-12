@@ -44,13 +44,70 @@ StringView = class 'StringView' {
       return nil
     end
 
+    -- Special handling for len() - return view length
+    if key == "len" then
+      return function(_)
+        return self._len
+      end
+    end
+
+    -- Methods that should not be exposed
+    local excluded_methods = {
+      format = true,
+      dump = true,
+      pack = true,
+      packsize = true,
+      unpack = true,
+      char = true,
+    }
+    if excluded_methods[key] then
+      return nil
+    end
+
     -- Support for string methods like :sub, :find, :match, etc.
     local str_method = string[key]
     if type(str_method) == "function" then
       return function(_, ...)
         local args = { ... }
 
-        -- Adjust start and end indices (if present)
+        -- Special handling for find() - need to adjust return values to view space
+        if key == "find" then
+          -- Adjust init parameter if provided
+          if #args > 0 and type(args[1]) == "string" then
+            local pattern = args[1]
+            local init = args[2] or 1
+            local plain = args[3]
+            -- Convert view-relative init to string-relative
+            local str_init = self._start + init - 1
+            local str_end = self._start + self._len - 1
+            -- Search within view bounds
+            local s, e = str_method(self._str, pattern, str_init, plain)
+            if s then
+              -- Convert back to view-relative positions
+              if s >= self._start and s <= str_end then
+                return s - self._start + 1, e and (e - self._start + 1) or nil
+              end
+            end
+            return nil
+          end
+          -- If no init provided, search from start of view
+          local s, e = str_method(self._str, args[1], self._start, args[3])
+          if s then
+            -- Convert back to view-relative positions
+            if s >= self._start and s < self._start + self._len then
+              return s - self._start + 1, e and (e - self._start + 1) or nil
+            end
+          end
+          return nil
+        end
+
+        -- Special handling for reverse() - reverse only the view portion
+        if key == "reverse" then
+          local view_str = self._str:sub(self._start, self._start + self._len - 1)
+          return view_str:reverse()
+        end
+
+        -- Adjust start and end indices (if present) for other methods
         for i = 1, math.min(2, #args) do
           if type(args[i]) == "number" then
             args[i] = self._start + args[i] - 1

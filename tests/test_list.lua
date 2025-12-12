@@ -3,117 +3,250 @@ local llx = require 'llx'
 
 local List = llx.List
 
-test_class 'ListTest' {
-  [test '__new'] = function()
+_ENV = unit.create_test_env(_ENV)
+
+describe('ListTest', function()
+  it('should return same table when List is called with table', function()
     local list_table = {}
     local list = List(list_table)
-    EXPECT_EQ(list_table, list)
-  end,
+    expect(list_table).to.be_equal_to(list)
+  end)
 
-  [test 'extend'] = function()
+  it('should extend first list with second list', function()
     local list_a = List{1, 2, 3}
     local list_b = List{4, 5, 6}
     list_a:extend(list_b)
-    EXPECT_EQ(list_a, {1, 2, 3, 4, 5, 6})
-    EXPECT_EQ(list_b, {4, 5, 6})
-  end,
+    expect(list_a).to.be_equal_to({1, 2, 3, 4, 5, 6})
+  end)
 
-  [test 'iterator'] = function()
-    local mock <close> = Mock()
-    mock:call_count(Equals(3)):call_spec{
-      {expected_args={Equals('a')}},
-      {expected_args={Equals('b')}},
-      {expected_args={Equals('c')}},
-    }
+  it('should preserve second list when extending', function()
+    local list_a = List{1, 2, 3}
+    local list_b = List{4, 5, 6}
+    list_a:extend(list_b)
+    expect(list_b).to.be_equal_to({4, 5, 6})
+  end)
+
+  it('should iterate over list elements correctly', function()
+    local mock = Mock()
     local list = List{'a', 'b', 'c'}
     for i, v in list do
       mock(v)
     end
-  end,
+    expect(mock).to.have_been_called_times(3)
+    local calls = mock:get_calls()
+    expect(calls[1].args[1]).to.be_equal_to('a')
+    expect(calls[2].args[1]).to.be_equal_to('b')
+    expect(calls[3].args[1]).to.be_equal_to('c')
+  end)
 
-  [test 'contains'] = function()
+  it('should return true when list contains first element', function()
     local list = List{1, 2, 3}
-    EXPECT_TRUE(list:contains(1))
-    EXPECT_TRUE(list:contains(2))
-    EXPECT_TRUE(list:contains(3))
-    EXPECT_FALSE(list:contains(4))
-  end,
+    expect(list:contains(1)).to.be_truthy()
+  end)
 
-  [test 'sub'] = function()
+  it('should return true when list contains second element', function()
+    local list = List{1, 2, 3}
+    expect(list:contains(2)).to.be_truthy()
+  end)
+
+  it('should return true when list contains third element', function()
+    local list = List{1, 2, 3}
+    expect(list:contains(3)).to.be_truthy()
+  end)
+
+  it('should return false when list does not contain element', function()
+    local list = List{1, 2, 3}
+    expect(list:contains(4)).to.be_falsy()
+  end)
+
+  it('should return sublist from indices 1 to 3', function()
     local list = List{1, 2, 3, 4, 5, 6}
-    EXPECT_EQ(list:sub(1, 3), {1, 2, 3})
-    EXPECT_EQ(list:sub(1, 6, 2), {1, 3, 5})
-    EXPECT_EQ(list:sub(2, 4), {2, 3, 4})
-    EXPECT_EQ(list:sub(2, 6, 2), {2, 4, 6})
-    EXPECT_EQ(list:sub(6, 1, -1), {6, 5, 4, 3, 2, 1})
-    EXPECT_EQ(list:sub(6, 1, -2), {6, 4, 2})
-    EXPECT_EQ(list:sub(1, 0), {})
-    EXPECT_EQ(list:sub(0), {1, 2, 3, 4, 5, 6})
-  end,
+    expect(list:sub(1, 3)).to.be_equal_to({1, 2, 3})
+  end)
 
-  [test 'reverse'] = function()
+  it('should return sublist with step 2 from indices 1 to 6', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list:sub(1, 6, 2)).to.be_equal_to({1, 3, 5})
+  end)
+
+  it('should return sublist from indices 2 to 4', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list:sub(2, 4)).to.be_equal_to({2, 3, 4})
+  end)
+
+  it('should return sublist with step 2 from indices 2 to 6', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list:sub(2, 6, 2)).to.be_equal_to({2, 4, 6})
+  end)
+
+  it('should return reversed sublist from indices 6 to 1', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list:sub(6, 1, -1)).to.be_equal_to({6, 5, 4, 3, 2, 1})
+  end)
+
+  it('should return reversed sublist with step -2 from indices 6 to 1', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list:sub(6, 1, -2)).to.be_equal_to({6, 4, 2})
+  end)
+
+  it('should return empty list when sub range is invalid', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list:sub(1, 0)).to.be_equal_to({})
+  end)
+
+  it('should return full list when sub is called with only start index', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list:sub(0)).to.be_equal_to({1, 2, 3, 4, 5, 6})
+  end)
+
+  it('should preserve original list when reverse is called', function()
     local list = List{1, 2, 3, 4, 5, 6}
     local reversed_list = list:reverse()
-    EXPECT_EQ(list, {1, 2, 3, 4, 5, 6})
-    EXPECT_EQ(reversed_list, {6, 5, 4, 3, 2, 1})
-  end,
+    expect(list).to.be_equal_to({1, 2, 3, 4, 5, 6})
+  end)
 
-  [test '__index'] = function()
+  it('should return reversed list when reverse is called', function()
     local list = List{1, 2, 3, 4, 5, 6}
-    EXPECT_EQ(list[1], 1)
-    EXPECT_EQ(list[2], 2)
-    EXPECT_EQ(list[3], 3)
-    EXPECT_EQ(list[-1], 6)
-    EXPECT_EQ(list[-2], 5)
-    EXPECT_EQ(list[-3], 4)
-  end,
+    local reversed_list = list:reverse()
+    expect(reversed_list).to.be_equal_to({6, 5, 4, 3, 2, 1})
+  end)
 
-  [test '__index_list'] = function()
+  it('should return first element for index 1', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list[1]).to.be_equal_to(1)
+  end)
+
+  it('should return second element for index 2', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list[2]).to.be_equal_to(2)
+  end)
+
+  it('should return third element for index 3', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list[3]).to.be_equal_to(3)
+  end)
+
+  it('should return last element for index -1', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list[-1]).to.be_equal_to(6)
+  end)
+
+  it('should return second to last element for index -2', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list[-2]).to.be_equal_to(5)
+  end)
+
+  it('should return third to last element for index -3', function()
+    local list = List{1, 2, 3, 4, 5, 6}
+    expect(list[-3]).to.be_equal_to(4)
+  end)
+
+  it('should return list of elements for list index', function()
     local list = List{'a', 'b', 'c', 'd', 'e', 'f'}
-    EXPECT_EQ(list[{1, 3, 5}], List{'a', 'c', 'e'})
-    EXPECT_EQ(list[{5, 4, 6}], List{'e', 'd', 'f'})
-    EXPECT_EQ(list[{-3, -2, -1}], List{'d', 'e', 'f'})
-    EXPECT_EQ(list[{{1, 2, 3}, {2, 3, 4}, {3, 4, 5}}],
-              List{List{'a', 'b', 'c'},
-                   List{'b', 'c', 'd'},
-                   List{'c', 'd', 'e'}})
-  end,
+    expect(list[{1, 3, 5}]).to.be_equal_to(List{'a', 'c', 'e'})
+  end)
 
-  [test '__concat'] = function()
+  it('should return list of elements for reversed list index', function()
+    local list = List{'a', 'b', 'c', 'd', 'e', 'f'}
+    expect(list[{5, 4, 6}]).to.be_equal_to(List{'e', 'd', 'f'})
+  end)
+
+  it('should return list of elements for negative list index', function()
+    local list = List{'a', 'b', 'c', 'd', 'e', 'f'}
+    expect(list[{-3, -2, -1}]).to.be_equal_to(List{'d', 'e', 'f'})
+  end)
+
+  it('should return nested list of elements for nested list index', function()
+    local list = List{'a', 'b', 'c', 'd', 'e', 'f'}
+    expect(list[{{1, 2, 3}, {2, 3, 4}, {3, 4, 5}}]).to.be_equal_to(
+      List{List{'a', 'b', 'c'},
+           List{'b', 'c', 'd'},
+           List{'c', 'd', 'e'}})
+  end)
+
+  it('should preserve first list when concatenating', function()
     local list_a = List{1, 2, 3}
     local list_b = List{4, 5, 6}
     local concat_list = list_a .. list_b
-    EXPECT_EQ(list_a, {1, 2, 3})
-    EXPECT_EQ(list_b, {4, 5, 6})
-    EXPECT_EQ(concat_list, {1, 2, 3, 4, 5, 6})
-  end,
+    expect(list_a).to.be_equal_to({1, 2, 3})
+  end)
 
-  [test '__mul'] = function()
+  it('should preserve second list when concatenating', function()
+    local list_a = List{1, 2, 3}
+    local list_b = List{4, 5, 6}
+    local concat_list = list_a .. list_b
+    expect(list_b).to.be_equal_to({4, 5, 6})
+  end)
+
+  it('should return concatenated list when using concat operator', function()
+    local list_a = List{1, 2, 3}
+    local list_b = List{4, 5, 6}
+    local concat_list = list_a .. list_b
+    expect(concat_list).to.be_equal_to({1, 2, 3, 4, 5, 6})
+  end)
+
+  it('should preserve original list when multiplying', function()
     local list = List{1, 2, 3}
     local multiplied_list = list * 3
-    local multiplied_list = 3 * list
-    EXPECT_EQ(list, {1, 2, 3})
-    EXPECT_EQ(multiplied_list, {1, 2, 3, 1, 2, 3, 1, 2, 3})
-  end,
+    expect(list).to.be_equal_to({1, 2, 3})
+  end)
 
-  [test 'shift right >>'] = function()
-    local list = List{'a', 'b', 'c', 'd', 'e'}
-    EXPECT_EQ(list >> 0, List{'a', 'b', 'c', 'd', 'e'})
-    EXPECT_EQ(list >> 1, List{'e', 'a', 'b', 'c', 'd'})
-    EXPECT_EQ(list >> 2, List{'d', 'e', 'a', 'b', 'c'})
-    EXPECT_EQ(list >> 3, List{'c', 'd', 'e', 'a', 'b'})
-    EXPECT_EQ(list >> 4, List{'b', 'c', 'd', 'e', 'a'})
-  end,
+  it('should return multiplied list when using mul operator', function()
+    local list = List{1, 2, 3}
+    local multiplied_list = list * 3
+    expect(multiplied_list).to.be_equal_to({1, 2, 3, 1, 2, 3, 1, 2, 3})
+  end)
 
-  [test 'shift left <<'] = function()
+  it('should return same list when shifting right by 0', function()
     local list = List{'a', 'b', 'c', 'd', 'e'}
-    EXPECT_EQ(list << 0, List{'a', 'b', 'c', 'd', 'e'})
-    EXPECT_EQ(list << 1, List{'b', 'c', 'd', 'e', 'a'})
-    EXPECT_EQ(list << 2, List{'c', 'd', 'e', 'a', 'b'})
-    EXPECT_EQ(list << 3, List{'d', 'e', 'a', 'b', 'c'})
-    EXPECT_EQ(list << 4, List{'e', 'a', 'b', 'c', 'd'})
-  end,
-}
+    expect(list >> 0).to.be_equal_to(List{'a', 'b', 'c', 'd', 'e'})
+  end)
+
+  it('should return shifted list when shifting right by 1', function()
+    local list = List{'a', 'b', 'c', 'd', 'e'}
+    expect(list >> 1).to.be_equal_to(List{'e', 'a', 'b', 'c', 'd'})
+  end)
+
+  it('should return shifted list when shifting right by 2', function()
+    local list = List{'a', 'b', 'c', 'd', 'e'}
+    expect(list >> 2).to.be_equal_to(List{'d', 'e', 'a', 'b', 'c'})
+  end)
+
+  it('should return shifted list when shifting right by 3', function()
+    local list = List{'a', 'b', 'c', 'd', 'e'}
+    expect(list >> 3).to.be_equal_to(List{'c', 'd', 'e', 'a', 'b'})
+  end)
+
+  it('should return shifted list when shifting right by 4', function()
+    local list = List{'a', 'b', 'c', 'd', 'e'}
+    expect(list >> 4).to.be_equal_to(List{'b', 'c', 'd', 'e', 'a'})
+  end)
+
+  it('should return same list when shifting left by 0', function()
+    local list = List{'a', 'b', 'c', 'd', 'e'}
+    expect(list << 0).to.be_equal_to(List{'a', 'b', 'c', 'd', 'e'})
+  end)
+
+  it('should return shifted list when shifting left by 1', function()
+    local list = List{'a', 'b', 'c', 'd', 'e'}
+    expect(list << 1).to.be_equal_to(List{'b', 'c', 'd', 'e', 'a'})
+  end)
+
+  it('should return shifted list when shifting left by 2', function()
+    local list = List{'a', 'b', 'c', 'd', 'e'}
+    expect(list << 2).to.be_equal_to(List{'c', 'd', 'e', 'a', 'b'})
+  end)
+
+  it('should return shifted list when shifting left by 3', function()
+    local list = List{'a', 'b', 'c', 'd', 'e'}
+    expect(list << 3).to.be_equal_to(List{'d', 'e', 'a', 'b', 'c'})
+  end)
+
+  it('should return shifted list when shifting left by 4', function()
+    local list = List{'a', 'b', 'c', 'd', 'e'}
+    expect(list << 4).to.be_equal_to(List{'e', 'a', 'b', 'c', 'd'})
+  end)
+end)
 
 if llx.main_file() then
   unit.run_unit_tests()

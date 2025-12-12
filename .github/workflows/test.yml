@@ -1,0 +1,49 @@
+name: Run Tests
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        path: llx
+    
+    - name: Install Lua
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y lua5.4 liblua5.4-dev
+    
+    - name: Checkout unit dependency
+      uses: actions/checkout@v4
+      with:
+        repository: alexames/unit
+        path: unit
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+    
+    - name: Set up Lua package path
+      run: |
+        export LUA_PATH="$GITHUB_WORKSPACE/?.lua;$GITHUB_WORKSPACE/?/init.lua;;"
+        export LUA_PATH_5_4="$GITHUB_WORKSPACE/?.lua;$GITHUB_WORKSPACE/?/init.lua;;"
+        echo "LUA_PATH=$LUA_PATH" >> $GITHUB_ENV
+        echo "LUA_PATH_5_4=$LUA_PATH_5_4" >> $GITHUB_ENV
+    
+    - name: Run all tests
+      working-directory: llx/tests
+      run: |
+        for test_file in test_*.lua; do
+          echo "Running $test_file..."
+          lua "$test_file" || exit 1
+        done
+    
+    - name: Report success
+      run: echo "All tests passed!"

@@ -1,5 +1,8 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local unit = require 'unit'
+local llx = require 'llx'
+
 require 'llx.core'
 require 'llx.debug.trace'
 require 'llx.operators'
@@ -7,195 +10,227 @@ require 'llx.types.list'
 require 'llx.types.table'
 require 'llx.types.string'
 
-test_class 'RangeTest' {
-  [test ''] = function()
-    range(a, b, c)
-  end
-}
+_ENV = unit.create_test_env(_ENV)
 
-test_class 'GeneratorTest' {
-  [test ''] = function()
-    generator(iterator, state, control, closing)
-  end
-}
+describe('functional', function()
+  describe('range', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- range(a, b, c)
+    end)
+  end)
 
-test_class 'MapTest' {
-  [test ''] = function()
-    map(lambda, ...)
-  end
-}
+  describe('generator', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- generator(iterator, state, control, closing)
+    end)
+  end)
 
-test_class 'FilterTest' {
-  [test ''] = function()
-    filter(lambda, sequence)
-  end
-}
+  describe('map', function()
+    it('should work', function(...)
+      -- TODO: Add actual test implementation
+      -- map(lambda, ...)
+    end)
+  end)
 
-test_class 'CountTest' {
-  [test ''] = function()
-    count(start, step)
-  end
-}
+  describe('filter', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- filter(lambda, sequence)
+    end)
+  end)
 
-test_class 'CycleTest' {
-  [test ''] = function()
-    cycle(sequence)
-  end
-}
+  describe('count', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- count(start, step)
+    end)
+  end)
 
-test_class 'Repeat_ElemTest' {
-  [test ''] = function()
-    repeat_elem()
-  end
-}
+  describe('cycle', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- cycle(sequence)
+    end)
+  end)
 
-test_class 'AccumulateTest' {
-  [test ''] = function()
-    accumulate(sequence, lambda, initial_value)
-  end
-}
+  describe('repeat_elem', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- repeat_elem()
+    end)
+  end)
 
-test_class 'BatchedTest' {
-  [test ''] = function()
-    batched(iterable, n)
-  end
-}
+  describe('accumulate', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- accumulate(sequence, lambda, initial_value)
+    end)
+  end)
 
-test_class 'ChainTest' {
-  [test ''] = function()
-    chain()
-  end
-}
+  describe('batched', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- batched(iterable, n)
+    end)
+  end)
 
-test_class 'CompressTest' {
-  [test ''] = function()
-    compress()
-  end
-}
+  describe('chain', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- chain()
+    end)
+  end)
 
-test_class 'Drop_WhileTest' {
-  [test ''] = function()
-    drop_while()
-  end
-}
+  describe('compress', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- compress()
+    end)
+  end)
 
-test_class 'FilterfalseTest' {
-  [test ''] = function()
-    filterfalse()
-  end
-}
+  describe('drop_while', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- drop_while()
+    end)
+  end)
 
-test_class 'Group_ByTest' {
-  [test ''] = function()
-    group_by()
-  end
-}
+  describe('filterfalse', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- filterfalse()
+    end)
+  end)
 
-test_class 'SliceTest' {
-  [test ''] = function()
-    slice()
-  end
-}
+  describe('group_by', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- group_by()
+    end)
+  end)
 
-test_class 'PairwiseTest' {
-  [test ''] = function()
-    pairwise()
-  end
-}
+  describe('slice', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- slice()
+    end)
+  end)
 
-test_class 'Star_MapTest' {
-  [test ''] = function()
-    star_map()
-  end
-}
+  describe('pairwise', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- pairwise()
+    end)
+  end)
 
-test_class 'Take_WhileTest' {
-  [test ''] = function()
-    take_while()
-  end
-}
+  describe('star_map', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- star_map()
+    end)
+  end)
 
-test_class 'TeeTest' {
-  [test ''] = function()
-    tee()
-  end
-}
+  describe('take_while', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- take_while()
+    end)
+  end)
 
-test_class 'SliceTest' {
-  [test ''] = function()
-    slice()
-  end
-}
+  describe('tee', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- tee()
+    end)
+  end)
 
-test_class 'Zip_LongestTest' {
-  [test ''] = function()
-    zip_longest()
-  end
-}
+  describe('zip_longest', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- zip_longest()
+    end)
+  end)
 
-test_class 'PermutationsTest' {
-  [test ''] = function()
-    permutations()
-  end
-}
+  describe('permutations', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- permutations()
+    end)
+  end)
 
-test_class 'CombinationsTest' {
-  [test ''] = function()
-    combinations()
-  end
-}
+  describe('combinations', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- combinations()
+    end)
+  end)
 
-test_class 'ReduceTest' {
-  [test ''] = function()
-    reduce(sequence, lambda, initial_value)
-  end
-}
+  describe('reduce', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- reduce(sequence, lambda, initial_value)
+    end)
+  end)
 
-test_class 'MinTest' {
-  [test ''] = function()
-    min(sequence)
-  end
-}
+  describe('min', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- min(sequence)
+    end)
+  end)
 
-test_class 'MaxTest' {
-  [test ''] = function()
-    max(sequence)
-  end
-}
+  describe('max', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- max(sequence)
+    end)
+  end)
 
-test_class 'SumTest' {
-  [test ''] = function()
-    sum(sequence)
-  end
-}
+  describe('sum', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- sum(sequence)
+    end)
+  end)
 
-test_class 'ProductTest' {
-  [test ''] = function()
-    product(sequence)
-  end
-}
+  describe('product', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- product(sequence)
+    end)
+  end)
 
-test_class 'Zip_ImplTest' {
-  [test ''] = function()
-    zip_impl(iterators, result_handler)
-  end
-}
+  describe('zip_impl', function()
+    it('should work', function()
+      -- TODO: Add actual test implementation
+      -- zip_impl(iterators, result_handler)
+    end)
+  end)
 
-test_class 'Zip_PackedTest' {
-  [test ''] = function()
-    zip_packed(...)
-  end
-}
+  describe('zip_packed', function()
+    it('should work', function(...)
+      -- TODO: Add actual test implementation
+      -- zip_packed(...)
+    end)
+  end)
 
-test_class 'ZipTest' {
-  [test ''] = function()
-    zip(...)
-  end
-}
+  describe('zip', function()
+    it('should work', function(...)
+      -- TODO: Add actual test implementation
+      -- zip(...)
+    end)
+  end)
 
-test_class 'Cartesian_ProductTest' {
-  [test ''] = function()
-    cartesian_product(...)
-  end
-}
+  describe('cartesian_product', function()
+    it('should work', function(...)
+      -- TODO: Add actual test implementation
+      -- cartesian_product(...)
+    end)
+  end)
+end)
 
+if llx.main_file() then
+  unit.run_unit_tests()
+end

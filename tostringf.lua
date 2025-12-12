@@ -5,6 +5,7 @@ local table_module = require 'llx.types.table'
 local class_module = require 'llx.class'
 local environment = require 'llx.environment'
 local set_module = require 'llx.types.set'
+local enum_module = require 'llx.enum'
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -12,6 +13,7 @@ local getmetafield = core.getmetafield
 local class = class_module.class
 local Table = table_module.Table
 local Set = set_module.Set
+local enum = enum_module.enum
 
 local KEYWORDS <const> = Set{
   'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function',
@@ -126,8 +128,32 @@ StringFormatter = class 'StringFormatter' {
   end,
 
   table_cons = function(self, name)
-    self:insert(name)
+    if type(name) == 'table' then
+      self:module_class(table.unpack(name))
+    else
+      self:insert(name)
+    end
     return self
+  end,
+
+  module_class = function(self, module_name, class_name)
+    if self._style.type_verbosity == TypeVerbosity.ModuleTypeField then
+      self:insert(module_name)
+      self:insert('.')
+    end
+    self:insert(class_name)
+  end,
+
+  module_class_field = function(self, module_name, class_name, field_name)
+    if self._style.type_verbosity == TypeVerbosity.ModuleTypeField then
+      self:insert(module_name)
+      self:insert('.')
+    end
+    if self._style.type_verbosity == TypeVerbosity.TypeField then
+      self:insert(class_name)
+      self:insert('.')
+    end
+    self:insert(field_name)
   end,
 
   __call = function(self, args)
@@ -202,8 +228,15 @@ StringFormatter = class 'StringFormatter' {
   end,
 }
 
+TypeVerbosity = enum 'TypeVerbosity' {
+  'Field',
+  'TypeField',
+  'ModuleTypeField',
+}
+
 styles = {
   minimal = {
+    type_verbosity = TypeVerbosity.Field,
     indent = '',
     delimiter = ',',
     include_final_delimiter = false,
@@ -212,6 +245,7 @@ styles = {
     space_after_assignment = false,
   },
   abbrev = {
+    type_verbosity = TypeVerbosity.TypeField,
     indent = '',
     delimiter = ', ',
     include_final_delimiter = false,
@@ -220,6 +254,7 @@ styles = {
     space_after_assignment = false,
   },
   struct = {
+    type_verbosity = TypeVerbosity.ModuleTypeField,
     indent = '  ',
     delimiter = ',',
     include_final_delimiter = true,

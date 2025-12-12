@@ -1,6 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 local class = require 'llx.class' . class
-local Exception = require 'llx.exceptions.Exception' . Exception
+local Exception = require 'llx.exceptions.exception' . Exception
 -- require 'llx.flow_control.catch'
 
 local environment = require 'llx.environment'

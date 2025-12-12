@@ -4,94 +4,121 @@ local property = require 'llx.property'
 local string_view = require 'llx.string_view'
 local unit = require 'unit'
 
-local test_class = unit.test_class
-local EXPECT_EQ = unit.EXPECT_EQ
-local EXPECT_THAT = unit.EXPECT_THAT
-local EXPECT_TRUE = unit.EXPECT_TRUE
-local EXPECT_FALSE = unit.EXPECT_FALSE
-local Equals = unit.Equals
-
-local test_class = unit.test_class
 local class = class_module.class
 local StringView = string_view.StringView
+
+_ENV = unit.create_test_env(_ENV)
 
 -- test_string_view_methods.lua
 -- Unit tests for Lua string methods via StringView
 
-unit.test_class 'StringViewStringMethodTests' {
-  [test 'string.byte'] = function()
+describe('StringViewStringMethodTests', function()
+  it('should return byte value for first character', function()
     local view = StringView("abcdef", 2, 3) -- "bcd"
-    EXPECT_EQ(view:byte(1), string.byte("b"))
-    EXPECT_EQ(view:byte(2), string.byte("c"))
-    EXPECT_EQ(view:byte(3), string.byte("d"))
-  end,
+    expect(view:byte(1)).to.be_equal_to(string.byte("b"))
+  end)
 
-  [test 'string.find'] = function()
+  it('should return byte value for second character', function()
+    local view = StringView("abcdef", 2, 3) -- "bcd"
+    expect(view:byte(2)).to.be_equal_to(string.byte("c"))
+  end)
+
+  it('should return byte value for third character', function()
+    local view = StringView("abcdef", 2, 3) -- "bcd"
+    expect(view:byte(3)).to.be_equal_to(string.byte("d"))
+  end)
+
+  it('should find pattern and return start position', function()
     local view = StringView("abcdefghi", 3, 5) -- "cdefg"
     local s, e = view:find("ef")
-    EXPECT_EQ(s, 3)
-    EXPECT_EQ(e, 4)
-  end,
+    expect(s).to.be_equal_to(3)
+  end)
 
-  [test 'string.len'] = function()
+  it('should find pattern and return end position', function()
+    local view = StringView("abcdefghi", 3, 5) -- "cdefg"
+    local s, e = view:find("ef")
+    expect(e).to.be_equal_to(4)
+  end)
+
+  it('should return correct length for view', function()
     local view = StringView("hello world", 4, 5) -- "lo wo"
-    EXPECT_EQ(view:len(), 5)
-  end,
+    expect(view:len()).to.be_equal_to(5)
+  end)
 
-  [test 'string.lower'] = function()
+  it('should convert view to lowercase', function()
     local view = StringView("HeLLo", 1, 5)
-    EXPECT_EQ(view:lower(), "hello")
-  end,
+    expect(view:lower()).to.be_equal_to("hello")
+  end)
 
-  [test 'string.upper'] = function()
+  it('should convert view to uppercase', function()
     local view = StringView("HeLLo", 1, 5)
-    EXPECT_EQ(view:upper(), "HELLO")
-  end,
+    expect(view:upper()).to.be_equal_to("HELLO")
+  end)
 
-  [test 'string.match'] = function()
+  it('should match pattern in view', function()
     local view = StringView("abcdefghi", 3, 4) -- "cdef"
     local result = view:match("cd")
-    EXPECT_EQ(result, "cd")
-  end,
+    expect(result).to.be_equal_to("cd")
+  end)
 
-  [test 'string.sub'] = function()
+  it('should return substring from view', function()
     local view = StringView("abcdefghi", 3, 5) -- "cdefg"
-    EXPECT_EQ(view:sub(2, 4), "def")
-  end,
+    expect(view:sub(2, 4)).to.be_equal_to("def")
+  end)
 
-  [test 'string.reverse'] = function()
+  it('should reverse view string', function()
     local view = StringView("abcdef", 2, 3) -- "bcd"
-    EXPECT_EQ(view:reverse(), "dcb")
-  end,
+    expect(view:reverse()).to.be_equal_to("dcb")
+  end)
 
-  [test 'string.rep'] = function()
+  it('should repeat view string', function()
     local view = StringView("abc", 1, 3)
-    EXPECT_EQ(view:rep(2), "abcabc")
-  end,
+    expect(view:rep(2)).to.be_equal_to("abcabc")
+  end)
 
-  [test 'string.gmatch'] = function()
+  it('should iterate over matches using gmatch', function()
     local view = StringView("a1 b2 c3", 1, 7)
     local iter = view:gmatch("%a%d")
     local out = {}
     for v in iter do table.insert(out, v) end
-    EXPECT_EQ(table.concat(out, ","), "a1,b2,c3")
-  end,
+    expect(table.concat(out, ",")).to.be_equal_to("a1,b2,c3")
+  end)
 
-  [test 'string.gsub'] = function()
+  it('should substitute pattern using gsub', function()
     local view = StringView("a1b2c3", 1, 6)
     local s = view:gsub("%d", "x")
-    EXPECT_EQ(s, "axbxcx")
-  end,
+    expect(s).to.be_equal_to("axbxcx")
+  end)
 
-  [test 'unsupported string functions should not exist'] = function()
+  it('should not have format method', function()
     local view = StringView("abc", 1, 3)
-    EXPECT_EQ(view.format, nil)
-    EXPECT_EQ(view.dump, nil)
-    EXPECT_EQ(view.pack, nil)
-    EXPECT_EQ(view.packsize, nil)
-    EXPECT_EQ(view.unpack, nil)
-    EXPECT_EQ(view.char, nil)
-  end,
-}
+    expect(view.format).to.be_nil()
+  end)
+
+  it('should not have dump method', function()
+    local view = StringView("abc", 1, 3)
+    expect(view.dump).to.be_nil()
+  end)
+
+  it('should not have pack method', function()
+    local view = StringView("abc", 1, 3)
+    expect(view.pack).to.be_nil()
+  end)
+
+  it('should not have packsize method', function()
+    local view = StringView("abc", 1, 3)
+    expect(view.packsize).to.be_nil()
+  end)
+
+  it('should not have unpack method', function()
+    local view = StringView("abc", 1, 3)
+    expect(view.unpack).to.be_nil()
+  end)
+
+  it('should not have char method', function()
+    local view = StringView("abc", 1, 3)
+    expect(view.char).to.be_nil()
+  end)
+end)
 
 unit.run_unit_tests()

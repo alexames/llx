@@ -15,8 +15,10 @@ local QuxException = class 'QuxException' : extends(FooException) {}
 
 local Union = types.Union
 
-test_class 'try' {
-  [test 'first_exception'] = function()
+_ENV = unit.create_test_env(_ENV)
+
+describe('try', function()
+  it('should catch first_exception', function()
     local result_branch
     local result_ex
     try {
@@ -36,11 +38,11 @@ test_class 'try' {
         result_ex = e
       end),
     }
-    EXPECT_EQ(result_branch, 'Foo')
-    EXPECT_THAT(result_ex, IsOfType(FooException))
-  end,
+    expect(result_branch).to.be_equal_to('Foo')
+    expect(result_ex).to.be_of_type(FooException)
+  end)
 
-  [test 'union_exception'] = function()
+  it('should catch union_exception', function()
     local result_branch
     local result_ex
     try {
@@ -60,11 +62,11 @@ test_class 'try' {
         result_ex = e
       end),
     }
-    EXPECT_EQ(result_branch, 'BarOrBaz')
-    EXPECT_THAT(result_ex, IsOfType(BarException))
-  end,
+    expect(result_branch).to.be_equal_to('BarOrBaz')
+    expect(result_ex).to.be_of_type(BarException)
+  end)
 
-  [test 'fallback_exception'] = function()
+  it('should catch fallback_exception', function()
     local result_branch
     local result_ex
     try {
@@ -80,11 +82,11 @@ test_class 'try' {
         result_ex = e
       end),
     }
-    EXPECT_EQ(result_branch, 'Exception')
-    EXPECT_THAT(result_ex, IsOfType(BarException))
-  end,
+    expect(result_branch).to.be_equal_to('Exception')
+    expect(result_ex).to.be_of_type(BarException)
+  end)
 
-  [test 'inherited_exception'] = function()
+  it('should catch inherited_exception', function()
     local result_branch
     local result_ex
     try {
@@ -100,11 +102,11 @@ test_class 'try' {
         result_ex = e
       end),
     }
-    EXPECT_EQ(result_branch, 'Qux')
-    EXPECT_THAT(result_ex, IsOfType(QuxException))
-  end,
+    expect(result_branch).to.be_equal_to('Qux')
+    expect(result_ex).to.be_of_type(QuxException)
+  end)
 
-  [test 'inherited_exception_ordered_last'] = function()
+  it('should catch inherited_exception_ordered_last', function()
     local result_branch
     local result_ex
     try {
@@ -120,11 +122,11 @@ test_class 'try' {
         result_ex = e
       end),
     }
-    EXPECT_EQ(result_branch, 'Foo')
-    EXPECT_THAT(result_ex, IsOfType(QuxException))
-  end,
+    expect(result_branch).to.be_equal_to('Foo')
+    expect(result_ex).to.be_of_type(QuxException)
+  end)
 
-  [test 'unhandled_exception'] = function()
+  it('should throw unhandled_exception', function()
     local result_branch
     local success, result_ex = pcall(function()
       try {
@@ -141,12 +143,12 @@ test_class 'try' {
         end),
       }
     end)
-    EXPECT_FALSE(success)
-    EXPECT_EQ(result_branch, nil)
-    EXPECT_EQ(result_ex, BazException)
-  end,
+    expect(success).to.be_false()
+    expect(result_branch).to.be_nil()
+    expect(result_ex).to.be_equal_to(BazException)
+  end)
 
-  [test 'no_exception'] = function()
+  it('should handle no_exception', function()
     local result_branch
     local result_ex
     try {
@@ -161,10 +163,10 @@ test_class 'try' {
         result_ex = e
       end),
     }
-    EXPECT_EQ(result_branch, nil)
-    EXPECT_EQ(result_ex, nil)
-  end,
-}
+    expect(result_branch).to.be_nil()
+    expect(result_ex).to.be_nil()
+  end)
+end)
 
 if llx.main_file() then
   unit.run_unit_tests()
