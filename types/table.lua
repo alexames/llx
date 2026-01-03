@@ -118,7 +118,34 @@ function Table:copy(destination)
 end
 
 function Table:deepcopy(destination)
-  -- todo
+  destination = destination or {}
+  local visited = {}
+  
+  local function deepcopy_helper(src, dst)
+    if type(src) ~= 'table' then
+      return src
+    end
+    
+    -- Handle circular references
+    if visited[src] then
+      return visited[src]
+    end
+    
+    visited[src] = dst
+    
+    for k, v in pairs(src) do
+      if type(v) == 'table' then
+        dst[k] = {}
+        deepcopy_helper(v, dst[k])
+      else
+        dst[k] = v
+      end
+    end
+    
+    return dst
+  end
+  
+  return deepcopy_helper(self, destination)
 end
 
 function Table:apply(xform)
