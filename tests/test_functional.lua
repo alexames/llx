@@ -357,6 +357,259 @@ describe('functional', function()
       -- cartesian_product(...)
     end)
   end)
+
+  -- New functional operators tests
+  describe('flatmap', function()
+    it('should flatten mapped results', function()
+      local function duplicate(x)
+        local i = 0
+        return function()
+          i = i + 1
+          if i <= 2 then return i, x end
+          return nil
+        end
+      end
+
+      local result = llx.List(llx.functional.flatmap(duplicate, llx.functional.range(3)))
+      expect(result).to.be_equal_to(llx.List{1, 1, 2, 2, 3, 3})
+    end)
+  end)
+
+  describe('partition', function()
+    it('should split sequence by predicate', function()
+      local function is_even(x) return x % 2 == 0 end
+      local evens, odds = llx.functional.partition(is_even, llx.functional.range(6))
+
+      expect(evens).to.be_equal_to(llx.List{2, 4, 6})
+      expect(odds).to.be_equal_to(llx.List{1, 3, 5})
+    end)
+
+    it('should use nonnil as default predicate', function()
+      local data = llx.functional.range(5)
+      local truthy, falsy = llx.functional.partition(nil, data)
+
+      expect(#truthy).to.be_equal_to(5)
+      expect(#falsy).to.be_equal_to(0)
+    end)
+  end)
+
+  describe('find', function()
+    it('should return first matching element', function()
+      local function is_even(x) return x % 2 == 0 end
+      local result = llx.functional.find(is_even, llx.functional.range(10))
+
+      expect(result).to.be_equal_to(2)
+    end)
+
+    it('should return nil if not found', function()
+      local function is_negative(x) return x < 0 end
+      local result = llx.functional.find(is_negative, llx.functional.range(10))
+
+      expect(result).to.be_nil()
+    end)
+  end)
+
+  describe('find_index', function()
+    it('should return index of first matching element', function()
+      local function is_even(x) return x % 2 == 0 end
+      local result = llx.functional.find_index(is_even, llx.functional.range(10))
+
+      expect(result).to.be_equal_to(2)
+    end)
+
+    it('should return nil if not found', function()
+      local function is_negative(x) return x < 0 end
+      local result = llx.functional.find_index(is_negative, llx.functional.range(10))
+
+      expect(result).to.be_nil()
+    end)
+  end)
+
+  describe('distinct', function()
+    it('should remove duplicates', function()
+      local function make_list()
+        return llx.List{1, 2, 2, 3, 1, 4, 3, 5}
+      end
+
+      local result = llx.functional.distinct(ipairs(make_list()))
+      expect(result).to.be_equal_to(llx.List{1, 2, 3, 4, 5})
+    end)
+
+    it('should use key_func for uniqueness', function()
+      local function make_list()
+        return llx.List{
+          {id=1, name='Alice'},
+          {id=2, name='Bob'},
+          {id=1, name='Alice2'}
+        }
+      end
+
+      local function get_id(item) return item.id end
+      local result = llx.functional.distinct(ipairs(make_list()), get_id)
+
+      expect(#result).to.be_equal_to(2)
+      expect(result[1].name).to.be_equal_to('Alice')
+      expect(result[2].name).to.be_equal_to('Bob')
+    end)
+  end)
+
+  describe('unique', function()
+    it('should be an alias for distinct', function()
+      expect(llx.functional.unique).to.be_equal_to(llx.functional.distinct)
+    end)
+  end)
+
+  describe('flatten', function()
+    it('should flatten nested sequences', function()
+      local function make_nested()
+        return llx.List{
+          llx.List{1, 2},
+          llx.List{3, 4},
+          llx.List{5}
+        }
+      end
+
+      local result = llx.List(llx.functional.flatten(ipairs(make_nested())))
+      expect(result).to.be_equal_to(llx.List{1, 2, 3, 4, 5})
+    end)
+  end)
+
+  describe('enumerate', function()
+    it('should return index and value pairs', function()
+      local function make_list()
+        return llx.List{'a', 'b', 'c'}
+      end
+
+      local indices = llx.List{}
+      local values = llx.List{}
+
+      for _, idx, val in llx.functional.enumerate(ipairs(make_list())) do
+        indices:insert(idx)
+        values:insert(val)
+      end
+
+      expect(indices).to.be_equal_to(llx.List{1, 2, 3})
+      expect(values).to.be_equal_to(llx.List{'a', 'b', 'c'})
+    end)
+
+    it('should support custom start index', function()
+      local function make_list()
+        return llx.List{'a', 'b', 'c'}
+      end
+
+      local indices = llx.List{}
+
+      for _, idx in llx.functional.enumerate(ipairs(make_list()), 10) do
+        indices:insert(idx)
+      end
+
+      expect(indices).to.be_equal_to(llx.List{10, 11, 12})
+    end)
+  end)
+
+  describe('memoize', function()
+    it('should cache function results', function()
+      local call_count = 0
+      local function expensive(x)
+        call_count = call_count + 1
+        return x * 2
+      end
+
+      local memoized = llx.functional.memoize(expensive)
+
+      expect(memoized(5)).to.be_equal_to(10)
+      expect(call_count).to.be_equal_to(1)
+
+      expect(memoized(5)).to.be_equal_to(10)
+      expect(call_count).to.be_equal_to(1)
+
+      expect(memoized(10)).to.be_equal_to(20)
+      expect(call_count).to.be_equal_to(2)
+    end)
+
+    it('should support custom key function', function()
+      local call_count = 0
+      local function expensive(x, y)
+        call_count = call_count + 1
+        return x + y
+      end
+
+      local function key_func(x, y)
+        return x .. ',' .. y
+      end
+
+      local memoized = llx.functional.memoize(expensive, key_func)
+
+      expect(memoized(1, 2)).to.be_equal_to(3)
+      expect(call_count).to.be_equal_to(1)
+
+      expect(memoized(1, 2)).to.be_equal_to(3)
+      expect(call_count).to.be_equal_to(1)
+    end)
+  end)
+
+  describe('any', function()
+    it('should return true if any element matches', function()
+      local function is_even(x) return x % 2 == 0 end
+      local result = llx.functional.any(is_even, llx.functional.range(5))
+
+      expect(result).to.be_true()
+    end)
+
+    it('should return false if no elements match', function()
+      local function is_negative(x) return x < 0 end
+      local result = llx.functional.any(is_negative, llx.functional.range(5))
+
+      expect(result).to.be_false()
+    end)
+  end)
+
+  describe('all', function()
+    it('should return true if all elements match', function()
+      local function is_positive(x) return x > 0 end
+      local result = llx.functional.all(is_positive, llx.functional.range(5))
+
+      expect(result).to.be_true()
+    end)
+
+    it('should return false if any element does not match', function()
+      local function is_even(x) return x % 2 == 0 end
+      local result = llx.functional.all(is_even, llx.functional.range(5))
+
+      expect(result).to.be_false()
+    end)
+  end)
+
+  describe('none', function()
+    it('should return true if no elements match', function()
+      local function is_negative(x) return x < 0 end
+      local result = llx.functional.none(is_negative, llx.functional.range(5))
+
+      expect(result).to.be_true()
+    end)
+
+    it('should return false if any element matches', function()
+      local function is_even(x) return x % 2 == 0 end
+      local result = llx.functional.none(is_even, llx.functional.range(5))
+
+      expect(result).to.be_false()
+    end)
+  end)
+
+  describe('tap', function()
+    it('should call function and pass through values', function()
+      local side_effects = llx.List{}
+
+      local function record(x)
+        side_effects:insert(x)
+      end
+
+      local result = llx.List(llx.functional.tap(record, llx.functional.range(3)))
+
+      expect(result).to.be_equal_to(llx.List{1, 2, 3})
+      expect(side_effects).to.be_equal_to(llx.List{1, 2, 3})
+    end)
+  end)
 end)
 
 if llx.main_file() then

@@ -675,4 +675,213 @@ function cartesian_product(...)
   end, state, control
 end
 
+--- Flatmap: Maps a function over a sequence and flattens the results
+-- @param lambda Function that returns an iterable for each element
+-- @param sequence Input sequence
+-- @return Iterator over flattened results
+function flatmap(lambda, sequence)
+  local current_inner = nil
+  local inner_control = nil
+  local outer_control = nil
+
+  return function()
+    while true do
+      -- Try to get next value from current inner sequence
+      if current_inner then
+        local ctrl, value = current_inner(nil, inner_control)
+        if ctrl then
+          inner_control = ctrl
+          return ctrl, value
+        end
+        -- Current inner exhausted, move to next
+        current_inner = nil
+        inner_control = nil
+      end
+
+      -- Get next element from outer sequence
+      local outer_value
+      outer_control, outer_value = sequence(nil, outer_control)
+      if not outer_control then
+        return nil
+      end
+
+      -- Apply lambda and start iterating inner
+      current_inner = lambda(outer_value)
+      inner_control = nil
+    end
+  end
+end
+
+--- Partition: Splits a sequence into two lists based on a predicate
+-- @param predicate Function to test each element
+-- @param sequence Input sequence
+-- @return Two lists: [matches, non-matches]
+function partition(predicate, sequence)
+  predicate = predicate or nonnil
+  local matches = List{}
+  local non_matches = List{}
+
+  for i, v in sequence do
+    if predicate(v) then
+      matches:insert(v)
+    else
+      non_matches:insert(v)
+    end
+  end
+
+  return matches, non_matches
+end
+
+--- Find: Returns the first element matching the predicate
+-- @param predicate Function to test each element
+-- @param sequence Input sequence
+-- @return The first matching element, or nil
+function find(predicate, sequence)
+  predicate = predicate or nonnil
+  for i, v in sequence do
+    if predicate(v) then
+      return v
+    end
+  end
+  return nil
+end
+
+--- Find index: Returns the index of the first element matching the predicate
+-- @param predicate Function to test each element
+-- @param sequence Input sequence
+-- @return The index of the first matching element, or nil
+function find_index(predicate, sequence)
+  predicate = predicate or nonnil
+  for i, v in sequence do
+    if predicate(v) then
+      return i
+    end
+  end
+  return nil
+end
+
+--- Distinct: Returns unique elements from a sequence
+-- @param sequence Input sequence
+-- @param key_func Optional function to compute uniqueness key
+-- @return List of unique elements (in order of first appearance)
+function distinct(sequence, key_func)
+  key_func = key_func or noop
+  local seen = {}
+  local result = List{}
+
+  for i, v in sequence do
+    local key = key_func(v) or v
+    if not seen[key] then
+      seen[key] = true
+      result:insert(v)
+    end
+  end
+
+  return result
+end
+
+--- Unique: Alias for distinct
+unique = distinct
+
+--- Flatten: Flattens a nested sequence by one level
+-- @param sequence Input sequence of sequences
+-- @return Iterator over flattened results
+function flatten(sequence)
+  return flatmap(noop, sequence)
+end
+
+--- Enumerate: Returns pairs of (index, value) for a sequence
+-- @param sequence Input sequence
+-- @param start Starting index (default: 1)
+-- @return Iterator returning (index, original_index, value)
+function enumerate(sequence, start)
+  start = start or 1
+  local index = start - 1
+  return function(state, control)
+    local ctrl, value = sequence(state, control)
+    if ctrl then
+      index = index + 1
+      return ctrl, index, value
+    end
+    return nil
+  end
+end
+
+--- Memoize: Creates a memoized version of a function
+-- @param func Function to memoize
+-- @param key_func Optional function to compute cache key from arguments
+-- @return Memoized function
+function memoize(func, key_func)
+  local cache = {}
+
+  -- Default key function: concatenate arguments
+  key_func = key_func or function(...)
+    local args = {...}
+    if #args == 0 then return "__no_args__" end
+    if #args == 1 then return args[1] end
+    return table.concat(args, "|")
+  end
+
+  return function(...)
+    local key = key_func(...)
+    if cache[key] ~= nil then
+      return cache[key]
+    end
+    local result = func(...)
+    cache[key] = result
+    return result
+  end
+end
+
+--- Any: Returns true if any element satisfies the predicate
+-- @param predicate Function to test each element
+-- @param sequence Input sequence
+-- @return true if any element matches, false otherwise
+function any(predicate, sequence)
+  predicate = predicate or nonnil
+  for _, v in sequence do
+    if predicate(v) then
+      return true
+    end
+  end
+  return false
+end
+
+--- All: Returns true if all elements satisfy the predicate
+-- @param predicate Function to test each element
+-- @param sequence Input sequence
+-- @return true if all elements match, false otherwise
+function all(predicate, sequence)
+  predicate = predicate or nonnil
+  for _, v in sequence do
+    if not predicate(v) then
+      return false
+    end
+  end
+  return true
+end
+
+--- None: Returns true if no elements satisfy the predicate
+-- @param predicate Function to test each element
+-- @param sequence Input sequence
+-- @return true if no elements match, false otherwise
+function none(predicate, sequence)
+  return not any(predicate, sequence)
+end
+
+--- Tap: Calls a function with each element (for side effects) and passes through
+-- @param func Function to call with each element
+-- @param sequence Input sequence
+-- @return Iterator that passes through all values
+function tap(func, sequence)
+  return function(state, control)
+    local ctrl, value = sequence(state, control)
+    if ctrl then
+      func(value)
+      return ctrl, value
+    end
+    return nil
+  end
+end
+
 return _M
