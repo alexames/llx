@@ -39,10 +39,11 @@ local function check_field(schema, value, path, level)
   return true
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Checks if a value matches a schema.
+-- @param schema The schema to validate against
+-- @param value The value to validate
+-- @param nothrow If true, returns false on mismatch instead of throwing
+-- @return true if valid, or false and exception if nothrow is true
 function matches_schema(schema, value, nothrow)
   local successful, exception = check_field(schema, value, {}, 2)
   if successful then
@@ -56,10 +57,9 @@ function matches_schema(schema, value, nothrow)
   end
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Creates a schema object for type validation.
+-- @param schema The schema definition table
+-- @return The schema object with isinstance support
 function Schema(schema)
   function schema:__isinstance(value)
     return matches_schema(schema, value, true)

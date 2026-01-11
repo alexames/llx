@@ -485,17 +485,6 @@ end
 -- table, sets up inheritance relationships, and returns a class definer object
 -- for further class definition.
 local class_callable = {
-  --- Method to specify inheritance from one or more base classes.
-  --
-  -- This method creates a new class definition by invoking the 'create_class'
-  -- function with an anonymous class name. It then creates a class definer
-  -- using 'create_class_definer' and calls its 'extends' method with the
-  -- provided arguments, representing the base classes. Finally, it returns the
-  -- class definer for further class definition.
-  --
-  -- @param self The class callable object
-  -- @param ... One or more base classes to inherit from
-  -- @return A class definer object for defining Lua classes
   extends = function(self, ...)
     local class_table, class_table_proxy = create_class(anonymous_class_name)
     local definer = create_class_definer(class_table, class_table_proxy)
@@ -504,31 +493,13 @@ local class_callable = {
   end;
 }
 
---- Metatable for defining and instantiating classes.
+-- Metatable for defining and instantiating classes.
 --
 -- This metatable is used for defining and instantiating classes. It defines a
 -- `__call` metamethod, which is invoked when the metatable is called like a
 -- function. Depending on the argument provided, it either defines a new class
 -- or instantiates an existing class.
---
--- @param self The metatable object
--- @param name_or_definition The name of the class or a table containing the 
---                           class definition
--- @return A class definer object for defining a new class, or an instance of
---         the specified class
 local class_metatable = {
-  --- Method to define a Lua class by providing a name and definition.
-  --
-  -- This method resolves the class name and definition
-  -- using 'class_argument_resolver', creates a class using 'create_class', and
-  -- creates a class definer using 'create_class_definer'. If a class
-  -- definition is provided, it directly returns the result of class definition
-  -- using the definer, otherwise, it returns the definer for further class
-  -- definition.
-  --
-  -- @param self The class metatable object
-  -- @param name_or_definition The name of the class or the class definition
-  -- @return A class definer object for defining Lua classes
   __call = function(self, name_or_definition)
     local name, class_definition = class_argument_resolver(name_or_definition)
     local class_table, class_table_proxy = create_class(name)

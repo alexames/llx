@@ -32,7 +32,7 @@ sort = true
 all = true
 
 -- Template style
-style = 'ldoc.css'
+style = nil
 template = nil
 
 -- Custom CSS (optional)

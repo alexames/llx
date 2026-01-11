@@ -4,10 +4,9 @@ local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Creates a proxy object that wraps a value and forwards operations.
+-- @param value The value to wrap in a proxy
+-- @return A proxy object that forwards all operations to the wrapped value
 function Proxy(value)
   local proxy_object = {value}
   local function tovalue(v)
@@ -40,18 +39,16 @@ function Proxy(value)
   })
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Sets the value wrapped by a proxy object.
+-- @param proxy The proxy object
+-- @param value The new value to store in the proxy
 function set_proxy_value(proxy, value)
   rawset(proxy, 1, value)
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Extracts the value wrapped by a proxy object.
+-- @param proxy The proxy object
+-- @return The value stored in the proxy
 function extract_proxy_value(proxy)
   return rawget(proxy, 1)
 end

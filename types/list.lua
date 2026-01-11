@@ -167,9 +167,7 @@ List = class 'List' : extends(Table) {
     return true
   end,
 
-  --- Map: Apply a function to each element and return a new list
-  -- @param func Function to apply to each element
-  -- @return New list with mapped values
+  -- Map: Apply a function to each element and return a new list
   map = function(self, func)
     local result = List{}
     for i, v in ipairs(self) do
@@ -178,9 +176,7 @@ List = class 'List' : extends(Table) {
     return result
   end,
 
-  --- Filter: Keep only elements that match the predicate
-  -- @param predicate Function to test each element
-  -- @return New list with filtered values
+  -- Filter: Keep only elements that match the predicate
   filter = function(self, predicate)
     local result = List{}
     for i, v in ipairs(self) do
@@ -191,10 +187,7 @@ List = class 'List' : extends(Table) {
     return result
   end,
 
-  --- Reduce: Reduce the list to a single value
-  -- @param func Reducer function (accumulator, value, index)
-  -- @param initial Initial value for the accumulator
-  -- @return Reduced value
+  -- Reduce: Reduce the list to a single value
   reduce = function(self, func, initial)
     local accumulator = initial
     local start_index = 1
@@ -214,9 +207,7 @@ List = class 'List' : extends(Table) {
     return accumulator
   end,
 
-  --- Find: Return the first element matching the predicate
-  -- @param predicate Function to test each element
-  -- @return First matching element, or nil
+  -- Find: Return the first element matching the predicate
   find = function(self, predicate)
     for i, v in ipairs(self) do
       if predicate(v, i) then
@@ -226,9 +217,7 @@ List = class 'List' : extends(Table) {
     return nil
   end,
 
-  --- Find index: Return the index of the first matching element
-  -- @param predicate Function to test each element
-  -- @return Index of first match, or nil
+  -- Find index: Return the index of the first matching element
   find_index = function(self, predicate)
     for i, v in ipairs(self) do
       if predicate(v, i) then
@@ -238,10 +227,7 @@ List = class 'List' : extends(Table) {
     return nil
   end,
 
-  --- Sort: Sort the list in place (or return new sorted list)
-  -- @param comparator Optional comparison function (a, b) -> boolean
-  -- @param in_place If true, sort in place; otherwise return new list
-  -- @return Sorted list
+  -- Sort: Sort the list in place (or return new sorted list)
   sort = function(self, comparator, in_place)
     local target = in_place and self or List{}
     if not in_place then
@@ -259,9 +245,7 @@ List = class 'List' : extends(Table) {
     return target
   end,
 
-  --- Group by: Group elements by a key function
-  -- @param key_func Function to compute the grouping key
-  -- @return Table mapping keys to lists of elements
+  -- Group by: Group elements by a key function
   group_by = function(self, key_func)
     local groups = {}
     local group_order = List{}
@@ -279,9 +263,7 @@ List = class 'List' : extends(Table) {
     return groups, group_order
   end,
 
-  --- Zip: Combine this list with another list into pairs
-  -- @param other Another list to zip with
-  -- @return New list of {a, b} pairs
+  -- Zip: Combine this list with another list into pairs
   zip = function(self, other)
     local result = List{}
     local min_len = math.min(#self, #other)
@@ -293,8 +275,7 @@ List = class 'List' : extends(Table) {
     return result
   end,
 
-  --- Flatten: Flatten a list of lists by one level
-  -- @return New flattened list
+  -- Flatten: Flatten a list of lists by one level
   flatten = function(self)
     local result = List{}
     for _, v in ipairs(self) do
@@ -309,9 +290,7 @@ List = class 'List' : extends(Table) {
     return result
   end,
 
-  --- Distinct: Remove duplicate elements
-  -- @param key_func Optional function to compute uniqueness key
-  -- @return New list with unique elements
+  -- Distinct: Remove duplicate elements
   distinct = function(self, key_func)
     local seen = {}
     local result = List{}
@@ -327,14 +306,12 @@ List = class 'List' : extends(Table) {
     return result
   end,
 
-  --- Unique: Alias for distinct
+  -- Unique: Alias for distinct
   unique = function(self, key_func)
     return self:distinct(key_func)
   end,
 
-  --- Any: Test if any element matches the predicate
-  -- @param predicate Function to test each element
-  -- @return true if any element matches, false otherwise
+  -- Any: Test if any element matches the predicate
   any = function(self, predicate)
     for i, v in ipairs(self) do
       if predicate(v, i) then
@@ -344,9 +321,7 @@ List = class 'List' : extends(Table) {
     return false
   end,
 
-  --- All: Test if all elements match the predicate
-  -- @param predicate Function to test each element
-  -- @return true if all elements match, false otherwise
+  -- All: Test if all elements match the predicate
   all = function(self, predicate)
     for i, v in ipairs(self) do
       if not predicate(v, i) then
@@ -356,9 +331,7 @@ List = class 'List' : extends(Table) {
     return true
   end,
 
-  --- None: Test if no elements match the predicate
-  -- @param predicate Function to test each element
-  -- @return true if no elements match, false otherwise
+  -- None: Test if no elements match the predicate
   none = function(self, predicate)
     for i, v in ipairs(self) do
       if predicate(v, i) then
@@ -368,23 +341,17 @@ List = class 'List' : extends(Table) {
     return true
   end,
 
-  --- Take: Return the first n elements
-  -- @param n Number of elements to take
-  -- @return New list with first n elements
+  -- Take: Return the first n elements
   take = function(self, n)
     return self:sub(1, math.min(n, #self))
   end,
 
-  --- Drop: Return all elements after the first n
-  -- @param n Number of elements to drop
-  -- @return New list with remaining elements
+  -- Drop: Return all elements after the first n
   drop = function(self, n)
     return self:sub(n + 1)
   end,
 
-  --- Partition: Split list into two based on predicate
-  -- @param predicate Function to test each element
-  -- @return Two lists: [matches, non-matches]
+  -- Partition: Split list into two based on predicate
   partition = function(self, predicate)
     local matches = List{}
     local non_matches = List{}
@@ -400,9 +367,7 @@ List = class 'List' : extends(Table) {
     return matches, non_matches
   end,
 
-  --- Chunk: Split list into chunks of size n
-  -- @param n Chunk size
-  -- @return New list of chunks
+  -- Chunk: Split list into chunks of size n
   chunk = function(self, n)
     if n < 1 then
       error('Chunk size must be at least 1', 2)
@@ -420,21 +385,17 @@ List = class 'List' : extends(Table) {
     return result
   end,
 
-  --- Sum: Sum all numeric elements
-  -- @return Sum of all elements
+  -- Sum: Sum all numeric elements
   sum = function(self)
     return self:reduce(function(acc, v) return acc + v end, 0)
   end,
 
-  --- Product: Multiply all numeric elements
-  -- @return Product of all elements
+  -- Product: Multiply all numeric elements
   product = function(self)
     return self:reduce(function(acc, v) return acc * v end, 1)
   end,
 
-  --- Min: Find minimum element
-  -- @param comparator Optional comparison function
-  -- @return Minimum element
+  -- Min: Find minimum element
   min = function(self, comparator)
     if #self == 0 then return nil end
 
@@ -454,9 +415,7 @@ List = class 'List' : extends(Table) {
     return min_val
   end,
 
-  --- Max: Find maximum element
-  -- @param comparator Optional comparison function
-  -- @return Maximum element
+  -- Max: Find maximum element
   max = function(self, comparator)
     if #self == 0 then return nil end
 
@@ -476,20 +435,17 @@ List = class 'List' : extends(Table) {
     return max_val
   end,
 
-  --- First: Get the first element
-  -- @return First element or nil
+  -- First: Get the first element
   first = function(self)
     return self[1]
   end,
 
-  --- Last: Get the last element
-  -- @return Last element or nil
+  -- Last: Get the last element
   last = function(self)
     return self[#self]
   end,
 
-  --- Is empty: Check if list is empty
-  -- @return true if empty, false otherwise
+  -- Is empty: Check if list is empty
   is_empty = function(self)
     return #self == 0
   end,

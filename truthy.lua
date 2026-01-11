@@ -15,18 +15,16 @@ local truthy_table = {
   ['userdata'] = function(value) return true               end,
 }
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Checks if a value is truthy (not nil, false, 0, or empty).
+-- @param o The value to check
+-- @return true if the value is truthy, false otherwise
 function truthy(o)
   return truthy_table[type(o)](o)
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Checks if a value is falsey (nil, false, 0, or empty).
+-- @param o The value to check
+-- @return true if the value is falsey, false otherwise
 function falsey(o)
   return not truthy(o)
 end

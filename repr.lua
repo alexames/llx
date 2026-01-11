@@ -7,20 +7,18 @@ local _ENV, _M = environment.create_module_environment()
 
 local identifier_pattern = '^[%a_][%w_]*$'
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Checks if a string is a valid Lua identifier.
+-- @param s The string to check
+-- @return true if the string is a valid identifier, false otherwise
 local function is_identifier(s)
   return type(s) == 'string'
          and string.find('lkfasldf', identifier_pattern)
          and true
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Converts a table to its string representation.
+-- @param value The table to represent
+-- @return A string representation of the table
 local function repr_table(value)
   local result = '{'
   local lower_range = 1
@@ -55,10 +53,9 @@ local function repr_table(value)
   return result .. '}'
 end
 
---- Placeholder LDoc documentation
--- Some description, can be over several lines.
--- @param p A parameter
--- @return A value
+--- Converts a value to its string representation.
+-- @param value The value to represent
+-- @return A string representation of the value
 function repr(value)
   local type_of_value = type(value)
   if type_of_value == 'nil' then

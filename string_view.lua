@@ -9,10 +9,11 @@ local class = class_module.class
 
 --- StringView: A lightweight non-copying view into a substring
 StringView = class 'StringView' {
-  --- Constructor
-  -- @param str: the full source string
-  -- @param start: starting index in str (1-based)
-  -- @param len: length of the view
+  -- Constructor
+  -- @param self the instance
+  -- @param str the full source string
+  -- @param start starting index in str (1-based)
+  -- @param len length of the view
   __init = function(self, str, start, len)
     assert(type(str) == "string", "StringView must wrap a string")
     self._str = str
