@@ -4,7 +4,7 @@ local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
 
-local lua_exe = arg[-1]
+local lua_exe = arg and arg[-1]
 local TERMINAL_COLORS = lua_exe ~= 'lua'
 
 black          = {fg=30, bg=40}
