@@ -401,19 +401,16 @@ local function create_internal_class_table(name)
   return class_table
 end
 
---- Metatable for defining and instantiating classes.
+--- Resolves the name and definition from a class creation argument.
 --
--- This metatable is used for defining and instantiating classes. It defines a
--- `__call` metamethod, which is invoked when the metatable is called like a
--- function. Depending on the argument provided, it either defines a new class
--- or instantiates an existing class.
+-- This function determines whether the argument is a class name (string) or
+-- an anonymous class definition (table). It returns the resolved name and
+-- definition for use in class creation.
 --
--- @param self The metatable object
--- @param name_or_definition The name of the class or a table containing the
---                           class definition
--- @return A class definer object for defining a new class, or an instance of
---         the specified class
-
+-- @param name_or_definition The name of the class (string) or a table
+--                           containing the class definition for anonymous classes
+-- @return name The resolved class name (or anonymous class name if a table was provided)
+-- @return class_definition The class definition table (or nil if a name was provided)
 local function class_argument_resolver(name_or_definition)
   local name = nil
   local class_definition = nil
@@ -481,7 +478,7 @@ local function create_class(name)
   return class_table, class_table_proxy
 end
 
---- Callable object for defining classes with inheritance.
+-- Callable object for defining classes with inheritance.
 --
 -- This object provides a method, `extends`, for defining classes with
 -- inheritance. When called with the `extends` method, it creates a new class
