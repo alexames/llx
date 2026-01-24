@@ -123,8 +123,10 @@ List = class 'List' : extends(Table) {
 
   __call = function(self, state, control)
     control = (control or 0) + 1
-    local value = self[control]
-    return value and control, value
+    if control > #self then
+      return nil
+    end
+    return control, self[control]
   end,
 
   __shl = function(self, n)

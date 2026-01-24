@@ -209,15 +209,25 @@ end
 -- -- Returns List{1, 3, 6, 10}
 function accumulate(sequence, lambda, initial_value)
   local result = List{}
-  local control
-  if initial_value then
-    control, result[1] = nil, initial_value
+  local index = 0
+  local previous
+
+  if initial_value ~= nil then
+    index = 1
+    result[1] = initial_value
+    previous = initial_value
   else
-    control, result[1] = sequence()
+    local ctrl, first = sequence()
+    if ctrl == nil then return result end
+    index = 1
+    result[1] = first
+    previous = first
   end
-  for i, v in sequence, nil, control do
-    local previous = result[i-1]
-    result[i] = lambda(previous, v)
+
+  for _, v in sequence, nil, initial_value and nil or 1 do
+    index = index + 1
+    previous = lambda(previous, v)
+    result[index] = previous
   end
   return result
 end
@@ -300,8 +310,8 @@ end
 -- local mask = List{true, false, true, false, true}
 -- for i, v in compress(data, mask) do print(v) end  -- 1, 3, 5
 function compress(sequence, selectors)
+  local selector_control = nil
   return function(state, control)
-    local selector_control = nil
     while true do
       local seq_control, value = sequence(state, control)
       if seq_control == nil then
@@ -494,13 +504,15 @@ end
 -- @return Iterator function
 function star_map(lambda, ...)
   local sequences = {...}
+  local controls = {}
   return function()
     local values = {}
     for i, seq in ipairs(sequences) do
-      local ctrl, val = seq()
+      local ctrl, val = seq(nil, controls[i])
       if ctrl == nil then
         return nil
       end
+      controls[i] = ctrl
       values[i] = val
     end
     return lambda(unpack(values))
@@ -552,6 +564,7 @@ function tee(sequence, n)
   local cache = List{}
   local iterators = {}
   local indices = {}
+  local seq_control = nil
 
   for i = 1, n do
     indices[i] = 0
@@ -560,10 +573,11 @@ function tee(sequence, n)
       if indices[i] <= #cache then
         return indices[i], cache[indices[i]]
       else
-        local ctrl, value = sequence()
+        local ctrl, value = sequence(nil, seq_control)
         if ctrl == nil then
           return nil
         end
+        seq_control = ctrl
         cache:insert(value)
         return indices[i], value
       end
@@ -635,63 +649,65 @@ function permutations(sequence, r)
     elements:insert(v)
   end
 
-  r = r or #elements
-  if r > #elements then
+  local n = #elements
+  r = r or n
+  if r > n then
     return function() return nil end
   end
 
   local indices = {}
-  for i = 1, r do
+  for i = 1, n do
     indices[i] = i
   end
 
-  local function next_permutation()
-    local i = r - 1
-    while i >= 1 and indices[i] >= indices[i + 1] do
-      i = i - 1
-    end
-
-    if i < 1 then
-      return false
-    end
-
-    local j = r
-    while indices[j] <= indices[i] do
-      j = j - 1
-    end
-
-    indices[i], indices[j] = indices[j], indices[i]
-
-    local left = i + 1
-    local right = r
-    while left < right do
-      indices[left], indices[right] = indices[right], indices[left]
-      left = left + 1
-      right = right - 1
-    end
-
-    return true
+  local cycles = {}
+  for i = 1, r do
+    cycles[i] = n - i + 1
   end
 
   local first = true
+  local done = false
+  local index = 0
+
   return function()
+    if done then
+      return nil
+    end
+
     if first then
       first = false
+      index = index + 1
       local result = {}
       for i = 1, r do
         result[i] = elements[indices[i]]
       end
-      return unpack(result)
+      return index, unpack(result)
     end
 
-    if next_permutation() then
-      local result = {}
-      for i = 1, r do
-        result[i] = elements[indices[i]]
+    local i = r
+    while i >= 1 do
+      cycles[i] = cycles[i] - 1
+      if cycles[i] == 0 then
+        local temp = indices[i]
+        for j = i, n - 1 do
+          indices[j] = indices[j + 1]
+        end
+        indices[n] = temp
+        cycles[i] = n - i + 1
+        i = i - 1
+      else
+        local j = n - cycles[i] + 1
+        indices[i], indices[j] = indices[j], indices[i]
+        index = index + 1
+        local result = {}
+        for k = 1, r do
+          result[k] = elements[indices[k]]
+        end
+        return index, unpack(result)
       end
-      return unpack(result)
     end
 
+    done = true
     return nil
   end
 end
@@ -711,7 +727,8 @@ function combinations(sequence, r)
     elements:insert(v)
   end
 
-  if r > #elements then
+  local n = #elements
+  if r > n then
     return function() return nil end
   end
 
@@ -722,7 +739,7 @@ function combinations(sequence, r)
 
   local function next_combination()
     local i = r
-    while i >= 1 and indices[i] == #elements - r + i do
+    while i >= 1 and indices[i] == n - r + i do
       i = i - 1
     end
 
@@ -739,22 +756,25 @@ function combinations(sequence, r)
   end
 
   local first = true
+  local index = 0
   return function()
     if first then
       first = false
+      index = index + 1
       local result = {}
       for i = 1, r do
         result[i] = elements[indices[i]]
       end
-      return unpack(result)
+      return index, unpack(result)
     end
 
     if next_combination() then
+      index = index + 1
       local result = {}
       for i = 1, r do
         result[i] = elements[indices[i]]
       end
-      return unpack(result)
+      return index, unpack(result)
     end
 
     return nil
@@ -785,14 +805,14 @@ end
 -- @param sequence The input sequence
 -- @return The minimum value
 function min(sequence)
-  return reduce(sequence, operators.lesser)
+  return reduce(sequence, function(a, b) return a < b and a or b end)
 end
 
 --- Returns the maximum element of a sequence.
 -- @param sequence The input sequence
 -- @return The maximum value
 function max(sequence)
-  return reduce(sequence, operators.greater)
+  return reduce(sequence, function(a, b) return a > b and a or b end)
 end
 
 --- Returns the sum of all elements in a sequence.
