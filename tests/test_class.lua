@@ -46,7 +46,7 @@ describe('class', function()
 
   it('should call class functions correctly', function()
     local mock = Mock()
-    mock:mockReturnValue(100)
+    mock:mock_return_value(100)
     local foo = class 'foo' {
       func = mock
     }
@@ -56,7 +56,7 @@ describe('class', function()
 
   it('should call member functions with self correctly', function()
     local mock = Mock()
-    mock:mockReturnValue(100)
+    mock:mock_return_value(100)
     local foo = class 'foo' {
       func = mock
     }
@@ -70,7 +70,7 @@ describe('class', function()
   it('should set self reference correctly in member functions', function()
     local mock = Mock()
     local self_ref = Proxy()
-    mock:mockImplementation(function(self)
+    mock:mock_implementation(function(self)
       set_proxy_value(self_ref, self)
       return 100
     end)
@@ -126,7 +126,7 @@ describe('class', function()
 
   it('should use custom tostring when provided', function()
     local mock = Mock()
-    mock:mockReturnValue('custom tostring')
+    mock:mock_return_value('custom tostring')
     local foo = class 'foo' {
       __tostring = mock
     }
@@ -138,7 +138,7 @@ describe('class', function()
   it('should call __init with correct arguments', function()
     local mock = Mock()
     local self_ref = Proxy()
-    mock:mockImplementation(function(self, arg1, arg2)
+    mock:mock_implementation(function(self, arg1, arg2)
       set_proxy_value(self_ref, self)
     end)
     local foo = class 'foo' {
@@ -155,7 +155,7 @@ describe('class', function()
   it('should call __new with correct arguments and return value', function()
     local mock = Mock()
     local self_ref = {}
-    mock:mockReturnValue(self_ref)
+    mock:mock_return_value(self_ref)
     local foo = class 'foo' {
       __new = mock
     }
@@ -322,8 +322,8 @@ describe('derived_class', function()
   it('should call base class function from derived class', function()
     local foo_mock = Mock()
     local bar_mock = Mock()
-    foo_mock:mockReturnValue(100)
-    bar_mock:mockReturnValue(200)
+    foo_mock:mock_return_value(100)
+    bar_mock:mock_return_value(200)
     local foo = class 'foo' {
       foo_func = foo_mock
     }
@@ -337,8 +337,8 @@ describe('derived_class', function()
   it('should call derived class function', function()
     local foo_mock = Mock()
     local bar_mock = Mock()
-    foo_mock:mockReturnValue(100)
-    bar_mock:mockReturnValue(200)
+    foo_mock:mock_return_value(100)
+    bar_mock:mock_return_value(200)
     local foo = class 'foo' {
       foo_func = foo_mock
     }
@@ -352,8 +352,8 @@ describe('derived_class', function()
   it('should call base class member function from derived instance', function()
     local foo_mock = Mock()
     local bar_mock = Mock()
-    foo_mock:mockReturnValue(100)
-    bar_mock:mockReturnValue(200)
+    foo_mock:mock_return_value(100)
+    bar_mock:mock_return_value(200)
     local foo = class 'foo' {
       foo_func = foo_mock
     }
@@ -368,8 +368,8 @@ describe('derived_class', function()
   it('should call derived class member function', function()
     local foo_mock = Mock()
     local bar_mock = Mock()
-    foo_mock:mockReturnValue(100)
-    bar_mock:mockReturnValue(200)
+    foo_mock:mock_return_value(100)
+    bar_mock:mock_return_value(200)
     local foo = class 'foo' {
       foo_func = foo_mock
     }
@@ -462,7 +462,7 @@ describe('derived_class', function()
 
   it('should use custom tostring from base class', function()
     local mock = Mock()
-    mock:mockReturnValue('custom tostring')
+    mock:mock_return_value('custom tostring')
     local foo = class 'foo' {
       __tostring = mock
     }
@@ -474,7 +474,7 @@ describe('derived_class', function()
 
   it('should use custom tostring from derived class', function()
     local mock = Mock()
-    mock:mockReturnValue('custom tostring')
+    mock:mock_return_value('custom tostring')
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {
       __tostring = mock
@@ -487,7 +487,7 @@ describe('derived_class', function()
   it('should override base class tostring with derived class tostring', function()
     local foo_mock = Mock()
     local bar_mock = Mock()
-    bar_mock:mockReturnValue('custom tostring')
+    bar_mock:mock_return_value('custom tostring')
     local foo = class 'foo' {
       __tostring = foo_mock
     }

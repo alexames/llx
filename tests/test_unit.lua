@@ -1,5 +1,5 @@
 local unit = require 'llx.unit'
-local matchers = require 'unit.matchers'
+local matchers = require 'llx.unit.matchers'
 
 _ENV = unit.create_test_env(_ENV)
 

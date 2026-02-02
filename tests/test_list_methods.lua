@@ -2,7 +2,7 @@
 -- Tests for new List methods
 
 local llx = require 'llx'
-local unit = require 'unit.test_api'
+local unit = require 'llx.unit.test_api'
 
 local describe = unit.describe
 local it = unit.it
