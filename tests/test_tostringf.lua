@@ -1,6 +1,6 @@
 local class_module = require 'llx.class'
 local tostringf_module = require 'llx.tostringf'
-local unit = require 'unit'
+local unit = require 'llx.unit'
 
 local class = class_module.class
 local tostringf = tostringf_module.tostringf

@@ -1,4 +1,4 @@
-local unit = require 'unit'
+local unit = require 'llx.unit'
 local matchers = require 'unit.matchers'
 
 _ENV = unit.create_test_env(_ENV)

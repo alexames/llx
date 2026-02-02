@@ -1,6 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local unit = require 'unit'
+local unit = require 'llx.unit'
 local llx = require 'llx'
 
 require 'llx.core'

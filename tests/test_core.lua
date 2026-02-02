@@ -1,6 +1,6 @@
 -- Tests for llx.core module
 local core = require 'llx.core'
-local unit = require 'unit'
+local unit = require 'llx.unit'
 local llx = require 'llx'
 
 _ENV = unit.create_test_env(_ENV)

@@ -2,7 +2,7 @@ local class_module = require 'llx.class'
 local decorator = require 'llx.decorator'
 local property = require 'llx.property'
 local proxy = require 'llx.proxy'
-local unit = require 'unit'
+local unit = require 'llx.unit'
 local llx = require 'llx'
 
 local class = class_module.class

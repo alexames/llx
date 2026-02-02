@@ -2,7 +2,7 @@ local class_module = require 'llx.class'
 local decorator = require 'llx.decorator'
 local property = require 'llx.property'
 local string_view = require 'llx.string_view'
-local unit = require 'unit'
+local unit = require 'llx.unit'
 
 local class = class_module.class
 local StringView = string_view.StringView
