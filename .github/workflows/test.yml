@@ -11,39 +11,27 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        path: llx
-    
-    - name: Install Lua
+
+    - name: Install Lua and LuaRocks
       run: |
         sudo apt-get update
-        sudo apt-get install -y lua5.4 liblua5.4-dev
-    
-    - name: Checkout unit dependency
-      uses: actions/checkout@v4
-      with:
-        repository: alexames/unit
-        path: unit
-        token: ${{ secrets.REPO_ACCESS_TOKEN }}
-    
-    - name: Set up Lua package path
-      run: |
-        export LUA_PATH="$GITHUB_WORKSPACE/?.lua;$GITHUB_WORKSPACE/?/init.lua;;"
-        export LUA_PATH_5_4="$GITHUB_WORKSPACE/?.lua;$GITHUB_WORKSPACE/?/init.lua;;"
-        echo "LUA_PATH=$LUA_PATH" >> $GITHUB_ENV
-        echo "LUA_PATH_5_4=$LUA_PATH_5_4" >> $GITHUB_ENV
-    
+        sudo apt-get install -y lua5.4 liblua5.4-dev luarocks
+
+    - name: Install package locally
+      run: luarocks make --local --lua-version 5.4
+
     - name: Run all tests
-      working-directory: llx/tests
       run: |
+        eval "$(luarocks path --lua-version 5.4)"
+        cd tests
         for test_file in test_*.lua; do
           echo "Running $test_file..."
-          lua "$test_file" || exit 1
+          lua5.4 "$test_file" || exit 1
         done
-    
+
     - name: Report success
       run: echo "All tests passed!"

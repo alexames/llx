@@ -11,11 +11,10 @@ schema validation, exception handling, and more.
 
 -- Source files
 file = {
-  '.',
+  'src',
   exclude = {
-    'tests',
-    'bytecode',
-    'experimental',
+    'src/bytecode',
+    'src/experimental',
   }
 }
 
@@ -39,7 +38,7 @@ template = nil
 custom_css = nil
 
 -- Package display name
-package = 'llx'
+package = ''
 
 -- One file per module
 one = false
