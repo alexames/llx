@@ -85,15 +85,17 @@ function metamethod_args(class, self, other)
   end
 end
 
---- Iterator over table keys.
--- Returns an iterator that yields keys from a table.
+--- Iterator over table values.
+-- Returns an iterator that yields values from a table.
 -- @param t The table to iterate over
 -- @return Iterator function
--- @usage for key in values(t) do print(key) end
+-- @usage for v in values(t) do print(v) end
 function values(t)
-  local v = nil
+  local k = nil
   return function()
-    return next(t, v)
+    local v
+    k, v = next(t, k)
+    return v
   end
 end
 

@@ -250,19 +250,23 @@ describe('tovalue', function()
 end)
 
 describe('values', function()
-  it('should iterate over table keys', function()
+  it('should iterate over table values', function()
     local t = {a = 1, b = 2, c = 3}
-    local keys = {}
-    for key in core.values(t) do
-      table.insert(keys, key)
+    local vals = {}
+    for v in core.values(t) do
+      table.insert(vals, v)
     end
-    expect(#keys).to.be_equal_to(3)
+    table.sort(vals)
+    expect(#vals).to.be_equal_to(3)
+    expect(vals[1]).to.be_equal_to(1)
+    expect(vals[2]).to.be_equal_to(2)
+    expect(vals[3]).to.be_equal_to(3)
   end)
 
   it('should handle empty table', function()
     local t = {}
     local count = 0
-    for key in core.values(t) do
+    for v in core.values(t) do
       count = count + 1
     end
     expect(count).to.be_equal_to(0)

@@ -143,7 +143,4 @@ build = {
       ["llx.unit.mock"] = "src/unit/mock.lua",
       ["llx.unit.runner"] = "src/unit/runner.lua",
    },
-   copy_directories = {
-      "docs",
-   },
 }
