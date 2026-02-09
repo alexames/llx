@@ -29,6 +29,18 @@ Tuple = class 'Tuple' {
     return #self.__values
   end,
 
+  __eq = function(self, other)
+    if #self ~= #other then
+      return false
+    end
+    for i=1, #self do
+      if self[i] ~= other[i] then
+        return false
+      end
+    end
+    return true
+  end,
+
   __hash = function(self, result)
     for i=1, #self do
       result = hash.hash_value(i, result)
