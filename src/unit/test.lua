@@ -8,6 +8,7 @@ local class = llx.class
 local isinstance = llx.isinstance
 local functional = require 'llx.functional'
 local product = functional.product
+local mock_module = require 'llx.unit.mock'
 
 local test_index = 0
 
@@ -82,6 +83,8 @@ local Test = class 'Test' {
     end
     local successful, err = pcall(test.func, self, ...)
     local teardown_ok, teardown_err = pcall(self.teardown, self)
+    -- Auto-restore all spies after each test
+    pcall(mock_module.restore_all_spies)
     if not teardown_ok then
       -- Report teardown failure, but don't mask the original test error
       err = (err and tostring(err) or "") .. "\ntearDown failed: " .. tostring(teardown_err)

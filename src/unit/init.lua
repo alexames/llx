@@ -23,6 +23,7 @@ local function create_test_env(fallback_env)
   local env = {
     Mock = mock.Mock,
     spy_on = mock.spy_on,
+    restore_all_spies = mock.restore_all_spies,
     run_unit_tests = runner.run_unit_tests,
     Test = test.Test,
     test = test.test,
@@ -52,6 +53,9 @@ return {
   --- Creates a spy on an existing object method.
   -- @see llx.unit.mock.spy_on
   spy_on = mock.spy_on,
+  --- Restores all active spies.
+  -- @see llx.unit.mock.restore_all_spies
+  restore_all_spies = mock.restore_all_spies,
   --- Executes all registered test suites.
   -- @see llx.unit.runner.run_unit_tests
   run_unit_tests = runner.run_unit_tests,

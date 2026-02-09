@@ -216,6 +216,9 @@ Mock = class 'Mock' {
   end;
 }
 
+-- Registry of active spies for auto-restoration
+local active_spies = {}
+
 --- Creates a spy on an existing object method
 -- @param object The object to spy on
 -- @param method_name The name of the method to spy on
@@ -253,10 +256,23 @@ local function spy_on(object, method_name)
     return original(...)
   end)
   
+  table.insert(active_spies, spy)
+
   return spy
+end
+
+--- Restores all active spies to their original implementations.
+-- Called automatically after each test by the test runner.
+local function restore_all_spies()
+  for i = #active_spies, 1, -1 do
+    local spy = active_spies[i]
+    spy:mock_restore()
+  end
+  active_spies = {}
 end
 
 return {
   Mock = Mock,
   spy_on = spy_on,
+  restore_all_spies = restore_all_spies,
 }
