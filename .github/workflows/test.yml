@@ -28,7 +28,7 @@ jobs:
       run: |
         eval "$(luarocks path --lua-version 5.4)"
         cd tests
-        for test_file in test_*.lua; do
+        find . -name 'test_*.lua' -type f | sort | while read test_file; do
           echo "Running $test_file..."
           lua5.4 "$test_file" || exit 1
         done
