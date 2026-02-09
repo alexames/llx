@@ -249,6 +249,84 @@ function String:truncate(max_len, suffix)
   return self:sub(1, max_len - #suffix) .. suffix
 end
 
+--- Splits a string into words by separating on camelCase boundaries,
+-- underscores, hyphens, and spaces. Returns lowercased words.
+-- @return A table of lowercased word strings
+local function split_words(s)
+  -- Insert a separator before uppercase letters that follow lowercase or
+  -- before the last letter of a consecutive uppercase run (e.g. HTMLParser -> HTML_Parser)
+  local spaced = s:gsub('(%u+)(%u%l)', '%1 %2')
+  spaced = spaced:gsub('(%l)(%u)', '%1 %2')
+  local words = {}
+  for word in spaced:gmatch('[%w]+') do
+    words[#words + 1] = word:lower()
+  end
+  return words
+end
+
+--- Converts a string to snake_case.
+-- @return The snake_cased string
+function String:snake_case()
+  return table.concat(split_words(self), '_')
+end
+
+--- Converts a string to camelCase.
+-- @return The camelCased string
+function String:camel_case()
+  local words = split_words(self)
+  for i = 2, #words do
+    words[i] = words[i]:sub(1, 1):upper() .. words[i]:sub(2)
+  end
+  return table.concat(words)
+end
+
+--- Converts a string to kebab-case.
+-- @return The kebab-cased string
+function String:kebab_case()
+  return table.concat(split_words(self), '-')
+end
+
+--- Escapes Lua pattern special characters in a string.
+-- @return A string safe for use in pattern matching functions
+function String:escape_pattern()
+  return escape_pattern(self)
+end
+
+--- Returns true if the string is non-empty and contains only letters.
+-- @return boolean
+function String:is_alpha()
+  return #self > 0 and self:find('^%a+$') ~= nil
+end
+
+--- Returns true if the string is non-empty and contains only digits.
+-- @return boolean
+function String:is_digit()
+  return #self > 0 and self:find('^%d+$') ~= nil
+end
+
+--- Returns true if the string is non-empty and contains only letters and digits.
+-- @return boolean
+function String:is_alnum()
+  return #self > 0 and self:find('^%w+$') ~= nil
+end
+
+--- Returns true if the string is non-empty and contains only whitespace.
+-- @return boolean
+function String:is_space()
+  return #self > 0 and self:find('^%s+$') ~= nil
+end
+
+--- Substitutes ${name} placeholders with values from a table.
+-- Unmatched placeholders are left unchanged.
+-- @param vars Table mapping names to values
+-- @return The interpolated string
+function String:template(vars)
+  return (self:gsub('%$%{(%w+)%}', function(key)
+    local v = vars[key]
+    if v ~= nil then return tostring(v) end
+  end))
+end
+
 function String:__index(i, v)
   return self:sub(i, i)
 end
