@@ -1,14 +1,29 @@
 --- Unit testing framework for Lua.
 -- Provides access to core test API, mocks, test registration, and execution.
 --
+-- The framework provides two testing styles:
+--
+-- **Primary: describe/it API** (recommended for new tests)
+-- Uses BDD-style describe/it blocks with before_each/after_each hooks.
+-- Supports nesting, .skip, .only, .todo, and .each for parameterized tests.
+--
+-- **Legacy: Class-based Test API** (for advanced/internal use)
+-- Subclass Test, define methods with the test decorator, override setup/teardown.
+-- Supports parameterized tests via the product function and operator overloading.
+-- This API is used internally by the describe/it system (TestSuite extends Test).
+--
 -- @module llx.unit
 -- @usage
+-- -- Primary API (recommended):
 -- local unit = require 'llx.unit'
 -- unit.describe('MyTest', function()
+--   unit.before_each(function() --[[ setup ]] end)
 --   unit.it('should work', function()
 --     unit.expect(1 + 1).to.be_equal_to(2)
 --   end)
+--   unit.it.todo('should handle edge case')
 -- end)
+-- unit.run_tests()
 
 local mock = require 'llx.unit.mock'
 local runner = require 'llx.unit.runner'
