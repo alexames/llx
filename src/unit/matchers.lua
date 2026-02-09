@@ -24,7 +24,7 @@ end
 --- Negates a matcher predicate.
 -- @param predicate The matcher to negate
 -- @return A new matcher predicate
-function negate(predicate)
+local function negate(predicate)
   return function(actual)
     local result = predicate(actual)
     if type(result) ~= 'table' or result.pass == nil then
@@ -41,7 +41,7 @@ function negate(predicate)
 end
 
 --- Checks equality with expected value.
-function equals(expected)
+local function equals(expected)
   return function(actual)
     return {
       pass = actual == expected,
@@ -54,7 +54,7 @@ function equals(expected)
 end
 
 --- Checks if actual > expected
-function greater_than(expected)
+local function greater_than(expected)
   return function(actual)
     return {
       pass = actual > expected,
@@ -67,7 +67,7 @@ function greater_than(expected)
 end
 
 --- Checks if actual >= expected
-function greater_than_or_equal(expected)
+local function greater_than_or_equal(expected)
   return function(actual)
     return {
       pass = actual >= expected,
@@ -80,7 +80,7 @@ function greater_than_or_equal(expected)
 end
 
 --- Checks if actual < expected
-function less_than(expected)
+local function less_than(expected)
   return function(actual)
     return {
       pass = actual < expected,
@@ -93,7 +93,7 @@ function less_than(expected)
 end
 
 --- Checks if actual <= expected
-function less_than_or_equal(expected)
+local function less_than_or_equal(expected)
   return function(actual)
     return {
       pass = actual <= expected,
@@ -106,7 +106,7 @@ function less_than_or_equal(expected)
 end
 
 --- Checks if actual string starts with expected prefix.
-function starts_with(expected)
+local function starts_with(expected)
   return function(actual)
     return {
       pass = actual:startswith(expected),
@@ -119,7 +119,7 @@ function starts_with(expected)
 end
 
 --- Checks if actual string ends with expected suffix.
-function ends_with(expected)
+local function ends_with(expected)
   return function(actual)
     return {
       pass = actual:endswith(expected),
@@ -132,7 +132,7 @@ function ends_with(expected)
 end
 
 --- Checks if actual is of expected type/class.
-function is_of_type(expected)
+local function is_of_type(expected)
   return function(actual)
     return {
       pass = isinstance(actual, expected),
@@ -147,7 +147,7 @@ end
 --- Applies a matcher element-wise to two lists.
 -- @param predicate_generator Function producing matchers
 -- @param expected The expected list
-function listwise(predicate_generator, expected)
+local function listwise(predicate_generator, expected)
   return function(actual)
     local result = true
     local msg
@@ -189,7 +189,7 @@ end
 --- Applies a matcher key-wise to two tables.
 -- @param predicate_generator Function producing matchers
 -- @param expected The expected table
-function tablewise(predicate_generator, expected)
+local function tablewise(predicate_generator, expected)
   return function(actual)
     local result = true
     local msg
@@ -215,7 +215,7 @@ function tablewise(predicate_generator, expected)
 end
 
 --- Checks if value is within epsilon of expected (floating point comparison)
-function near(expected, epsilon)
+local function near(expected, epsilon)
   return function(actual)
     local diff = math.abs(actual - expected)
     return {
@@ -229,7 +229,7 @@ function near(expected, epsilon)
 end
 
 --- Checks if value is NaN
-function is_nan()
+local function is_nan()
   return function(actual)
     local is_nan = actual ~= actual
     return {
@@ -243,7 +243,7 @@ function is_nan()
 end
 
 --- Checks if value > 0
-function is_positive()
+local function is_positive()
   return function(actual)
     return {
       pass = actual > 0,
@@ -256,7 +256,7 @@ function is_positive()
 end
 
 --- Checks if value < 0
-function is_negative()
+local function is_negative()
   return function(actual)
     return {
       pass = actual < 0,
@@ -269,7 +269,7 @@ function is_negative()
 end
 
 --- Checks if value is between min and max (inclusive)
-function is_between(min, max)
+local function is_between(min, max)
   return function(actual)
     return {
       pass = actual >= min and actual <= max,
@@ -282,7 +282,7 @@ function is_between(min, max)
 end
 
 --- Checks if string contains substring
-function contains(substring)
+local function contains(substring)
   return function(actual)
     if type(actual) ~= 'string' then
       return {
@@ -305,7 +305,7 @@ function contains(substring)
 end
 
 --- Checks if string matches pattern
-function matches(pattern)
+local function matches(pattern)
   return function(actual)
     local matches = type(actual) == 'string' and actual:match(pattern) ~= nil
     return {
@@ -319,7 +319,7 @@ function matches(pattern)
 end
 
 --- Checks if string or collection is empty
-function is_empty()
+local function is_empty()
   return function(actual)
     local is_empty = false
     if type(actual) == 'string' then
@@ -338,7 +338,7 @@ function is_empty()
 end
 
 --- Checks if string has specific length
-function has_length(n)
+local function has_length(n)
   return function(actual)
     local has_length = type(actual) == 'string' and #actual == n
     return {
@@ -352,7 +352,7 @@ function has_length(n)
 end
 
 --- Checks if collection has specific size
-function has_size(n)
+local function has_size(n)
   return function(actual)
     local size = 0
     if type(actual) == 'table' then
@@ -371,7 +371,7 @@ function has_size(n)
 end
 
 --- Checks if collection contains element
-function contains_element(element)
+local function contains_element(element)
   return function(actual)
     local contains = false
     if type(actual) == 'table' then
@@ -393,7 +393,7 @@ function contains_element(element)
 end
 
 --- Checks if all matchers pass
-function all_of(...)
+local function all_of(...)
   local matchers = {...}
   return function(actual)
     for _, matcher in ipairs(matchers) do
@@ -422,7 +422,7 @@ function all_of(...)
 end
 
 --- Checks if any matcher passes
-function any_of(...)
+local function any_of(...)
   local matchers = {...}
   return function(actual)
     for _, matcher in ipairs(matchers) do
@@ -451,7 +451,7 @@ function any_of(...)
 end
 
 --- Checks if none of the matchers pass
-function none_of(...)
+local function none_of(...)
   local matchers = {...}
   return function(actual)
     for _, matcher in ipairs(matchers) do
@@ -480,7 +480,7 @@ function none_of(...)
 end
 
 --- Checks if value is an instance of a class
-function is_instance_of(expected_class)
+local function is_instance_of(expected_class)
   return function(actual)
     -- Try to use isinstance if available
     local isinstance_func = llx and llx.isinstance
@@ -536,7 +536,7 @@ local function deep_equals(a, b, visited)
 end
 
 --- Checks if table deeply equals expected
-function match_table(expected)
+local function match_table(expected)
   return function(actual)
     if type(actual) ~= 'table' then
       return {
@@ -560,7 +560,7 @@ function match_table(expected)
 end
 
 --- Checks if object has a property with specific value
-function have_property(key, expected_value)
+local function have_property(key, expected_value)
   return function(actual)
     if type(actual) ~= 'table' then
       return {
@@ -586,7 +586,7 @@ function have_property(key, expected_value)
 end
 
 --- Checks if object has a method (callable)
-function respond_to(method_name)
+local function respond_to(method_name)
   return function(actual)
     if type(actual) ~= 'table' then
       return {
@@ -612,7 +612,7 @@ function respond_to(method_name)
 end
 
 --- Checks if value is of a specific type
-function be_a(type_name)
+local function be_a(type_name)
   return function(actual)
     local actual_type = type(actual)
     return {
@@ -626,7 +626,7 @@ function be_a(type_name)
 end
 
 --- Checks if table has all specified keys
-function have_keys(...)
+local function have_keys(...)
   local expected_keys = {...}
   return function(actual)
     if type(actual) ~= 'table' then
@@ -657,7 +657,7 @@ function have_keys(...)
 end
 
 --- Checks if number is even
-function be_even()
+local function be_even()
   return function(actual)
     if type(actual) ~= 'number' then
       return {
@@ -680,7 +680,7 @@ function be_even()
 end
 
 --- Checks if number is odd
-function be_odd()
+local function be_odd()
   return function(actual)
     if type(actual) ~= 'number' then
       return {
