@@ -135,8 +135,12 @@ function Table:deepcopy(destination)
     
     for k, v in pairs(src) do
       if type(v) == 'table' then
-        dst[k] = {}
-        deepcopy_helper(v, dst[k])
+        if visited[v] then
+          dst[k] = visited[v]
+        else
+          dst[k] = {}
+          deepcopy_helper(v, dst[k])
+        end
       else
         dst[k] = v
       end
