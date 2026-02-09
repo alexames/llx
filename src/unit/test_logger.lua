@@ -51,6 +51,12 @@ TestLogger = class 'TestLogger' {
     end
   end;
 
+  --- Prints when a test is skipped.
+  test_skip = function(test_suite, test_name)
+    printf('%s[  SKIPPED ] %s%s.%s%s',
+           color(bright_cyan), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset())
+  end;
+
   --- Prints summary of the test class.
   -- @param test_suite The test class
   -- @param failure_count Number of failing tests
@@ -165,7 +171,9 @@ local function print_tree(items, indent)
       local test = item.data
       local time_str = test.elapsed and string.format(' (%.3fs)', test.elapsed) or ''
       local slow_warning = (test.elapsed and test.elapsed > 0.1) and ' [SLOW]' or ''
-      if test.passed then
+      if test.skipped then
+        printf('%s%s~%s %s [SKIPPED]%s', indent_str, color(bright_cyan), reset(), test.name, reset())
+      elseif test.passed then
         printf('%s%s+%s %s%s%s%s', indent_str, color(green), reset(), test.name, time_str, slow_warning, reset())
       else
         local label = test.is_failure and 'FAIL' or 'ERROR'
@@ -197,6 +205,7 @@ HierarchicalLogger = class 'HierarchicalLogger' {
     self.total_passed = 0
     self.total_failed = 0
     self.total_tests = 0
+    self.total_skipped = 0
     current_hierarchical_logger = self
   end;
 
@@ -230,6 +239,22 @@ HierarchicalLogger = class 'HierarchicalLogger' {
   --- Prints the beginning of a single test.
   test_begin = function(test_suite, test_name)
     -- Hierarchical logger doesn't print test begin, we'll print it in test_end
+  end;
+
+  --- Records when a test is skipped.
+  test_skip = function(test_suite, test_name)
+    if not current_hierarchical_logger then
+      error('HierarchicalLogger instance not found')
+    end
+    local test_info = {
+      name_path = test_name,
+      name = test_name[#test_name],
+      passed = true,
+      skipped = true,
+    }
+    table.insert(current_hierarchical_logger.current_suite.tests, test_info)
+    current_hierarchical_logger.total_skipped = (current_hierarchical_logger.total_skipped or 0) + 1
+    current_hierarchical_logger.total_tests = current_hierarchical_logger.total_tests + 1
   end;
 
   --- Prints the result of a test case.
@@ -312,10 +337,13 @@ HierarchicalLogger = class 'HierarchicalLogger' {
            suite_count)
     print()
     
-    printf('Tests:       %s%d %s, %d total',
+    local skipped_count = current_hierarchical_logger.total_skipped or 0
+    local skipped_str = skipped_count > 0 and string.format(', %s%d skipped%s', color(bright_cyan), skipped_count, reset()) or ''
+    printf('Tests:       %s%d %s%s, %d total',
            color(summary_color),
-           all_passed and total_test_count or total_failure_count,
+           all_passed and total_test_count - skipped_count or total_failure_count,
            all_passed and 'passed' or 'failed',
+           skipped_str,
            total_test_count)
     print()
     
