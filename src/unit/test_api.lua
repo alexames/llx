@@ -674,6 +674,7 @@ local function describe_impl(name, func, skip, only)
     after_all = llx.noop,
     skip = skip,
     only = only,
+    parent_context = parent_context,
   }
 
   table.insert(describe_context_stack, context)
@@ -705,12 +706,47 @@ local function describe_impl(name, func, skip, only)
   suite_class.__skip = context.skip
   suite_class.__only = context.only
 
-  -- Override setup/teardown if provided
-  if context.setup ~= llx.noop then
-    suite_class.setup = context.setup
+  -- Compose setup/teardown with parent hooks for inheritance
+  -- before_each: run ancestor hooks first (outermost to innermost)
+  -- after_each: run descendant hooks first (innermost to outermost)
+  local function collect_setups(ctx)
+    local setups = {}
+    while ctx do
+      if ctx.setup ~= llx.noop then
+        table.insert(setups, 1, ctx.setup) -- prepend (outermost first)
+      end
+      ctx = ctx.parent_context
+    end
+    return setups
   end
-  if context.teardown ~= llx.noop then
-    suite_class.teardown = context.teardown
+
+  local function collect_teardowns(ctx)
+    local teardowns = {}
+    while ctx do
+      if ctx.teardown ~= llx.noop then
+        table.insert(teardowns, ctx.teardown) -- append (innermost first)
+      end
+      ctx = ctx.parent_context
+    end
+    return teardowns
+  end
+
+  local setups = collect_setups(context)
+  local teardowns = collect_teardowns(context)
+
+  if #setups > 0 then
+    suite_class.setup = function(self)
+      for _, setup_fn in ipairs(setups) do
+        setup_fn(self)
+      end
+    end
+  end
+  if #teardowns > 0 then
+    suite_class.teardown = function(self)
+      for _, teardown_fn in ipairs(teardowns) do
+        teardown_fn(self)
+      end
+    end
   end
 
   -- If there's a parent context, add this as a nested suite
