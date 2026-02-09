@@ -1644,6 +1644,209 @@ function partial_right(func, ...)
   end
 end
 
+--- Generates a sequence by repeatedly applying f to a seed.
+-- f(seed) should return (value, next_seed) or nil to stop.
+-- @param f Generator function
+-- @param seed Initial seed value
+-- @return Iterator yielding (index, value) pairs
+function unfold(f, seed)
+  local index = 0
+  local current_seed = seed
+  return function()
+    local value, next_seed = f(current_seed)
+    if value == nil then return nil end
+    index = index + 1
+    current_seed = next_seed
+    return index, value
+  end
+end
+
+--- Wraps an iterator so that the next value can be peeked without consuming it.
+-- @param sequence Input iterator
+-- @return A callable table with a :peek() method
+function peekable(sequence)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+  local pos = 0
+  local obj = {}
+  function obj:peek()
+    if pos + 1 > #elements then return nil end
+    return elements[pos + 1]
+  end
+  setmetatable(obj, {
+    __call = function()
+      pos = pos + 1
+      if pos > #elements then return nil end
+      return pos, elements[pos]
+    end
+  })
+  return obj
+end
+
+--- Splits a sequence into sublists each time the predicate changes truth value.
+-- A new group starts whenever pred(element) changes from false to true
+-- or from true to false.
+-- @param sequence Input iterator
+-- @param pred Predicate function
+-- @return A List of Lists
+function split_when(sequence, pred)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+  if #elements == 0 then return List{} end
+
+  local result = List{}
+  local current = List{}
+  local prev_match = pred(elements[1])
+  for i = 1, #elements do
+    local match = pred(elements[i])
+    if match ~= prev_match then
+      result:insert(current)
+      current = List{}
+      prev_match = match
+    end
+    current:insert(elements[i])
+  end
+  if #current > 0 then
+    result:insert(current)
+  end
+  return result
+end
+
+--- Removes consecutive duplicate elements from a sequence.
+-- Only adjacent duplicates are removed (unlike distinct which is global).
+-- @param sequence Input iterator
+-- @param key_func Optional function to compute comparison key
+-- @return A List with consecutive duplicates removed
+function unique_justseen(sequence, key_func)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+  if #elements == 0 then return List{} end
+
+  local result = List{}
+  local prev_key = nil
+  for i = 1, #elements do
+    local k = key_func and key_func(elements[i]) or elements[i]
+    if k ~= prev_key then
+      result:insert(elements[i])
+      prev_key = k
+    end
+  end
+  return result
+end
+
+--- Yields every nth element from a sequence (starting with the first).
+-- @param sequence Input iterator
+-- @param n Step size
+-- @return Iterator yielding (index, value) pairs
+function take_nth(sequence, n)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+  local pos = 1 - n
+  local out_index = 0
+  return function()
+    pos = pos + n
+    if pos > #elements then return nil end
+    out_index = out_index + 1
+    return out_index, elements[pos]
+  end
+end
+
+--- Reduces a sequence from the right.
+-- @param sequence Input iterator or list
+-- @param f Binary function (accumulator, value) -> new accumulator
+-- @param init Initial accumulator value
+-- @return The final accumulated value
+function reduce_right(sequence, f, init)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+  local acc = init
+  for i = #elements, 1, -1 do
+    acc = f(acc, elements[i])
+  end
+  return acc
+end
+
+--- Zips sequences together and applies a combining function.
+-- @param f Combining function
+-- @param ... Input sequences
+-- @return A List of combined values
+function zip_with(f, ...)
+  local sequences = {}
+  local min_len = math.huge
+  for i = 1, select('#', ...) do
+    local seq = select(i, ...)
+    local elems = List{}
+    for _, v in seq do
+      elems:insert(v)
+    end
+    sequences[i] = elems
+    if #elems < min_len then min_len = #elems end
+  end
+
+  local result = List{}
+  for i = 1, min_len do
+    local args = {}
+    for j = 1, #sequences do
+      args[j] = sequences[j][i]
+    end
+    result:insert(f(table.unpack(args)))
+  end
+  return result
+end
+
+--- Lazy running accumulation (lazy version of accumulate).
+-- Yields intermediate results as an iterator.
+-- @param sequence Input iterator
+-- @param f Binary function (accumulator, value) -> new accumulator
+-- @param init Optional initial accumulator value
+-- @return Iterator yielding (index, accumulated_value) pairs
+function scan(sequence, f, init)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+
+  local acc
+  local start_idx
+  if init ~= nil then
+    acc = init
+    start_idx = 1
+  else
+    if #elements == 0 then
+      return function() return nil end
+    end
+    acc = elements[1]
+    start_idx = 2
+  end
+
+  local elem_idx = start_idx - 1
+  local out_index = 0
+  local emitted_first = (init ~= nil)
+
+  return function()
+    if not emitted_first then
+      emitted_first = true
+      out_index = out_index + 1
+      return out_index, acc
+    end
+    elem_idx = elem_idx + 1
+    if elem_idx > #elements then return nil end
+    acc = f(acc, elements[elem_idx])
+    out_index = out_index + 1
+    return out_index, acc
+  end
+end
+
 --- Calls a function with each element for side effects, passing values through.
 -- Useful for debugging or logging within a pipeline.
 -- @param func Function to call with each element
