@@ -222,4 +222,83 @@ function pstdev(sequence)
   return math.sqrt(pvariance(sequence))
 end
 
+--- Returns true if x is NaN.
+-- @param x The value to check
+-- @return true if x is NaN
+function is_nan(x)
+  return x ~= x
+end
+
+--- Returns true if x is positive or negative infinity.
+-- @param x The value to check
+-- @return true if x is infinite
+function is_inf(x)
+  return x == math.huge or x == -math.huge
+end
+
+--- Wraps a value into the range [lo, hi) using modular arithmetic.
+-- Useful for circular values like angles.
+-- @param x The value to wrap
+-- @param lo Lower bound (inclusive)
+-- @param hi Upper bound (exclusive)
+-- @return The wrapped value
+function wrap_around(x, lo, hi)
+  local range = hi - lo
+  return lo + (x - lo) % range
+end
+
+--- Computes the inverse of linear interpolation.
+-- Returns the parameter t such that lerp(a, b, t) == v.
+-- @param a Start value
+-- @param b End value
+-- @param v The value to find t for
+-- @return t in [0, 1] when v is between a and b
+function inverse_lerp(a, b, v)
+  return (v - a) / (b - a)
+end
+
+--- Computes the harmonic mean of a sequence.
+-- @param sequence A table of positive numbers
+-- @return The harmonic mean
+function harmonic_mean(sequence)
+  local n = #sequence
+  local sum_recip = 0
+  for i = 1, n do
+    sum_recip = sum_recip + 1 / sequence[i]
+  end
+  return n / sum_recip
+end
+
+--- Computes the geometric mean of a sequence.
+-- @param sequence A table of positive numbers
+-- @return The geometric mean
+function geometric_mean(sequence)
+  local n = #sequence
+  local sum_log = 0
+  for i = 1, n do
+    sum_log = sum_log + math.log(sequence[i])
+  end
+  return math.exp(sum_log / n)
+end
+
+--- Computes the q-th quantile (0 <= q <= 1) using linear interpolation.
+-- @param sequence A table of numbers
+-- @param q The quantile (0 = min, 0.5 = median, 1 = max)
+-- @return The interpolated quantile value
+function quantile(sequence, q)
+  local sorted = {}
+  for i = 1, #sequence do
+    sorted[i] = sequence[i]
+  end
+  table.sort(sorted)
+  local n = #sorted
+  if n == 1 then return sorted[1] end
+  local pos = 1 + (n - 1) * q
+  local lo = math.floor(pos)
+  local hi = math.ceil(pos)
+  if lo == hi then return sorted[lo] end
+  local frac = pos - lo
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * frac
+end
+
 return _M
