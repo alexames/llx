@@ -1195,6 +1195,80 @@ function pipe(...)
   end
 end
 
+--- Auto-curries a function of n arguments.
+-- Calling with fewer than n arguments returns a partially applied function.
+-- @param func The function to curry
+-- @param n The number of arguments (arity)
+-- @return A curried version of func
+function curry(func, n)
+  local function curried(args, num_args)
+    if num_args >= n then
+      return func(table.unpack(args, 1, num_args))
+    end
+    return function(...)
+      local new_args = {}
+      for i = 1, num_args do new_args[i] = args[i] end
+      local extra = table.pack(...)
+      for i = 1, extra.n do new_args[num_args + i] = extra[i] end
+      return curried(new_args, num_args + extra.n)
+    end
+  end
+  return function(...)
+    local args = table.pack(...)
+    return curried({...}, args.n)
+  end
+end
+
+--- Swaps the first two arguments of a function.
+-- @param func The function to flip
+-- @return A new function with the first two arguments swapped
+function flip(func)
+  return function(a, b, ...)
+    return func(b, a, ...)
+  end
+end
+
+--- Returns the logical negation of a predicate function.
+-- @param predicate The predicate to negate
+-- @return A function returning not predicate(...)
+function negate(predicate)
+  return function(...)
+    return not predicate(...)
+  end
+end
+
+--- Creates a function that only executes once, caching the result.
+-- Subsequent calls return the cached result from the first call.
+-- @param func The function to wrap
+-- @return A function that only calls func once
+function once(func)
+  local called = false
+  local result
+  return function(...)
+    if not called then
+      result = table.pack(func(...))
+      called = true
+    end
+    return table.unpack(result, 1, result.n)
+  end
+end
+
+--- Returns a function that always returns the given value.
+-- @param value The value to return
+-- @return A function that ignores its arguments and returns value
+function constant(value)
+  return function()
+    return value
+  end
+end
+
+--- Returns its arguments unchanged.
+-- @param ... Any arguments
+-- @return The same arguments
+function identity(...)
+  return ...
+end
+
 --- Returns overlapping windows of a given width over a sequence.
 -- Generalizes pairwise to arbitrary window sizes.
 -- @param sequence Input iterator
