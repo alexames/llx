@@ -1195,6 +1195,167 @@ function pipe(...)
   end
 end
 
+--- Returns overlapping windows of a given width over a sequence.
+-- Generalizes pairwise to arbitrary window sizes.
+-- @param sequence Input iterator
+-- @param n Window width
+-- @return Iterator yielding (index, values...) for each window
+function sliding_window(sequence, n)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+
+  local len = #elements
+  if len < n then
+    return function() return nil end
+  end
+
+  local pos = 0
+  return function()
+    pos = pos + 1
+    if pos + n - 1 > len then
+      return nil
+    end
+    local window = {}
+    for i = 1, n do
+      window[i] = elements[pos + i - 1]
+    end
+    return pos, unpack(window)
+  end
+end
+
+--- Alternates elements from multiple sequences.
+-- Stops when the shortest sequence is exhausted.
+-- @param ... Input iterators
+-- @return Iterator yielding (index, value) pairs
+function interleave(...)
+  local sequences = {}
+  local min_len = math.huge
+  for i = 1, select('#', ...) do
+    local seq = select(i, ...)
+    local elems = List{}
+    for _, v in seq do
+      elems:insert(v)
+    end
+    sequences[i] = elems
+    if #elems < min_len then min_len = #elems end
+  end
+
+  local num_seqs = #sequences
+  local index = 0
+  local elem_idx = 1
+  local seq_idx = 0
+
+  return function()
+    if elem_idx > min_len then
+      return nil
+    end
+    seq_idx = seq_idx + 1
+    if seq_idx > num_seqs then
+      seq_idx = 1
+      elem_idx = elem_idx + 1
+      if elem_idx > min_len then
+        return nil
+      end
+    end
+    index = index + 1
+    return index, sequences[seq_idx][elem_idx]
+  end
+end
+
+--- Transposes a sequence of tuples into separate lists.
+-- Inverse of zip: unzip(zip(a, b)) returns a, b.
+-- @param sequence Iterator yielding tables (tuples)
+-- @return Multiple Lists, one per position in the tuples
+function unzip(sequence)
+  local lists = nil
+  local width = 0
+
+  for _, tuple in sequence do
+    if lists == nil then
+      width = #tuple
+      lists = {}
+      for i = 1, width do
+        lists[i] = List{}
+      end
+    end
+    for i = 1, width do
+      lists[i]:insert(tuple[i])
+    end
+  end
+
+  if lists == nil then
+    return
+  end
+  return unpack(lists)
+end
+
+--- Generates combinations with replacement from a sequence.
+-- Like combinations, but allows repeated elements.
+-- @param sequence Input iterator
+-- @param r Number of elements per combination
+-- @return Iterator yielding (index, values...) for each combination
+function combinations_with_replacement(sequence, r)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+
+  local n = #elements
+  if n == 0 then
+    return function() return nil end
+  end
+
+  local indices = {}
+  for i = 1, r do
+    indices[i] = 1
+  end
+
+  local function next_combination()
+    local i = r
+    while i >= 1 and indices[i] == n do
+      i = i - 1
+    end
+
+    if i < 1 then
+      return false
+    end
+
+    local next_val = indices[i] + 1
+    for j = i, r do
+      indices[j] = next_val
+    end
+
+    return true
+  end
+
+  local first = true
+  local index = 0
+  return function()
+    if first then
+      first = false
+      index = index + 1
+      local result = {}
+      for i = 1, r do
+        result[i] = elements[indices[i]]
+      end
+      return index, unpack(result)
+    end
+
+    if next_combination() then
+      index = index + 1
+      local result = {}
+      for i = 1, r do
+        result[i] = elements[indices[i]]
+      end
+      return index, unpack(result)
+    end
+
+    return nil
+  end
+end
+
 --- Calls a function with each element for side effects, passing values through.
 -- Useful for debugging or logging within a pipeline.
 -- @param func Function to call with each element
