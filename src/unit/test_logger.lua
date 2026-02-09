@@ -41,9 +41,14 @@ TestLogger = class 'TestLogger' {
     if successful then
       printf('%s[       OK ] %s%s.%s%s',
              color(green), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset())
-    else
+    elseif type(err) == 'table' and err.type then
+      -- Assertion failure: show expected/actual
       printf('%s[  FAILURE ] %s%s.%s%s\n%s',
-             color(red), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset(), err)
+             color(red), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset(), tostring(err))
+    else
+      -- Unexpected error: show as ERROR
+      printf('%s[   ERROR  ] %s%s.%s%s\n%s',
+             color(red), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset(), tostring(err))
     end
   end;
 
@@ -162,7 +167,8 @@ local function print_tree(items, indent)
       if test.passed then
         printf('%s%s+%s %s%s', indent_str, color(green), reset(), test.name, reset())
       else
-        printf('%s%s-%s %s%s', indent_str, color(red), reset(), test.name, reset())
+        local label = test.is_failure and 'FAIL' or 'ERROR'
+        printf('%s%s-%s %s [%s]%s', indent_str, color(red), reset(), test.name, label, reset())
         -- Print error details
         if test.error then
           local error_lines = {}
@@ -236,6 +242,7 @@ HierarchicalLogger = class 'HierarchicalLogger' {
       name = test_name[#test_name], -- Just the last element (local name)
       passed = successful,
       error = err,
+      is_failure = type(err) == 'table' and err.type ~= nil,
     }
     table.insert(current_hierarchical_logger.current_suite.tests, test_info)
     

@@ -14,6 +14,9 @@ local class = llx.class
 local Mock = mock_module.Mock
 local product = functional.product
 
+-- Sentinel type for assertion failures (distinct from unexpected errors)
+local ASSERTION_FAILURE = {}
+
 -- Helper function to evaluate a matcher and throw an error if it doesn't pass
 local function evaluate_matcher(actual, matcher, level)
   level = level or 3
@@ -22,8 +25,16 @@ local function evaluate_matcher(actual, matcher, level)
     error('Matcher must return a table with pass, actual, positive_message, negative_message, and expected fields', level)
   end
   if not result.pass then
-    error('expected ' .. result.actual .. '\nto ' .. result.positive_message .. '\n  ' .. result.expected, level)
+    local msg = 'expected ' .. result.actual .. '\nto ' .. result.positive_message .. '\n  ' .. result.expected
+    error(setmetatable({message = msg, type = ASSERTION_FAILURE}, {
+      __tostring = function(self) return self.message end
+    }), level)
   end
+end
+
+--- Checks if an error is an assertion failure (as opposed to an unexpected error).
+local function is_assertion_failure(err)
+  return type(err) == 'table' and err.type == ASSERTION_FAILURE
 end
 
 -- Context stack for nested describe blocks
@@ -844,6 +855,7 @@ return {
   describe = describe,
   it = it,
   test = test,
+  is_assertion_failure = is_assertion_failure,
   expect = expect,
   before_each = before_each,
   after_each = after_each,
