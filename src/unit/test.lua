@@ -71,9 +71,20 @@ local Test = class 'Test' {
   --- Runs a single test with logging and setup/teardown
   run_test = function(self, printer, test, ...)
     printer.test_begin(self, test.name)
-    self:setup()
+    local setup_ok, setup_err = pcall(self.setup, self)
+    if not setup_ok then
+      -- Still attempt teardown even if setup failed
+      pcall(self.teardown, self)
+      printer.test_end(self, test.name, false, "setUp failed: " .. tostring(setup_err))
+      return false, setup_err
+    end
     local successful, err = pcall(test.func, self, ...)
-    self:teardown()
+    local teardown_ok, teardown_err = pcall(self.teardown, self)
+    if not teardown_ok then
+      -- Report teardown failure, but don't mask the original test error
+      err = (err and tostring(err) or "") .. "\ntearDown failed: " .. tostring(teardown_err)
+      successful = false
+    end
     printer.test_end(self, test.name, successful, err)
     return successful, err
   end,
