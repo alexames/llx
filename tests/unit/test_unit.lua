@@ -113,7 +113,7 @@ describe('unit test framework', function()
 
   it('should fail when Listwise matcher does not match', function()
     local success = pcall(function() 
-      expect({1, 2, 3}).to.match(Listwise(function(v) return Not(Equals(v)) end, {2, 4, 65}))
+      expect({1, 2, 3}).to.match(Listwise(function(v) return Not(Equals(v)) end, {2, 4, 3}))
     end)
     expect(success).to.be_false()
   end)
