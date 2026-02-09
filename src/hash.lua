@@ -31,7 +31,7 @@ end
 
 function hash_string(value, hash)
   for i=1, #value do
-    hash = hash_integer(value:sub(i,i):byte(), hash)
+    hash = hash_integer(value:byte(i), hash)
   end
   return hash
 end
