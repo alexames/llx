@@ -244,11 +244,17 @@ local function is_mock(value)
   return type(value) == 'table' and getmetatable(value) == Mock
 end
 
+-- Helper to pack arguments preserving nil values and count
+local function pack_args(...)
+  return {n = select('#', ...), ...}
+end
+
 -- Helper to format arguments for error messages
 -- Handles matchers, nil values, and non-string types
 local function format_args(args)
   local formatted = {}
-  for _, arg in ipairs(args) do
+  for i = 1, (args.n or #args) do
+    local arg = args[i]
     if type(arg) == 'function' then
       -- This is likely a matcher function
       table.insert(formatted, '<matcher>')
@@ -264,15 +270,18 @@ end
 -- Helper to match arguments using matchers
 -- Handles nil values explicitly and supports matcher functions
 local function match_args(actual_args, expected_args)
-  -- Check length first
-  if #actual_args ~= #expected_args then
+  -- Check length first (use .n if available from pack_args)
+  local actual_len = actual_args.n or #actual_args
+  local expected_len = expected_args.n or #expected_args
+  if actual_len ~= expected_len then
     return false
   end
-  
-  -- Iterate through all arguments (ipairs handles nil correctly)
-  for i, expected in ipairs(expected_args) do
+
+  -- Use numeric for loop to handle nil values correctly
+  for i = 1, expected_len do
+    local expected = expected_args[i]
     local actual = actual_args[i]
-    
+
     -- Handle nil values explicitly
     if expected == nil and actual ~= nil then
       return false
@@ -294,7 +303,7 @@ local function match_args(actual_args, expected_args)
       return false
     end
   end
-  
+
   return true
 end
 
@@ -332,7 +341,7 @@ custom_matchers.have_been_called_times = function(expected)
 end
 
 custom_matchers.have_been_called_with = function(...)
-  local expected_args = {...}
+  local expected_args = pack_args(...)
   return function(actual)
     if not is_mock(actual) then
       error('have_been_called_with() expects a Mock, got ' .. type(actual), 3)
@@ -360,7 +369,7 @@ custom_matchers.have_been_called_with = function(...)
 end
 
 custom_matchers.have_been_last_called_with = function(...)
-  local expected_args = {...}
+  local expected_args = pack_args(...)
   return function(actual)
     if not is_mock(actual) then
       error('have_been_last_called_with() expects a Mock, got ' .. type(actual), 3)
@@ -391,7 +400,7 @@ custom_matchers.have_been_nth_called_with = function(n, ...)
   if type(n) ~= 'number' or n < 1 or math.floor(n) ~= n then
     error('have_been_nth_called_with() expects a positive integer as first argument, got ' .. tostring(n), 3)
   end
-  local expected_args = {...}
+  local expected_args = pack_args(...)
   return function(actual)
     if not is_mock(actual) then
       error('have_been_nth_called_with() expects a Mock, got ' .. type(actual), 3)

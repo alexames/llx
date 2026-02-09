@@ -174,7 +174,7 @@ Mock = class 'Mock' {
   -- @param self Mock instance
   -- @param ... Arguments passed to the mock
   __call = function(self, ...)
-    local args = {...}
+    local args = {n = select('#', ...), ...}
     self._call_count = self._call_count + 1
     
     local return_value = nil
