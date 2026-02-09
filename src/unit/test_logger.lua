@@ -57,6 +57,12 @@ TestLogger = class 'TestLogger' {
            color(bright_cyan), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset())
   end;
 
+  --- Prints when a test is marked as todo.
+  test_todo = function(test_suite, test_name)
+    printf('%s[    TODO  ] %s%s.%s%s',
+           color(bright_cyan), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset())
+  end;
+
   --- Prints summary of the test class.
   -- @param test_suite The test class
   -- @param failure_count Number of failing tests
@@ -180,7 +186,9 @@ local function print_tree(items, indent)
       local test = item.data
       local time_str = test.elapsed and string.format(' (%.3fs)', test.elapsed) or ''
       local slow_warning = (test.elapsed and test.elapsed > 0.1) and ' [SLOW]' or ''
-      if test.skipped then
+      if test.todo then
+        printf('%s%s*%s %s [TODO]%s', indent_str, color(bright_cyan), reset(), test.name, reset())
+      elseif test.skipped then
         printf('%s%s~%s %s [SKIPPED]%s', indent_str, color(bright_cyan), reset(), test.name, reset())
       elseif test.passed then
         printf('%s%s+%s %s%s%s%s', indent_str, color(green), reset(), test.name, time_str, slow_warning, reset())
@@ -215,6 +223,7 @@ HierarchicalLogger = class 'HierarchicalLogger' {
     self.total_failed = 0
     self.total_tests = 0
     self.total_skipped = 0
+    self.total_todo = 0
     current_hierarchical_logger = self
   end;
 
@@ -275,6 +284,22 @@ HierarchicalLogger = class 'HierarchicalLogger' {
     }
     table.insert(current_hierarchical_logger.current_suite.tests, test_info)
     current_hierarchical_logger.total_skipped = (current_hierarchical_logger.total_skipped or 0) + 1
+    current_hierarchical_logger.total_tests = current_hierarchical_logger.total_tests + 1
+  end;
+
+  --- Records when a test is marked as todo.
+  test_todo = function(test_suite, test_name)
+    if not current_hierarchical_logger then
+      error('HierarchicalLogger instance not found')
+    end
+    local test_info = {
+      name_path = test_name,
+      name = test_name[#test_name],
+      passed = true,
+      todo = true,
+    }
+    table.insert(current_hierarchical_logger.current_suite.tests, test_info)
+    current_hierarchical_logger.total_todo = (current_hierarchical_logger.total_todo or 0) + 1
     current_hierarchical_logger.total_tests = current_hierarchical_logger.total_tests + 1
   end;
 
@@ -360,11 +385,14 @@ HierarchicalLogger = class 'HierarchicalLogger' {
     
     local skipped_count = current_hierarchical_logger.total_skipped or 0
     local skipped_str = skipped_count > 0 and string.format(', %s%d skipped%s', color(bright_cyan), skipped_count, reset()) or ''
-    printf('Tests:       %s%d %s%s, %d total',
+    local todo_count = current_hierarchical_logger.total_todo or 0
+    local todo_str = todo_count > 0 and string.format(', %s%d todo%s', color(bright_cyan), todo_count, reset()) or ''
+    printf('Tests:       %s%d %s%s%s, %d total',
            color(summary_color),
            all_passed and total_test_count - skipped_count or total_failure_count,
            all_passed and 'passed' or 'failed',
            skipped_str,
+           todo_str,
            total_test_count)
     print()
     
