@@ -197,8 +197,9 @@ local function print_tree(items, indent)
         printf('%s%s-%s %s [%s]%s%s%s', indent_str, color(red), reset(), test.name, label, time_str, slow_warning, reset())
         -- Print error details
         if test.error then
+          local error_str = tostring(test.error)
           local error_lines = {}
-          for line in test.error:gmatch('[^\r\n]+') do
+          for line in error_str:gmatch('[^\r\n]+') do
             table.insert(error_lines, line)
           end
           -- Print first few lines of error, indented
