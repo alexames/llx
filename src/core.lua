@@ -32,6 +32,7 @@ end
 -- if is_callable(obj) then obj() end
 function is_callable(v)
   if type(v) == 'function' then return true end
+  if type(v) ~= 'table' and type(v) ~= 'userdata' then return false end
   local metafield = getmetafield(v, '__call')
   return metafield and type(metafield) == 'function'
 end
