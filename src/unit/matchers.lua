@@ -337,13 +337,14 @@ local function is_empty()
   end
 end
 
---- Checks if string has specific length
+--- Checks if string or array-like table has specific length
 local function has_length(n)
   return function(actual)
-    local has_length = type(actual) == 'string' and #actual == n
+    local actual_type = type(actual)
+    local has_len = (actual_type == 'string' or actual_type == 'table') and #actual == n
     return {
-      pass = has_length,
-      actual = tostring(actual),
+      pass = has_len,
+      actual = tostring(actual) .. ' (length: ' .. ((actual_type == 'string' or actual_type == 'table') and tostring(#actual) or 'N/A') .. ')',
       positive_message = 'have length',
       negative_message = 'not have length',
       expected = tostring(n)
