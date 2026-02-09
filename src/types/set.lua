@@ -156,6 +156,37 @@ Set = class 'Set' {
     rawget(self, '_values')[key] = value and true or nil
   end,
 
+  update = function(self, other)
+    local self_values = rawget(self, '_values')
+    for k in pairs(rawget(other, '_values')) do
+      self_values[k] = true
+    end
+  end,
+
+  clear = function(self)
+    rawset(self, '_values', {})
+  end,
+
+  map = function(self, f)
+    local result = Set{}
+    local result_values = rawget(result, '_values')
+    for k in pairs(rawget(self, '_values')) do
+      result_values[f(k)] = true
+    end
+    return result
+  end,
+
+  filter = function(self, pred)
+    local result = Set{}
+    local result_values = rawget(result, '_values')
+    for k in pairs(rawget(self, '_values')) do
+      if pred(k) then
+        result_values[k] = true
+      end
+    end
+    return result
+  end,
+
   tolist = function(self)
     local result = List{}
     for k, v in pairs(rawget(self, '_values')) do
