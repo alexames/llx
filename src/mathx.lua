@@ -89,4 +89,68 @@ function median(sequence)
   end
 end
 
+--- Computes the greatest common divisor of two integers.
+-- Uses the Euclidean algorithm.
+-- @param a First integer
+-- @param b Second integer
+-- @return The GCD
+function gcd(a, b)
+  a, b = math.abs(a), math.abs(b)
+  while b ~= 0 do
+    a, b = b, a % b
+  end
+  return a
+end
+
+--- Computes the least common multiple of two integers.
+-- @param a First integer
+-- @param b Second integer
+-- @return The LCM
+function lcm(a, b)
+  if a == 0 or b == 0 then return 0 end
+  return math.abs(a * b) // gcd(a, b)
+end
+
+--- Computes the factorial of a non-negative integer.
+-- @param n A non-negative integer
+-- @return n!
+function factorial(n)
+  local result = 1
+  for i = 2, n do
+    result = result * i
+  end
+  return result
+end
+
+--- Checks whether a value is in the half-open range [lo, hi).
+-- @param x The value to check
+-- @param lo Lower bound (inclusive)
+-- @param hi Upper bound (exclusive)
+-- @return true if lo <= x < hi
+function in_range(x, lo, hi)
+  return x >= lo and x < hi
+end
+
+--- Maps a value from one range to another.
+-- @param v The input value
+-- @param in_lo Input range lower bound
+-- @param in_hi Input range upper bound
+-- @param out_lo Output range lower bound
+-- @param out_hi Output range upper bound
+-- @return The remapped value
+function remap(v, in_lo, in_hi, out_lo, out_hi)
+  return out_lo + (v - in_lo) * (out_hi - out_lo) / (in_hi - in_lo)
+end
+
+--- Returns both the quotient and remainder of integer division.
+-- Uses floored division (like Python's divmod).
+-- @param a Dividend
+-- @param b Divisor
+-- @return quotient, remainder
+function divmod(a, b)
+  local q = a // b
+  local r = a - q * b
+  return q, r
+end
+
 return _M
