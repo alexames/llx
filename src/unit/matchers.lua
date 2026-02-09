@@ -6,19 +6,74 @@
 local llx = require 'llx'
 local isinstance = llx.isinstance
 
---- Converts a table to a formatted string for display.
-local function table_to_string(t)
-  local s = '{'
-  local first = true
-  for k, v in pairs(t) do
-    if first then
-      s = s .. tostring(k) .. ' = ' .. tostring(v)
-      first = false
-    else
-      s = s .. ', ' .. tostring(k) .. ' = ' .. tostring(v)
+--- Checks if a table is array-like (sequential integer keys starting from 1).
+local function is_array_like(t)
+  local n = #t
+  if n == 0 then return next(t) == nil end
+  for k in pairs(t) do
+    if type(k) ~= 'number' or k < 1 or k > n or math.floor(k) ~= k then
+      return false
     end
   end
-  return s .. '}'
+  return true
+end
+
+--- Converts a value to a formatted string for display.
+-- Recursively formats tables with cycle detection and depth limiting.
+-- @param val The value to format
+-- @param depth Current recursion depth (default 0)
+-- @param max_depth Maximum recursion depth (default 4)
+-- @param visited Table of already-visited tables for cycle detection
+local function value_to_string(val, depth, max_depth, visited)
+  depth = depth or 0
+  max_depth = max_depth or 4
+  visited = visited or {}
+
+  if type(val) ~= 'table' then
+    if type(val) == 'string' then
+      return '"' .. val .. '"'
+    end
+    return tostring(val)
+  end
+
+  if visited[val] then
+    return '<circular>'
+  end
+  if depth >= max_depth then
+    return '{...}'
+  end
+
+  visited[val] = true
+  local parts = {}
+
+  if is_array_like(val) then
+    for i = 1, #val do
+      table.insert(parts, value_to_string(val[i], depth + 1, max_depth, visited))
+    end
+  else
+    local keys = {}
+    for k in pairs(val) do
+      table.insert(keys, k)
+    end
+    table.sort(keys, function(a, b)
+      if type(a) == type(b) and type(a) ~= 'table' then
+        return tostring(a) < tostring(b)
+      end
+      return tostring(a) < tostring(b)
+    end)
+    for _, k in ipairs(keys) do
+      local key_str = type(k) == 'string' and k or '[' .. tostring(k) .. ']'
+      table.insert(parts, key_str .. ' = ' .. value_to_string(val[k], depth + 1, max_depth, visited))
+    end
+  end
+
+  visited[val] = nil
+  return '{' .. table.concat(parts, ', ') .. '}'
+end
+
+--- Converts a table to a formatted string for display (legacy wrapper).
+local function table_to_string(t)
+  return value_to_string(t)
 end
 
 --- Negates a matcher predicate.
@@ -45,10 +100,10 @@ local function equals(expected)
   return function(actual)
     return {
       pass = actual == expected,
-      actual = tostring(actual),
+      actual = value_to_string(actual),
       positive_message = 'be equal to',
       negative_message = 'be not equal to',
-      expected = tostring(expected)
+      expected = value_to_string(expected)
     }
   end
 end
@@ -536,6 +591,26 @@ local function deep_equals(a, b, visited)
   return true
 end
 
+--- Computes a human-readable diff between two tables.
+local function table_diff(actual, expected)
+  local diffs = {}
+  -- Check for differing and extra keys in actual
+  for k, v in pairs(actual) do
+    if expected[k] == nil then
+      table.insert(diffs, '  extra key: ' .. tostring(k) .. ' = ' .. value_to_string(v))
+    elseif not deep_equals(v, expected[k]) then
+      table.insert(diffs, '  differs at key ' .. tostring(k) .. ': got ' .. value_to_string(v) .. ', expected ' .. value_to_string(expected[k]))
+    end
+  end
+  -- Check for missing keys
+  for k, v in pairs(expected) do
+    if actual[k] == nil then
+      table.insert(diffs, '  missing key: ' .. tostring(k) .. ' = ' .. value_to_string(v))
+    end
+  end
+  return table.concat(diffs, '\n')
+end
+
 --- Checks if table deeply equals expected
 local function match_table(expected)
   return function(actual)
@@ -545,17 +620,21 @@ local function match_table(expected)
         actual = tostring(actual) .. ' (type: ' .. type(actual) .. ')',
         positive_message = 'deeply equal',
         negative_message = 'not deeply equal',
-        expected = table_to_string(expected)
+        expected = value_to_string(expected)
       }
     end
 
     local is_equal = deep_equals(actual, expected)
+    local actual_str = value_to_string(actual)
+    if not is_equal then
+      actual_str = actual_str .. '\ndiff:\n' .. table_diff(actual, expected)
+    end
     return {
       pass = is_equal,
-      actual = table_to_string(actual),
+      actual = actual_str,
       positive_message = 'deeply equal',
       negative_message = 'not deeply equal',
-      expected = table_to_string(expected)
+      expected = value_to_string(expected)
     }
   end
 end
