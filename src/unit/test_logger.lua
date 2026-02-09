@@ -81,10 +81,19 @@ TestLogger = class 'TestLogger' {
              color(red), reset(), total_failure_count, total_test_count)
     end
   end;
+
+  --- Resets the logger state for a fresh test run.
+  reset = function() end;
 }
 
 -- Module-level variable to store the current HierarchicalLogger instance
 local current_hierarchical_logger = nil
+
+--- Resets the module-level logger state.
+-- Call this between test runs to ensure clean state.
+local function reset_logger_state()
+  current_hierarchical_logger = nil
+end
 
 --- Builds a hierarchical tree structure from test name paths
 -- @param tests List of tests with name_path arrays
@@ -207,6 +216,18 @@ HierarchicalLogger = class 'HierarchicalLogger' {
     self.total_tests = 0
     self.total_skipped = 0
     current_hierarchical_logger = self
+  end;
+
+  --- Resets the logger state for a fresh test run.
+  reset = function()
+    if current_hierarchical_logger then
+      current_hierarchical_logger.test_suites = {}
+      current_hierarchical_logger.current_suite = nil
+      current_hierarchical_logger.total_passed = 0
+      current_hierarchical_logger.total_failed = 0
+      current_hierarchical_logger.total_tests = 0
+      current_hierarchical_logger.total_skipped = 0
+    end
   end;
 
   --- Called once before any tests run.
@@ -359,4 +380,5 @@ HierarchicalLogger = class 'HierarchicalLogger' {
 return {
   TestLogger = TestLogger,
   HierarchicalLogger = HierarchicalLogger,
+  reset_logger_state = reset_logger_state,
 }
