@@ -323,6 +323,78 @@ function Table:is_empty()
   return next(self) == nil
 end
 
+--- Returns a new table with all keys transformed by a function.
+-- @param f A function applied to each key
+-- @return A new table with transformed keys
+function Table:map_keys(f)
+  local result = {}
+  for k, v in pairs(self) do
+    result[f(k)] = v
+  end
+  return result
+end
+
+--- Returns a new table with all values transformed by a function.
+-- @param f A function applied to each value
+-- @return A new table with transformed values
+function Table:map_values(f)
+  local result = {}
+  for k, v in pairs(self) do
+    result[k] = f(v)
+  end
+  return result
+end
+
+--- Merges default values into a table, only filling missing keys.
+-- Returns a new table; does not modify inputs.
+-- @param t The primary table
+-- @param ... Default tables (earlier takes precedence)
+-- @return A new table with defaults filled in
+function Table.defaults(t, ...)
+  local result = {}
+  for k, v in pairs(t) do result[k] = v end
+  for i = 1, select('#', ...) do
+    local defaults = select(i, ...)
+    for k, v in pairs(defaults) do
+      if result[k] == nil then
+        result[k] = v
+      end
+    end
+  end
+  return result
+end
+
+--- Deep structural equality comparison for two tables.
+-- @param a First table
+-- @param b Second table
+-- @return true if both tables have the same structure and values
+function Table.deep_equal(a, b)
+  if a == b then return true end
+  if type(a) ~= 'table' or type(b) ~= 'table' then return false end
+
+  for k, v in pairs(a) do
+    if not Table.deep_equal(v, b[k]) then return false end
+  end
+  for k in pairs(b) do
+    if a[k] == nil then return false end
+  end
+  return true
+end
+
+--- Safely accesses a nested value via a list of keys.
+-- Returns nil if any intermediate key is missing or not a table.
+-- @param t The table to access
+-- @param path A list of keys forming the path
+-- @return The value at the path, or nil
+function Table.get_in(t, path)
+  local current = t
+  for i = 1, #path do
+    if type(current) ~= 'table' then return nil end
+    current = current[path[i]]
+  end
+  return current
+end
+
 function Table:concat(sep, i, j)
   sep = sep or ''
   i = i or 1
