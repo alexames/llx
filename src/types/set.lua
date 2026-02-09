@@ -31,11 +31,6 @@ Set = class 'Set' {
     local a_values = rawget(a, '_values')
     local b_values = rawget(b, '_values')
 
-    -- Check if the sizes of the sets are equal
-    if #a_values ~= #b_values then
-      return false
-    end
-
     -- Check if all elements in set A are also in set B
     for k, v in pairs(a_values) do
       if not b_values[k] then
@@ -45,9 +40,9 @@ Set = class 'Set' {
 
     -- Check if all elements in set B are also in set A
     for k, v in pairs(b_values) do
-        if not a_values[k] then
-            return false
-        end
+      if not a_values[k] then
+        return false
+      end
     end
 
     return true
@@ -64,7 +59,8 @@ Set = class 'Set' {
   union = function(self, other)
     local result = self:copy()
     local result_values = rawget(result, '_values')
-    for k, v in pairs(other) do
+    local other_values = rawget(other, '_values')
+    for k, v in pairs(other_values) do
       result_values[k] = true
     end
     return result
@@ -72,9 +68,10 @@ Set = class 'Set' {
 
   difference = function(self, other)
     local result = Set{}
+    local self_values = rawget(self, '_values')
     local result_values = rawget(result, '_values')
     local other_values = rawget(other, '_values')
-    for k, v in pairs(self) do
+    for k, v in pairs(self_values) do
       if not other_values[k] then
         result_values[k] = true
       end
@@ -84,14 +81,71 @@ Set = class 'Set' {
 
   intersection = function(self, other)
     local result = Set{}
+    local self_values = rawget(self, '_values')
     local result_values = rawget(result, '_values')
     local other_values = rawget(other, '_values')
-    for k, v in pairs(self) do
+    for k, v in pairs(self_values) do
       if other_values[k] then
         result_values[k] = true
       end
     end
     return result
+  end,
+
+  symmetric_difference = function(self, other)
+    local result = Set{}
+    local self_values = rawget(self, '_values')
+    local result_values = rawget(result, '_values')
+    local other_values = rawget(other, '_values')
+    for k in pairs(self_values) do
+      if not other_values[k] then
+        result_values[k] = true
+      end
+    end
+    for k in pairs(other_values) do
+      if not self_values[k] then
+        result_values[k] = true
+      end
+    end
+    return result
+  end,
+
+  is_subset = function(self, other)
+    local self_values = rawget(self, '_values')
+    local other_values = rawget(other, '_values')
+    for k in pairs(self_values) do
+      if not other_values[k] then
+        return false
+      end
+    end
+    return true
+  end,
+
+  is_superset = function(self, other)
+    return other:is_subset(self)
+  end,
+
+  is_disjoint = function(self, other)
+    local self_values = rawget(self, '_values')
+    local other_values = rawget(other, '_values')
+    for k in pairs(self_values) do
+      if other_values[k] then
+        return false
+      end
+    end
+    return true
+  end,
+
+  len = function(self)
+    local n = 0
+    for _ in pairs(rawget(self, '_values')) do
+      n = n + 1
+    end
+    return n
+  end,
+
+  contains = function(self, key)
+    return rawget(self, '_values')[key] == true
   end,
 
   get = function(self, key)
@@ -104,7 +158,7 @@ Set = class 'Set' {
 
   tolist = function(self)
     local result = List{}
-    for k, v in pairs(self) do
+    for k, v in pairs(rawget(self, '_values')) do
       result:insert(k)
     end
     return result
@@ -124,6 +178,7 @@ Set = class 'Set' {
     for k, v in pairs(rawget(self, '_values')) do
       table.insert(values, tostring(k))
     end
+    table.sort(values)
     return "Set{" .. table.concat(values, ', ') .. "}"
   end,
 
@@ -135,6 +190,7 @@ Set = class 'Set' {
 Set.__bor = Set.union
 Set.__sub = Set.difference
 Set.__band = Set.intersection
+Set.__bxor = Set.symmetric_difference
 Set.__newindex = Set.set
 
 return _M
