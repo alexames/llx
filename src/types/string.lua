@@ -155,6 +155,100 @@ function String:replace(old, new, count)
   return result
 end
 
+--- Pads a string on the left to reach a given width.
+-- @param width Target width
+-- @param fill Fill character (default: space)
+-- @return The padded string
+function String:pad_left(width, fill)
+  fill = fill or ' '
+  if #self >= width then return self end
+  return fill:rep(width - #self) .. self
+end
+
+--- Pads a string on the right to reach a given width.
+-- @param width Target width
+-- @param fill Fill character (default: space)
+-- @return The padded string
+function String:pad_right(width, fill)
+  fill = fill or ' '
+  if #self >= width then return self end
+  return self .. fill:rep(width - #self)
+end
+
+--- Centers a string within a given width.
+-- @param width Target width
+-- @param fill Fill character (default: space)
+-- @return The centered string
+function String:center(width, fill)
+  fill = fill or ' '
+  if #self >= width then return self end
+  local total_pad = width - #self
+  local left_pad = math.floor(total_pad / 2)
+  local right_pad = total_pad - left_pad
+  return fill:rep(left_pad) .. self .. fill:rep(right_pad)
+end
+
+--- Capitalizes the first character of a string.
+-- @return The string with first character uppercased
+function String:capitalize()
+  if #self == 0 then return self end
+  return self:sub(1, 1):upper() .. self:sub(2)
+end
+
+--- Splits a string into a list of words (whitespace-separated).
+-- @return A List of words
+function String:words()
+  local List = require('llx.types.list').List
+  local result = List{}
+  for word in self:gmatch('%S+') do
+    result[#result + 1] = word
+  end
+  return result
+end
+
+--- Splits a string into a list of lines.
+-- @return A List of lines
+function String:lines()
+  local List = require('llx.types.list').List
+  local result = List{}
+  local pos = 1
+  while true do
+    local s = self:find('\n', pos, true)
+    if s == nil then
+      result[#result + 1] = self:sub(pos)
+      break
+    end
+    result[#result + 1] = self:sub(pos, s - 1)
+    pos = s + 1
+  end
+  return result
+end
+
+--- Counts non-overlapping occurrences of a plain-text substring.
+-- @param sub The substring to count
+-- @return The number of occurrences
+function String:count(sub)
+  local n = 0
+  local pos = 1
+  while true do
+    local s, e = self:find(sub, pos, true)
+    if s == nil then break end
+    n = n + 1
+    pos = e + 1
+  end
+  return n
+end
+
+--- Truncates a string to a maximum length, appending a suffix.
+-- @param max_len Maximum length of the result (including suffix)
+-- @param suffix Suffix to append when truncated (default: '...')
+-- @return The truncated string
+function String:truncate(max_len, suffix)
+  if #self <= max_len then return self end
+  suffix = suffix or '...'
+  return self:sub(1, max_len - #suffix) .. suffix
+end
+
 function String:__index(i, v)
   return self:sub(i, i)
 end
