@@ -4,15 +4,12 @@
 -- @module llx.unit.test_api
 
 local llx = require 'llx'
-local test = require 'llx.unit.test'
 local matchers = require 'llx.unit.matchers'
 local mock_module = require 'llx.unit.mock'
 local truthy, falsey = require 'llx.truthy' {'truthy', 'falsey'}
-local functional = require 'llx.functional'
 
 local class = llx.class
 local Mock = mock_module.Mock
-local product = functional.product
 
 -- Sentinel type for assertion failures (distinct from unexpected errors)
 local ASSERTION_FAILURE = {}
@@ -584,15 +581,17 @@ end
 -- These are handled directly in the proxy __index functions
 
 --- Test class for describe/it style tests
-local TestSuite = class 'TestSuite':extends(test.Test) {
+local TestSuite = class 'TestSuite' {
+  setup = llx.noop,
+  teardown = llx.noop,
+
   __init = function(self, suite_name, tests, nested_suite_classes, name_path)
-    -- Set test data before calling base __init, which calls gather_tests()
     self._name = suite_name
     self._name_path = name_path or {suite_name}
     self._tests_data = tests or {}
     self._nested_suite_classes = nested_suite_classes or {}
     self._before_all_run = false
-    -- Initialize nested suites before base __init calls gather_tests()
+    -- Initialize nested suites before gather_tests()
     self._nested_suites = {}
     for _, nested_class in ipairs(self._nested_suite_classes) do
       local nested_instance = nested_class(
@@ -603,9 +602,11 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
       )
       table.insert(self._nested_suites, nested_instance)
     end
-    -- Now call base __init which will call our overridden gather_tests()
-    test.Test.__init(self)
+    self._tests = self:gather_tests()
   end,
+
+  --- Returns gathered test metadata
+  tests = function(self) return self._tests end,
 
   gather_tests = function(self)
     local result = llx.Table()
@@ -680,19 +681,34 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
     return result
   end,
   
-  -- Override name() to return the full path
   name = function(self)
     return table.concat(self._name_path, ' > ')
   end,
-  
-  -- Override run_tests to add beforeAll/afterAll support
-  run_tests = function(self, printer)
-    if not self._initialized then
-      error(string.format('a test suite was not initialized. '
-                          .. 'Remember to call `self.Test.__init`'),
-            3)
-    end
 
+  --- Runs a single test with logging and setup/teardown
+  run_test = function(self, printer, test, ...)
+    printer.test_begin(self, test.name)
+    local start_time = os.clock()
+    local setup_ok, setup_err = pcall(self.setup, self)
+    if not setup_ok then
+      pcall(self.teardown, self)
+      local elapsed = os.clock() - start_time
+      printer.test_end(self, test.name, false, "setUp failed: " .. tostring(setup_err), elapsed)
+      return false, setup_err
+    end
+    local successful, err = pcall(test.func, self, ...)
+    local teardown_ok, teardown_err = pcall(self.teardown, self)
+    pcall(mock_module.restore_all_spies)
+    if not teardown_ok then
+      err = (err and tostring(err) or "") .. "\ntearDown failed: " .. tostring(teardown_err)
+      successful = false
+    end
+    local elapsed = os.clock() - start_time
+    printer.test_end(self, test.name, successful, err, elapsed)
+    return successful, err
+  end,
+
+  run_tests = function(self, printer)
     -- Track which suites had before_all attempted (for cleanup)
     local suites_before_all_attempted = {}
 
@@ -751,17 +767,10 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
         printer.test_todo(self, test.name)
       elseif test.skip then
         printer.test_skip(self, test.name)
-      elseif test.arguments == nil or #test.arguments == 0 then
+      else
         local successful = self:run_test(printer, test)
         if not successful then
           failure_count = failure_count + 1
-        end
-      else
-        for _, arguments in product(table.unpack(test.arguments)) do
-          local successful = self:run_test(printer, test, table.unpack(arguments))
-          if not successful then
-            failure_count = failure_count + 1
-          end
         end
       end
     end

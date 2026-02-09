@@ -137,7 +137,6 @@ build = {
 
       -- unit testing submodule
       ["llx.unit"] = "src/unit/init.lua",
-      ["llx.unit.test"] = "src/unit/test.lua",
       ["llx.unit.test_api"] = "src/unit/test_api.lua",
       ["llx.unit.test_logger"] = "src/unit/test_logger.lua",
       ["llx.unit.matchers"] = "src/unit/matchers.lua",

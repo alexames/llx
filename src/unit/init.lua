@@ -1,20 +1,9 @@
 --- Unit testing framework for Lua.
--- Provides access to core test API, mocks, test registration, and execution.
---
--- The framework provides two testing styles:
---
--- **Primary: describe/it API** (recommended for new tests)
--- Uses BDD-style describe/it blocks with before_each/after_each hooks.
+-- Provides a BDD-style describe/it API with before_each/after_each hooks.
 -- Supports nesting, .skip, .only, .todo, and .each for parameterized tests.
---
--- **Legacy: Class-based Test API** (for advanced/internal use)
--- Subclass Test, define methods with the test decorator, override setup/teardown.
--- Supports parameterized tests via the product function and operator overloading.
--- This API is used internally by the describe/it system (TestSuite extends Test).
 --
 -- @module llx.unit
 -- @usage
--- -- Primary API (recommended):
 -- local unit = require 'llx.unit'
 -- unit.describe('MyTest', function()
 --   unit.before_each(function() --[[ setup ]] end)
@@ -27,7 +16,6 @@
 
 local mock = require 'llx.unit.mock'
 local runner = require 'llx.unit.runner'
-local test = require 'llx.unit.test'
 local test_api = require 'llx.unit.test_api'
 local matchers = require 'llx.unit.matchers'
 
@@ -40,8 +28,6 @@ local function create_test_env(fallback_env)
     spy_on = mock.spy_on,
     restore_all_spies = mock.restore_all_spies,
     run_unit_tests = runner.run_unit_tests,
-    Test = test.Test,
-    test = test.test,
     describe = test_api.describe,
     it = test_api.it,
     expect = test_api.expect,
@@ -74,10 +60,6 @@ return {
   --- Executes all registered test suites.
   -- @see llx.unit.runner.run_unit_tests
   run_unit_tests = runner.run_unit_tests,
-  --- Test class for creating test instances.
-  Test = test.Test,
-  --- Function to register a test.
-  test = test.test,
   --- Defines a test suite.
   describe = test_api.describe,
   --- Defines a test case.
