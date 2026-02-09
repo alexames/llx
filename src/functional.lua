@@ -1601,6 +1601,49 @@ function combinations_with_replacement(sequence, r)
   end
 end
 
+--- Applies multiple functions to the same arguments, returning all results.
+-- @param ... Functions to apply
+-- @return A function that returns a List of results from each function
+function juxt(...)
+  local fns = table.pack(...)
+  return function(...)
+    local result = List{}
+    for i = 1, fns.n do
+      result:insert(fns[i](...))
+    end
+    return result
+  end
+end
+
+--- Wraps a function so that a wrapper receives it as the first argument.
+-- @param func The function to wrap
+-- @param wrapper A function that receives func as its first argument
+-- @return A new function that delegates to wrapper with func prepended
+function wrap(func, wrapper)
+  return function(...)
+    return wrapper(func, ...)
+  end
+end
+
+--- Returns a new function with some arguments pre-filled from the right.
+-- @param func The function to partially apply
+-- @param ... Arguments to append after call-time arguments
+-- @return A new function
+function partial_right(func, ...)
+  local bound = table.pack(...)
+  return function(...)
+    local args = table.pack(...)
+    local all = {}
+    for i = 1, args.n do
+      all[i] = args[i]
+    end
+    for i = 1, bound.n do
+      all[args.n + i] = bound[i]
+    end
+    return func(table.unpack(all, 1, args.n + bound.n))
+  end
+end
+
 --- Calls a function with each element for side effects, passing values through.
 -- Useful for debugging or logging within a pipeline.
 -- @param func Function to call with each element
