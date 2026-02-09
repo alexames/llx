@@ -479,18 +479,34 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
 
     -- Add direct tests from this suite
     for i, test_case in ipairs(self._tests_data) do
-      -- Skip tests marked as skip
+      -- Skip tests marked as skip (but still add them for reporting)
       if test_case.skip then
-        -- Don't add to result
+        result:insert({
+          index = test_index,
+          name = test_case.name_path or {test_case.name},
+          func = test_case.func,
+          suite = self,
+          skip = true,
+          only = test_case.only
+        })
+        test_index = test_index + 1
       -- If there are 'only' tests, only include those
       elseif has_only and not test_case.only then
-        -- Don't add to result
+        result:insert({
+          index = test_index,
+          name = test_case.name_path or {test_case.name},
+          func = test_case.func,
+          suite = self,
+          skip = true,
+          only = test_case.only
+        })
+        test_index = test_index + 1
       else
         result:insert({
           index = test_index,
           name = test_case.name_path or {test_case.name},
           func = test_case.func,
-          suite = self,  -- Track which suite this test belongs to
+          suite = self,
           skip = test_case.skip,
           only = test_case.only
         })
@@ -529,24 +545,34 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
                           .. 'Remember to call `self.Test.__init`'),
             3)
     end
-    
+
+    -- Track which suites had before_all attempted (for cleanup)
+    local suites_before_all_attempted = {}
+
     -- Run beforeAll hook once before all tests
     local before_all = getmetatable(self).__before_all
     if before_all and before_all ~= llx.noop and not self._before_all_run then
+      suites_before_all_attempted[self] = true
       local success, err = pcall(before_all)
       if not success then
         printer.class_preamble(self)
         printer.class_conclusion(self, #self._tests) -- Mark all as failed
+        -- Still run after_all even if before_all failed
+        local after_all = getmetatable(self).__after_all
+        if after_all and after_all ~= llx.noop then
+          pcall(after_all)
+        end
         return #self._tests, #self._tests
       end
       self._before_all_run = true
     end
-    
+
     printer.class_preamble(self)
     local failure_count = 0
     local current_suite = nil
     local suite_before_all_run = {}
-    
+    local suite_before_all_failed = {}
+
     for _, test in pairs(self._tests) do
       -- Run beforeAll for the test's suite if it's different from current
       local test_suite = test.suite or self
@@ -557,14 +583,26 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
           if not suite_before_all_run[test_suite] then
             local nested_before_all = getmetatable(test_suite).__before_all
             if nested_before_all and nested_before_all ~= llx.noop then
-              pcall(nested_before_all)
+              suites_before_all_attempted[test_suite] = true
+              local nested_success, nested_err = pcall(nested_before_all)
               suite_before_all_run[test_suite] = true
+              if not nested_success then
+                suite_before_all_failed[test_suite] = nested_err
+              end
             end
           end
         end
       end
-      
-      if test.arguments == nil or #test.arguments == 0 then
+
+      -- Skip tests from suites whose before_all failed
+      if suite_before_all_failed[test_suite] then
+        printer.test_begin(self, test.name)
+        printer.test_end(self, test.name, false,
+          "before_all failed: " .. tostring(suite_before_all_failed[test_suite]))
+        failure_count = failure_count + 1
+      elseif test.skip then
+        printer.test_skip(self, test.name)
+      elseif test.arguments == nil or #test.arguments == 0 then
         local successful = self:run_test(printer, test)
         if not successful then
           failure_count = failure_count + 1
@@ -578,9 +616,12 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
         end
       end
     end
-    
-    -- Run afterAll hooks for all suites that had tests
+
+    -- Run afterAll hooks for all suites where before_all was attempted
     local suites_to_cleanup = {[self] = true}
+    for suite, _ in pairs(suites_before_all_attempted) do
+      suites_to_cleanup[suite] = true
+    end
     for suite, _ in pairs(suite_before_all_run) do
       suites_to_cleanup[suite] = true
     end
@@ -590,9 +631,9 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
         pcall(after_all)
       end
     end
-    
+
     printer.class_conclusion(self, failure_count)
-    
+
     return failure_count, #self._tests
   end,
 }
