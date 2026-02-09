@@ -53,6 +53,45 @@ local global_after_all_hooks = {}
 -- For example: matchers.be_equal_to = matchers.equals
 local custom_matchers = {}
 
+--- Registers a custom matcher with validation.
+-- The matcher function should accept arguments and return a function that accepts
+-- the actual value and returns a result table with pass, actual, positive_message,
+-- negative_message, and expected fields.
+-- @param name The name of the matcher (string)
+-- @param matcher_fn The matcher creator function
+local function expect_extend(name, matcher_fn)
+  if type(name) ~= 'string' then
+    error('expect.extend: name must be a string, got ' .. type(name), 2)
+  end
+  if type(matcher_fn) ~= 'function' then
+    error('expect.extend: matcher must be a function, got ' .. type(matcher_fn), 2)
+  end
+  -- Validate the matcher by calling it with a dummy value
+  local ok, err = pcall(function()
+    local matcher = matcher_fn()
+    if type(matcher) ~= 'function' then
+      error('matcher creator must return a function, got ' .. type(matcher))
+    end
+    local result = matcher(nil)
+    if type(result) ~= 'table' then
+      error('matcher must return a table, got ' .. type(result))
+    end
+    if result.pass == nil then
+      error('matcher result must have a "pass" field')
+    end
+    local required_fields = {'actual', 'positive_message', 'negative_message', 'expected'}
+    for _, field in ipairs(required_fields) do
+      if result[field] == nil then
+        error('matcher result missing required field: ' .. field)
+      end
+    end
+  end)
+  if not ok then
+    error('expect.extend: invalid matcher "' .. name .. '": ' .. tostring(err), 2)
+  end
+  custom_matchers[name] = matcher_fn
+end
+
 --- Creates an expect object with matcher methods
 -- @param actual The actual value to test
 -- @return An object with to and to_not properties
@@ -437,6 +476,109 @@ custom_matchers.have_been_nth_called_with = function(n, ...)
   end
 end
 
+custom_matchers.have_returned = function()
+  return function(actual)
+    if not is_mock(actual) then
+      error('have_returned() expects a Mock, got ' .. type(actual), 3)
+    end
+    local calls = actual:mock_get_calls()
+    local has_returned = false
+    for _, call in ipairs(calls) do
+      if call.return_value ~= nil then
+        has_returned = true
+        break
+      end
+    end
+    return {
+      pass = has_returned,
+      actual = tostring(actual:mock_get_call_count()) .. ' call(s)',
+      positive_message = 'have returned',
+      negative_message = 'not have returned',
+      expected = 'at least one call with a return value'
+    }
+  end
+end
+
+custom_matchers.have_returned_with = function(expected_value)
+  return function(actual)
+    if not is_mock(actual) then
+      error('have_returned_with() expects a Mock, got ' .. type(actual), 3)
+    end
+    local calls = actual:mock_get_calls()
+    for _, call in ipairs(calls) do
+      if call.return_value == expected_value then
+        return {
+          pass = true,
+          actual = 'mock returned matching value',
+          positive_message = 'have returned with',
+          negative_message = 'not have returned with',
+          expected = tostring(expected_value)
+        }
+      end
+    end
+    return {
+      pass = false,
+      actual = 'mock never returned matching value',
+      positive_message = 'have returned with',
+      negative_message = 'not have returned with',
+      expected = tostring(expected_value)
+    }
+  end
+end
+
+custom_matchers.have_last_returned_with = function(expected_value)
+  return function(actual)
+    if not is_mock(actual) then
+      error('have_last_returned_with() expects a Mock, got ' .. type(actual), 3)
+    end
+    local last_call = actual:mock_get_last_call()
+    if not last_call then
+      return {
+        pass = false,
+        actual = 'mock was never called',
+        positive_message = 'have last returned with',
+        negative_message = 'not have last returned with',
+        expected = tostring(expected_value)
+      }
+    end
+    return {
+      pass = last_call.return_value == expected_value,
+      actual = 'last return value: ' .. tostring(last_call.return_value),
+      positive_message = 'have last returned with',
+      negative_message = 'not have last returned with',
+      expected = tostring(expected_value)
+    }
+  end
+end
+
+custom_matchers.have_nth_returned_with = function(n, expected_value)
+  if type(n) ~= 'number' or n < 1 or math.floor(n) ~= n then
+    error('have_nth_returned_with() expects a positive integer as first argument, got ' .. tostring(n), 3)
+  end
+  return function(actual)
+    if not is_mock(actual) then
+      error('have_nth_returned_with() expects a Mock, got ' .. type(actual), 3)
+    end
+    local call = actual:mock_get_call(n)
+    if not call then
+      return {
+        pass = false,
+        actual = 'mock was called ' .. tostring(actual:mock_get_call_count()) .. ' time(s)',
+        positive_message = 'have nth returned with',
+        negative_message = 'not have nth returned with',
+        expected = 'call #' .. tostring(n) .. ' returning ' .. tostring(expected_value)
+      }
+    end
+    return {
+      pass = call.return_value == expected_value,
+      actual = 'call #' .. tostring(n) .. ' returned: ' .. tostring(call.return_value),
+      positive_message = 'have nth returned with',
+      negative_message = 'not have nth returned with',
+      expected = 'call #' .. tostring(n) .. ' returning ' .. tostring(expected_value)
+    }
+  end
+end
+
 -- Special matchers that need custom handling (not registered in custom_matchers)
 -- These are handled directly in the proxy __index functions
 
@@ -487,7 +629,8 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
           func = test_case.func,
           suite = self,
           skip = true,
-          only = test_case.only
+          only = test_case.only,
+          todo = test_case.todo,
         })
         test_index = test_index + 1
       -- If there are 'only' tests, only include those
@@ -498,7 +641,8 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
           func = test_case.func,
           suite = self,
           skip = true,
-          only = test_case.only
+          only = test_case.only,
+          todo = test_case.todo,
         })
         test_index = test_index + 1
       else
@@ -508,7 +652,8 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
           func = test_case.func,
           suite = self,
           skip = test_case.skip,
-          only = test_case.only
+          only = test_case.only,
+          todo = test_case.todo,
         })
         test_index = test_index + 1
       end
@@ -524,7 +669,8 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
           func = nested_test.func,
           suite = nested_test.suite or nested_suite,  -- Track nested suite
           skip = nested_test.skip,
-          only = nested_test.only
+          only = nested_test.only,
+          todo = nested_test.todo,
         })
         test_index = test_index + 1
       end
@@ -600,6 +746,8 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
         printer.test_end(self, test.name, false,
           "before_all failed: " .. tostring(suite_before_all_failed[test_suite]))
         failure_count = failure_count + 1
+      elseif test.todo then
+        printer.test_todo(self, test.name)
       elseif test.skip then
         printer.test_skip(self, test.name)
       elseif test.arguments == nil or #test.arguments == 0 then
@@ -643,7 +791,7 @@ local TestSuite = class 'TestSuite':extends(test.Test) {
 -- @param func Test function
 -- @param skip Optional flag to skip this test
 -- @param only Optional flag to run only this test
-local function it_impl(name, func, skip, only)
+local function it_impl(name, func, skip, only, todo)
   local context = describe_context_stack[#describe_context_stack]
   if not context then
     error('it() must be called within a describe() block', 2)
@@ -661,7 +809,8 @@ local function it_impl(name, func, skip, only)
     name_path = name_path,
     func = func,
     skip = skip,
-    only = only
+    only = only,
+    todo = todo,
   })
 end
 
@@ -672,6 +821,9 @@ local it = setmetatable({
   end,
   only = function(name, func)
     return it_impl(name, func, false, true)
+  end,
+  todo = function(name)
+    return it_impl(name, nil, false, false, true)
   end
 }, {
   __call = function(_, name, func, skip, only)
@@ -934,6 +1086,7 @@ return {
   test = test,
   is_assertion_failure = is_assertion_failure,
   expect = expect,
+  expect_extend = expect_extend,
   before_each = before_each,
   after_each = after_each,
   before_all = before_all,
