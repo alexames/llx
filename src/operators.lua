@@ -99,4 +99,29 @@ function le(a, b)
   return a <= b
 end
 
+-- the greater than (>) operation.
+function gt(a, b)
+  return a > b
+end
+
+-- the greater equal (>=) operation.
+function ge(a, b)
+  return a >= b
+end
+
+-- the not equal (~=) operation.
+function ne(a, b)
+  return a ~= b
+end
+
+--- Returns a function that gets a key from a table.
+-- Useful as a key-extraction function for sort_by, min_by, etc.
+-- @param key The key to extract
+-- @return A function that returns t[key]
+function itemgetter(key)
+  return function(t)
+    return t[key]
+  end
+end
+
 return _M
