@@ -78,8 +78,11 @@ local function expect(actual)
           end
           
           local successful, exception = pcall(expect_obj._actual)
-          
-          -- Expect function to throw
+
+          if successful then
+            error('expected function to raise error', level)
+          end
+          -- Now we know it threw, match the message if expected
           if expected then
             local exception_msg = exception
             if type(expected) == 'string' and type(exception) == 'string' then
@@ -90,9 +93,6 @@ local function expect(actual)
               end
             end
             evaluate_matcher(exception_msg, matchers.equals(expected), level + 1)
-          end
-          if successful then
-            error('expected function to raise error', level)
           end
         end
       elseif key == 'match' then
