@@ -26,6 +26,7 @@ return require 'llx.flatten_submodules' {
   flow_control = require 'llx.flow_control',
   functional = require 'llx.functional',
   hash = require 'llx.hash',
+  mathx = require 'llx.mathx',
   method = require 'llx.method',
   operators = require 'llx.operators',
   property = require 'llx.property',
