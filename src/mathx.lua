@@ -153,4 +153,73 @@ function divmod(a, b)
   return q, r
 end
 
+--- Returns the most common value in a sequence.
+-- For ties, returns the value that appears first.
+-- @param sequence A table of values
+-- @return The mode
+function mode(sequence)
+  local counts = {}
+  local order = {}
+  for i = 1, #sequence do
+    local v = sequence[i]
+    if counts[v] == nil then
+      counts[v] = 0
+      order[#order + 1] = v
+    end
+    counts[v] = counts[v] + 1
+  end
+  local best = order[1]
+  local best_count = counts[best]
+  for i = 2, #order do
+    local v = order[i]
+    if counts[v] > best_count then
+      best = v
+      best_count = counts[v]
+    end
+  end
+  return best
+end
+
+--- Computes the sample variance of a sequence (divides by n-1).
+-- @param sequence A table of numbers
+-- @return The sample variance
+function variance(sequence)
+  local m = mean(sequence)
+  local n = #sequence
+  local sum_sq = 0
+  for i = 1, n do
+    local d = sequence[i] - m
+    sum_sq = sum_sq + d * d
+  end
+  return sum_sq / (n - 1)
+end
+
+--- Computes the population variance of a sequence (divides by n).
+-- @param sequence A table of numbers
+-- @return The population variance
+function pvariance(sequence)
+  local m = mean(sequence)
+  local n = #sequence
+  local sum_sq = 0
+  for i = 1, n do
+    local d = sequence[i] - m
+    sum_sq = sum_sq + d * d
+  end
+  return sum_sq / n
+end
+
+--- Computes the sample standard deviation of a sequence.
+-- @param sequence A table of numbers
+-- @return The sample standard deviation
+function stdev(sequence)
+  return math.sqrt(variance(sequence))
+end
+
+--- Computes the population standard deviation of a sequence.
+-- @param sequence A table of numbers
+-- @return The population standard deviation
+function pstdev(sequence)
+  return math.sqrt(pvariance(sequence))
+end
+
 return _M
