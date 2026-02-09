@@ -1,8 +1,8 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
--- A class is a designed to mimic class-like behavior from other languages in
--- Lua. It provides a syntacticaly similar method of initializing the class
--- definition, and allows for basic inheritance.
+-- The class module provides class-like behavior in Lua. It offers a
+-- syntactically familiar way to define classes, create instances, and express
+-- single and multiple inheritance.
 --
 -- A class can be created as follows:
 --
@@ -16,46 +16,87 @@
 --       end,
 --     }
 --
--- The result is that the table Line now contains all the functions and members
--- in the class definition. Instances of the class can be instantiated like so:
+-- The result is that `Line` is a callable class table containing all the
+-- functions and members in the definition. Instances are created by calling the
+-- class directly:
 --
---     f = Line(100)
+--     local f = Line(100)
+--     print(f:get_length()) --> 100
 --
--- (This is because the class definition itself has a `__call` metamethod)
+-- Fields can also be added to the class after creation, and will be visible to
+-- both existing and future instances:
+--
+--     Line.default_color = 'black'
+--     print(f.default_color) --> black
 --
 -- # Initializer
 --
--- The "__init" function serves as the class initializer, invoked automatically
--- when creating instances. It initializes class members and sets up the initial
--- state of the object.
+-- `__init(self, ...)` is called automatically when an instance is created. It
+-- receives the new instance as `self` followed by whatever arguments were
+-- passed to the class call. Use it to set up instance state:
+--
+--     local Point = class 'Point' {
+--       __init = function(self, x, y)
+--         self.x = x
+--         self.y = y
+--       end,
+--     }
+--
+-- `__init` is optional. If omitted, instances are created with an empty table.
+--
+-- # Custom Instantiation
+--
+-- `__new(...)` customizes the underlying table used for the instance. Unlike
+-- `__init`, it does not receive `self` (since the instance does not yet exist).
+-- It must return the table that will become the instance:
+--
+--     local Buffer = class 'Buffer' {
+--       __new = function(size)
+--         return { data = {}, capacity = size }
+--       end,
+--       __init = function(self, size)
+--         self.size = 0
+--       end,
+--     }
+--
+-- When both `__new` and `__init` are defined, `__new` runs first to produce
+-- the instance table, then `__init` is called on that table.
 --
 -- # Inheritance
 --
--- Classes also support inheritance:
+-- Classes support single and multiple inheritance via `:extends(...)`:
 --
 --     local Rectangle = class 'Rectangle' : extends(Line) {
 --       __init = function(self, length, width)
 --         self.Line.__init(self, length)
---         self.width = width
+--         self._width = width
 --       end,
 --
 --       get_width = function(self)
---         return self.width
+--         return self._width
 --       end,
 --
 --       get_area = function(self)
---         return self.width * self.length
+--         return self._width * self:get_length()
 --       end,
 --     }
 --
--- This Rectangle class inherits the values and functions from the Line
--- superclass. Additionally, when inheriting from a class, a reference to that
--- class is added to the class definition automatically.
+-- When extending a named class, a reference to the superclass is added to the
+-- derived class under the superclass's name (e.g. `self.Line`). This lets
+-- derived classes call superclass methods explicitly, which is especially
+-- useful for chaining `__init`.
+--
+-- Methods and fields are resolved by first checking the class itself, then
+-- walking the superclass chain in declaration order. The first match wins.
+--
+-- Metamethods (keys starting with `__`) are inherited from superclasses and
+-- propagated to subclasses. If a derived class defines its own metamethod, it
+-- takes precedence over the inherited one.
 --
 -- # Properties
 --
--- Classes also support Properties. That is, fields that look like look like
--- a normal field but that are backed by getter and setter functions.
+-- Properties are fields backed by getter and setter functions. They use the
+-- decorator syntax with the `property` decorator:
 --
 --     local Rectangle = class 'Rectangle' : extends(Line) {
 --       __init = function(self, length, width)
@@ -70,33 +111,129 @@
 --         get = function(self)
 --           return self._width
 --         end,
---       }
+--       },
 --
 --       ['area' | property] = {
 --         get = function(self)
 --            return self._width * self._length
 --         end,
---       }
+--       },
 --     }
+--
+-- Properties look like plain fields to callers:
+--
+--     local r = Rectangle(10, 5)
+--     print(r.width)  --> 5
+--     r.width = 7
+--     print(r.area)   --> 70
+--
+-- A property may define `get`, `set`, or both. Reading a property that has no
+-- `get` or writing one that has no `set` raises an error.
+--
+-- Properties are inherited: a derived class has access to properties defined
+-- on any of its superclasses.
 --
 -- # Anonymous classes
 --
--- TODO
+-- A class can be created without a name by passing a table directly:
+--
+--     local MyClass = class {
+--       __init = function(self, value)
+--         self.value = value
+--       end,
+--     }
+--
+-- Anonymous classes can also inherit from other classes:
+--
+--     local Derived = class : extends(Base) {
+--       __init = function(self)
+--         self.Base.__init(self)
+--       end,
+--     }
+--
+-- Anonymous classes have the internal name `<anonymous class>`.
 --
 -- # Conversion operators
 --
--- TODO
+-- Every class automatically receives a `to_class(value)` conversion function
+-- that attempts to convert an arbitrary value into an instance of that class.
+-- Named classes also get an alias `to_<ClassName>(value)`.
+--
+-- Conversion works by looking up a metamethod on the source value. For a named
+-- class `Foo`, the lookup checks for `__to_Foo` first, then falls back to
+-- checking for a metamethod keyed by the `Foo` class table itself. For
+-- anonymous classes, only the class-table-keyed metamethod is checked.
+--
+--     local Celsius = class 'Celsius' {
+--       __init = function(self, value) self.value = value end,
+--     }
+--
+--     local Fahrenheit = class 'Fahrenheit' {
+--       __init = function(self, value) self.value = value end,
+--       __to_Celsius = function(self)
+--         return Celsius((self.value - 32) * 5 / 9)
+--       end,
+--     }
+--
+--     local c = Celsius.to_class(Fahrenheit(212))
+--     print(c.value) --> 100
+--
+-- If no matching conversion metamethod is found, `to_class` returns nil.
 --
 -- # Implementation details
--- TODO
--- ## Proxy Class Tables
--- TODO
--- ## Superclass metafield
--- TODO
--- ## Index and Default Index metafield
--- TODO
--- ## Internal Index metafield
--- TODO
+--
+-- ## Proxy class tables
+--
+-- Each class is represented by two tables:
+--
+-- 1. The *internal class table* (`class_table`) serves as the metatable for
+--    instances. It holds all methods, metamethods, property definitions,
+--    superclass references, and internal bookkeeping fields.
+--
+-- 2. The *class table proxy* (`class_table_proxy`) is the table returned to
+--    user code — i.e. the value of `Line` in `local Line = class 'Line' {...}`.
+--    It wraps the internal table with metamethods that:
+--    - `__call`: create new instances (delegates to `__new` / `__init`)
+--    - `__index`: reads resolve against the internal class table
+--    - `__newindex`: writes go to the internal table and propagate metamethods
+--    - `__pairs`: iterating the proxy iterates the internal table's members
+--    - `__tostring`: returns the class name
+--
+-- `getmetatable(instance)` returns the proxy (because `class_table.__metatable`
+-- is set to the proxy), keeping the internal class table hidden from external
+-- code.
+--
+-- ## Superclass bookkeeping
+--
+-- Each class table maintains:
+--
+-- - `__superclasses`: an ordered array of direct base classes (internal tables)
+-- - `__subclasses`: a map of subclass name to subclass proxy, for all classes
+--   that directly extend this one
+-- - `ClassName`: a direct reference to each named superclass, added to the
+--   class table so that `self.Base` resolves during method calls
+--
+-- These fields support method resolution (walking `__superclasses` in order)
+-- and metamethod propagation (pushing new metamethods down to `__subclasses`).
+--
+-- ## Metamethod inheritance
+--
+-- When a class defines a key starting with `__`, it is recorded in the
+-- `__metafields` table. Metamethods are propagated to all subclasses that
+-- have not defined their own version. When a superclass later defines a new
+-- metamethod, it is pushed down to subclasses via `try_set_metafield_on_subclasses`.
+--
+-- ## Index resolution
+--
+-- The `__index` metamethod on the internal class table resolves field lookups
+-- for instances. The lookup order is:
+--
+-- 1. `rawget(class_table, key)` — fields and methods on the class itself
+-- 2. Walk `__superclasses` in order, returning the first match
+--
+-- `__defaultindex` stores a reference to this original `__index` function,
+-- allowing classes to override `__index` in their definition while preserving
+-- the default as a fallback.
 
 --------------------------------------------------------------------------------
 -- Utilities
