@@ -71,11 +71,13 @@ local Test = class 'Test' {
   --- Runs a single test with logging and setup/teardown
   run_test = function(self, printer, test, ...)
     printer.test_begin(self, test.name)
+    local start_time = os.clock()
     local setup_ok, setup_err = pcall(self.setup, self)
     if not setup_ok then
       -- Still attempt teardown even if setup failed
       pcall(self.teardown, self)
-      printer.test_end(self, test.name, false, "setUp failed: " .. tostring(setup_err))
+      local elapsed = os.clock() - start_time
+      printer.test_end(self, test.name, false, "setUp failed: " .. tostring(setup_err), elapsed)
       return false, setup_err
     end
     local successful, err = pcall(test.func, self, ...)
@@ -85,7 +87,8 @@ local Test = class 'Test' {
       err = (err and tostring(err) or "") .. "\ntearDown failed: " .. tostring(teardown_err)
       successful = false
     end
-    printer.test_end(self, test.name, successful, err)
+    local elapsed = os.clock() - start_time
+    printer.test_end(self, test.name, successful, err, elapsed)
     return successful, err
   end,
 

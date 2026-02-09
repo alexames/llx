@@ -37,18 +37,17 @@ TestLogger = class 'TestLogger' {
   end;
 
   --- Prints the result of a test case.
-  test_end = function(test_suite, test_name, successful, err)
+  test_end = function(test_suite, test_name, successful, err, elapsed)
+    local time_str = elapsed and string.format(' (%.3fs)', elapsed) or ''
     if successful then
-      printf('%s[       OK ] %s%s.%s%s',
-             color(green), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset())
+      printf('%s[       OK ] %s%s.%s%s%s',
+             color(green), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset(), time_str)
     elseif type(err) == 'table' and err.type then
-      -- Assertion failure: show expected/actual
-      printf('%s[  FAILURE ] %s%s.%s%s\n%s',
-             color(red), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset(), tostring(err))
+      printf('%s[  FAILURE ] %s%s.%s%s%s\n%s',
+             color(red), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset(), time_str, tostring(err))
     else
-      -- Unexpected error: show as ERROR
-      printf('%s[   ERROR  ] %s%s.%s%s\n%s',
-             color(red), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset(), tostring(err))
+      printf('%s[   ERROR  ] %s%s.%s%s%s\n%s',
+             color(red), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset(), time_str, tostring(err))
     end
   end;
 
@@ -164,11 +163,13 @@ local function print_tree(items, indent)
       print_tree(item.children, indent + 1)
     elseif item.type == 'test' then
       local test = item.data
+      local time_str = test.elapsed and string.format(' (%.3fs)', test.elapsed) or ''
+      local slow_warning = (test.elapsed and test.elapsed > 0.1) and ' [SLOW]' or ''
       if test.passed then
-        printf('%s%s+%s %s%s', indent_str, color(green), reset(), test.name, reset())
+        printf('%s%s+%s %s%s%s%s', indent_str, color(green), reset(), test.name, time_str, slow_warning, reset())
       else
         local label = test.is_failure and 'FAIL' or 'ERROR'
-        printf('%s%s-%s %s [%s]%s', indent_str, color(red), reset(), test.name, label, reset())
+        printf('%s%s-%s %s [%s]%s%s%s', indent_str, color(red), reset(), test.name, label, time_str, slow_warning, reset())
         -- Print error details
         if test.error then
           local error_lines = {}
@@ -232,7 +233,7 @@ HierarchicalLogger = class 'HierarchicalLogger' {
   end;
 
   --- Prints the result of a test case.
-  test_end = function(test_suite, test_name, successful, err)
+  test_end = function(test_suite, test_name, successful, err, elapsed)
     if not current_hierarchical_logger then
       error('HierarchicalLogger instance not found')
     end
@@ -243,6 +244,7 @@ HierarchicalLogger = class 'HierarchicalLogger' {
       passed = successful,
       error = err,
       is_failure = type(err) == 'table' and err.type ~= nil,
+      elapsed = elapsed,
     }
     table.insert(current_hierarchical_logger.current_suite.tests, test_info)
     
