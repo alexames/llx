@@ -76,6 +76,85 @@ function String:endswith(ending)
    return ending == "" or self:sub(-#ending) == ending
 end
 
+--- Escapes Lua pattern special characters in a string.
+-- @param s The string to escape
+-- @return A string safe for use in pattern matching functions
+local function escape_pattern(s)
+  return (s:gsub('[%(%)%.%%%+%-%*%?%[%]%^%$]', '%%%0'))
+end
+
+--- Splits a string by a plain-text delimiter.
+-- Returns a list of substrings. When no delimiter is given, splits on
+-- whitespace and discards empty parts.
+-- @param delim Delimiter string (default: whitespace)
+-- @return A List of substrings
+-- @usage
+-- ('a,b,c'):split(',')  -- returns {'a', 'b', 'c'}
+-- ('hello world'):split()  -- returns {'hello', 'world'}
+function String:split(delim)
+  local List = require('llx.types.list').List
+  if delim == nil then
+    local result = List{}
+    for word in self:gmatch('%S+') do
+      result[#result + 1] = word
+    end
+    return result
+  end
+  local result = List{}
+  local pattern = escape_pattern(delim)
+  local pos = 1
+  while true do
+    local s, e = self:find(pattern, pos)
+    if s == nil then
+      result[#result + 1] = self:sub(pos)
+      break
+    end
+    result[#result + 1] = self:sub(pos, s - 1)
+    pos = e + 1
+  end
+  return result
+end
+
+--- Removes leading and trailing whitespace from a string.
+-- @return The trimmed string
+-- @usage ('  hello  '):trim()  -- returns 'hello'
+function String:trim()
+  return self:match('^%s*(.-)%s*$')
+end
+
+--- Removes leading whitespace from a string.
+-- @return The left-trimmed string
+function String:ltrim()
+  return self:match('^%s*(.*)')
+end
+
+--- Removes trailing whitespace from a string.
+-- @return The right-trimmed string
+function String:rtrim()
+  return self:match('(.-)%s*$')
+end
+
+--- Checks whether a string contains a plain-text substring.
+-- @param sub The substring to search for (plain text, not a pattern)
+-- @return true if the substring is found, false otherwise
+-- @usage ('hello world'):contains('world')  -- returns true
+function String:contains(sub)
+  return self:find(sub, 1, true) ~= nil
+end
+
+--- Replaces occurrences of a plain-text substring.
+-- Unlike gsub, this performs literal string replacement (no patterns).
+-- @param old The substring to find (plain text)
+-- @param new The replacement string
+-- @param count Maximum number of replacements (default: all)
+-- @return The string with replacements applied
+-- @usage ('a.b.c'):replace('.', '-')  -- returns 'a-b-c'
+function String:replace(old, new, count)
+  local escaped = escape_pattern(old)
+  local result = self:gsub(escaped, new, count)
+  return result
+end
+
 function String:__index(i, v)
   return self:sub(i, i)
 end
