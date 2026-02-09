@@ -1,14 +1,17 @@
-require 'llx.tests.test_base'
+-- Root module tests
+require 'llx.tests.test_check_arguments'
 require 'llx.tests.test_class'
-require 'llx.tests.test_exception'
-require 'llx.tests.test_extract'
+require 'llx.tests.test_core'
 require 'llx.tests.test_functional'
-require 'llx.tests.test_hash'
+
+-- types/ tests
 require 'llx.tests.types.test_list'
 require 'llx.tests.types.test_list_methods'
-require 'llx.tests.test_method'
-require 'llx.tests.unit.test_mock'
-require 'llx.tests.test_schema'
+
+-- flow_control/ tests
 require 'llx.tests.flow_control.test_trycatch'
+
+-- unit/ tests
+require 'llx.tests.unit.test_mock'
 require 'llx.tests.unit.test_unit'
-require 'llx.tests.test_using'
+require 'llx.tests.unit.test_unit_features'
