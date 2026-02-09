@@ -9,6 +9,9 @@ local _ENV, _M = environment.create_module_environment()
 
 Table = table
 
+-- Save a reference to the original table.concat before it is overridden below.
+local builtin_concat = table.concat
+
 Table.__name = 'Table';
 
 function Table:__isinstance(v)
@@ -93,16 +96,16 @@ end
 
 function Table:get_or_insert_lazy(k, default_func)
   local v = self[k]
-  if not v then
+  if v == nil then
     v = default_func()
     self[k] = v
   end
   return v
 end
 
-function Table:get_or_insert(k, default) 
+function Table:get_or_insert(k, default)
   local v = self[k]
-  if not v then
+  if v == nil then
     v = default
     self[k] = v
   end
@@ -120,19 +123,25 @@ end
 function Table:deepcopy(destination)
   destination = destination or {}
   local visited = {}
-  
+
   local function deepcopy_helper(src, dst)
     if type(src) ~= 'table' then
       return src
     end
-    
+
     -- Handle circular references
     if visited[src] then
       return visited[src]
     end
-    
+
     visited[src] = dst
-    
+
+    -- Preserve metatable so typed objects retain their type after deep copy.
+    local mt = getmetatable(src)
+    if mt then
+      setmetatable(dst, mt)
+    end
+
     for k, v in pairs(src) do
       if type(v) == 'table' then
         if visited[v] then
@@ -145,10 +154,10 @@ function Table:deepcopy(destination)
         dst[k] = v
       end
     end
-    
+
     return dst
   end
-  
+
   return deepcopy_helper(self, destination)
 end
 
@@ -196,12 +205,130 @@ function Table:insert_unique(value)
   end
 end
 
+--- Returns a List of all keys in the table.
+-- @return List of keys
+-- @usage Table.keys({a=1, b=2})  -- returns List{'a', 'b'}
+function Table:keys()
+  local List = require('llx.types.list').List
+  local result = List{}
+  for k in pairs(self) do
+    result[#result + 1] = k
+  end
+  return result
+end
+
+--- Returns a List of {key, value} pairs.
+-- @return List of Lists, each containing {key, value}
+-- @usage Table.entries({a=1})  -- returns List{List{'a', 1}}
+function Table:entries()
+  local List = require('llx.types.list').List
+  local result = List{}
+  for k, v in pairs(self) do
+    result[#result + 1] = List{k, v}
+  end
+  return result
+end
+
+--- Constructs a table from a list of {key, value} pairs.
+-- Inverse of entries.
+-- @param pairs_list A list of {key, value} tables
+-- @return A new table
+-- @usage Table.from_entries({{'a', 1}, {'b', 2}})  -- returns {a=1, b=2}
+function Table.from_entries(pairs_list)
+  local result = {}
+  for i = 1, #pairs_list do
+    local pair = pairs_list[i]
+    result[pair[1]] = pair[2]
+  end
+  return result
+end
+
+--- Shallow-merges multiple tables into a new table.
+-- Later tables overwrite earlier ones for duplicate keys.
+-- Does not modify any input table.
+-- @param ... Tables to merge
+-- @return A new merged table
+-- @usage Table.merge({a=1}, {b=2}, {a=3})  -- returns {a=3, b=2}
+function Table.merge(...)
+  local result = {}
+  for i = 1, select('#', ...) do
+    local t = select(i, ...)
+    for k, v in pairs(t) do
+      result[k] = v
+    end
+  end
+  return result
+end
+
+--- Returns a new table containing only the specified keys.
+-- @param keys_list A list of keys to include
+-- @return A new table with only those keys
+-- @usage Table.pick({a=1, b=2, c=3}, {'a', 'c'})  -- returns {a=1, c=3}
+function Table:pick(keys_list)
+  local result = {}
+  for i = 1, #keys_list do
+    local k = keys_list[i]
+    if self[k] ~= nil then
+      result[k] = self[k]
+    end
+  end
+  return result
+end
+
+--- Returns a new table excluding the specified keys.
+-- @param keys_list A list of keys to exclude
+-- @return A new table without those keys
+-- @usage Table.omit({a=1, b=2, c=3}, {'b'})  -- returns {a=1, c=3}
+function Table:omit(keys_list)
+  local exclude = {}
+  for i = 1, #keys_list do
+    exclude[keys_list[i]] = true
+  end
+  local result = {}
+  for k, v in pairs(self) do
+    if not exclude[k] then
+      result[k] = v
+    end
+  end
+  return result
+end
+
+--- Swaps keys and values in a table.
+-- @return A new table with keys and values swapped
+-- @usage Table.invert({a='x', b='y'})  -- returns {x='a', y='b'}
+function Table:invert()
+  local result = {}
+  for k, v in pairs(self) do
+    result[v] = k
+  end
+  return result
+end
+
+--- Counts the total number of key-value pairs in a table.
+-- Unlike #, this counts all keys (not just the array portion).
+-- @return The number of key-value pairs
+-- @usage Table.size({a=1, b=2})  -- returns 2
+function Table:size()
+  local n = 0
+  for _ in pairs(self) do
+    n = n + 1
+  end
+  return n
+end
+
+--- Checks whether a table has no keys.
+-- @return true if the table is empty, false otherwise
+-- @usage Table.is_empty({})  -- returns true
+function Table:is_empty()
+  return next(self) == nil
+end
+
 function Table:concat(sep, i, j)
   sep = sep or ''
   i = i or 1
   j = j or #self
 
-  local result = ''
+  local parts = {}
 
   for k=i, j do
     local value = self[k]
@@ -214,14 +341,10 @@ function Table:concat(sep, i, j)
       value = __tostring(value)
     end
 
-    result = result .. value
-
-    if k < j then
-      result = result .. sep
-    end
+    parts[#parts + 1] = value
   end
 
-  return result
+  return builtin_concat(parts, sep)
 end
 
 setmetatable(Table, metatable)
