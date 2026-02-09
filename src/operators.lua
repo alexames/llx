@@ -124,4 +124,48 @@ function itemgetter(key)
   end
 end
 
+--- Returns a function that accesses a nested attribute via dot-separated path.
+-- @param path Dot-separated path string (e.g. "a.b.c")
+-- @return A function that returns obj.a.b.c, or nil if any step is nil
+function attrgetter(path)
+  local keys = {}
+  for key in path:gmatch('[^%.]+') do
+    keys[#keys + 1] = key
+  end
+  return function(obj)
+    local current = obj
+    for i = 1, #keys do
+      if current == nil then return nil end
+      current = current[keys[i]]
+    end
+    return current
+  end
+end
+
+--- Returns a function that calls a named method on an object.
+-- @param name Method name
+-- @param ... Arguments to pass to the method
+-- @return A function that calls obj:name(...)
+function methodcaller(name, ...)
+  local args = table.pack(...)
+  return function(obj)
+    return obj[name](obj, table.unpack(args, 1, args.n))
+  end
+end
+
+-- the logical NOT operation.
+function not_(a)
+  return not a
+end
+
+-- the logical AND operation (returns the value, not a boolean).
+function and_(a, b)
+  return a and b
+end
+
+-- the logical OR operation (returns the value, not a boolean).
+function or_(a, b)
+  return a or b
+end
+
 return _M
