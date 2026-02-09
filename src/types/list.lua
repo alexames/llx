@@ -47,8 +47,7 @@ List = class 'List' : extends(Table) {
     step = step or 1
 
     if start < 0 then start = length + start + 1 end
-    if start < 1 then start = 1
-    elseif start > length then start = length end
+    if start < 1 then start = 1 end
 
     if finish < 0 then finish = length + finish + 1 end
     if finish < 0 then finish = 0

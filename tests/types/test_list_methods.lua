@@ -491,7 +491,7 @@ describe('List Methods', function()
         :take(4)
         :sum()
 
-      expect(result).to.be_equal_to(44)
+      expect(result).to.be_equal_to(36)
     end)
   end)
 end)
