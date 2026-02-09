@@ -113,6 +113,271 @@ describe('mathx', function()
       expect(data[1]).to.be_equal_to(3)
     end)
   end)
+
+  describe('gcd', function()
+    it('should compute the greatest common divisor', function()
+      expect(llx.mathx.gcd(12, 8)).to.be_equal_to(4)
+    end)
+
+    it('should return the other value when one is zero', function()
+      expect(llx.mathx.gcd(0, 5)).to.be_equal_to(5)
+      expect(llx.mathx.gcd(7, 0)).to.be_equal_to(7)
+    end)
+
+    it('should handle equal values', function()
+      expect(llx.mathx.gcd(6, 6)).to.be_equal_to(6)
+    end)
+
+    it('should handle coprime numbers', function()
+      expect(llx.mathx.gcd(7, 13)).to.be_equal_to(1)
+    end)
+  end)
+
+  describe('lcm', function()
+    it('should compute the least common multiple', function()
+      expect(llx.mathx.lcm(4, 6)).to.be_equal_to(12)
+    end)
+
+    it('should return 0 when either argument is 0', function()
+      expect(llx.mathx.lcm(0, 5)).to.be_equal_to(0)
+    end)
+
+    it('should handle equal values', function()
+      expect(llx.mathx.lcm(7, 7)).to.be_equal_to(7)
+    end)
+  end)
+
+  describe('factorial', function()
+    it('should compute factorial of small numbers', function()
+      expect(llx.mathx.factorial(5)).to.be_equal_to(120)
+    end)
+
+    it('should return 1 for 0', function()
+      expect(llx.mathx.factorial(0)).to.be_equal_to(1)
+    end)
+
+    it('should return 1 for 1', function()
+      expect(llx.mathx.factorial(1)).to.be_equal_to(1)
+    end)
+
+    it('should compute factorial of 10', function()
+      expect(llx.mathx.factorial(10)).to.be_equal_to(3628800)
+    end)
+  end)
+
+  describe('in_range', function()
+    it('should return true when value is in range', function()
+      expect(llx.mathx.in_range(5, 0, 10)).to.be_true()
+    end)
+
+    it('should return true for lower bound (inclusive)', function()
+      expect(llx.mathx.in_range(0, 0, 10)).to.be_true()
+    end)
+
+    it('should return false for upper bound (exclusive)', function()
+      expect(llx.mathx.in_range(10, 0, 10)).to.be_false()
+    end)
+
+    it('should return false for values below range', function()
+      expect(llx.mathx.in_range(-1, 0, 10)).to.be_false()
+    end)
+  end)
+
+  describe('remap', function()
+    it('should map a value from one range to another', function()
+      expect(llx.mathx.remap(5, 0, 10, 0, 100)).to.be_equal_to(50)
+    end)
+
+    it('should handle boundary values', function()
+      expect(llx.mathx.remap(0, 0, 10, 20, 40)).to.be_equal_to(20)
+      expect(llx.mathx.remap(10, 0, 10, 20, 40)).to.be_equal_to(40)
+    end)
+
+    it('should handle inverted output range', function()
+      expect(llx.mathx.remap(0, 0, 10, 100, 0)).to.be_equal_to(100)
+      expect(llx.mathx.remap(10, 0, 10, 100, 0)).to.be_equal_to(0)
+    end)
+  end)
+
+  describe('divmod', function()
+    it('should return quotient and remainder', function()
+      local q, r = llx.mathx.divmod(7, 3)
+      expect(q).to.be_equal_to(2)
+      expect(r).to.be_equal_to(1)
+    end)
+
+    it('should return 0 remainder for even division', function()
+      local q, r = llx.mathx.divmod(10, 5)
+      expect(q).to.be_equal_to(2)
+      expect(r).to.be_equal_to(0)
+    end)
+
+    it('should handle negative dividend', function()
+      local q, r = llx.mathx.divmod(-7, 3)
+      expect(q).to.be_equal_to(-3)
+      expect(r).to.be_equal_to(2)
+    end)
+  end)
+
+  describe('mode', function()
+    it('should return the most common value', function()
+      expect(llx.mathx.mode({1, 2, 2, 3, 3, 3})).to.be_equal_to(3)
+    end)
+
+    it('should return the first most-common value for ties', function()
+      expect(llx.mathx.mode({1, 1, 2, 2})).to.be_equal_to(1)
+    end)
+
+    it('should handle a single element', function()
+      expect(llx.mathx.mode({42})).to.be_equal_to(42)
+    end)
+  end)
+
+  describe('variance', function()
+    it('should compute sample variance', function()
+      -- sample variance of {2, 4, 4, 4, 5, 5, 7, 9} = 4.571428...
+      local result = llx.mathx.variance({2, 4, 4, 4, 5, 5, 7, 9})
+      expect(result > 4.57 and result < 4.58).to.be_true()
+    end)
+
+    it('should return 0 for identical values', function()
+      expect(llx.mathx.variance({5, 5, 5, 5})).to.be_equal_to(0)
+    end)
+  end)
+
+  describe('pvariance', function()
+    it('should compute population variance', function()
+      -- population variance of {2, 4, 4, 4, 5, 5, 7, 9} = 4.0
+      expect(llx.mathx.pvariance({2, 4, 4, 4, 5, 5, 7, 9})).to.be_equal_to(4)
+    end)
+  end)
+
+  describe('stdev', function()
+    it('should compute sample standard deviation', function()
+      local result = llx.mathx.stdev({2, 4, 4, 4, 5, 5, 7, 9})
+      -- sqrt(4.571428...) ≈ 2.138
+      expect(result > 2.13 and result < 2.14).to.be_true()
+    end)
+  end)
+
+  describe('pstdev', function()
+    it('should compute population standard deviation', function()
+      -- sqrt(4.0) = 2.0
+      expect(llx.mathx.pstdev({2, 4, 4, 4, 5, 5, 7, 9})).to.be_equal_to(2)
+    end)
+  end)
+
+  describe('is_nan', function()
+    it('should return true for NaN', function()
+      expect(llx.mathx.is_nan(0/0)).to.be_equal_to(true)
+    end)
+
+    it('should return false for normal numbers', function()
+      expect(llx.mathx.is_nan(42)).to.be_equal_to(false)
+    end)
+
+    it('should return false for infinity', function()
+      expect(llx.mathx.is_nan(math.huge)).to.be_equal_to(false)
+    end)
+  end)
+
+  describe('is_inf', function()
+    it('should return true for positive infinity', function()
+      expect(llx.mathx.is_inf(math.huge)).to.be_equal_to(true)
+    end)
+
+    it('should return true for negative infinity', function()
+      expect(llx.mathx.is_inf(-math.huge)).to.be_equal_to(true)
+    end)
+
+    it('should return false for normal numbers', function()
+      expect(llx.mathx.is_inf(42)).to.be_equal_to(false)
+    end)
+
+    it('should return false for NaN', function()
+      expect(llx.mathx.is_inf(0/0)).to.be_equal_to(false)
+    end)
+  end)
+
+  describe('wrap_around', function()
+    it('should wrap value above range', function()
+      expect(llx.mathx.wrap_around(12, 0, 10)).to.be_equal_to(2)
+    end)
+
+    it('should wrap value below range', function()
+      expect(llx.mathx.wrap_around(-1, 0, 10)).to.be_equal_to(9)
+    end)
+
+    it('should leave value within range unchanged', function()
+      expect(llx.mathx.wrap_around(5, 0, 10)).to.be_equal_to(5)
+    end)
+
+    it('should handle angles wrapping around 360', function()
+      expect(llx.mathx.wrap_around(370, 0, 360)).to.be_equal_to(10)
+    end)
+  end)
+
+  describe('inverse_lerp', function()
+    it('should return 0 at start', function()
+      expect(llx.mathx.inverse_lerp(0, 10, 0)).to.be_equal_to(0)
+    end)
+
+    it('should return 1 at end', function()
+      expect(llx.mathx.inverse_lerp(0, 10, 10)).to.be_equal_to(1)
+    end)
+
+    it('should return 0.5 at midpoint', function()
+      expect(llx.mathx.inverse_lerp(0, 10, 5)).to.be_equal_to(0.5)
+    end)
+  end)
+
+  describe('harmonic_mean', function()
+    it('should compute harmonic mean', function()
+      local result = llx.mathx.harmonic_mean({1, 4, 4})
+      expect(result).to.be_equal_to(2)
+    end)
+
+    it('should compute harmonic mean of equal values', function()
+      local result = llx.mathx.harmonic_mean({5, 5, 5})
+      expect(llx.mathx.round(result, 10)).to.be_equal_to(5)
+    end)
+  end)
+
+  describe('geometric_mean', function()
+    it('should compute geometric mean', function()
+      local result = llx.mathx.geometric_mean({1, 9})
+      expect(llx.mathx.round(result, 10)).to.be_equal_to(3)
+    end)
+
+    it('should compute geometric mean of equal values', function()
+      local result = llx.mathx.geometric_mean({4, 4, 4})
+      expect(result).to.be_equal_to(4)
+    end)
+
+    it('should compute geometric mean of powers of 2', function()
+      local result = llx.mathx.geometric_mean({2, 8})
+      expect(result).to.be_equal_to(4)
+    end)
+  end)
+
+  describe('quantile', function()
+    it('should return min at q=0', function()
+      expect(llx.mathx.quantile({1, 2, 3, 4, 5}, 0)).to.be_equal_to(1)
+    end)
+
+    it('should return max at q=1', function()
+      expect(llx.mathx.quantile({1, 2, 3, 4, 5}, 1)).to.be_equal_to(5)
+    end)
+
+    it('should return median at q=0.5', function()
+      expect(llx.mathx.quantile({1, 2, 3, 4, 5}, 0.5)).to.be_equal_to(3)
+    end)
+
+    it('should interpolate between values', function()
+      local result = llx.mathx.quantile({1, 2, 3, 4}, 0.25)
+      expect(result).to.be_equal_to(1.75)
+    end)
+  end)
 end)
 
 if llx.main_file() then

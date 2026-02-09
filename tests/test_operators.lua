@@ -2,6 +2,9 @@ local operators = require 'llx.operators'
 local unit = require 'llx.unit'
 local llx = require 'llx'
 
+require 'llx.functional'
+require 'llx.types.list'
+
 _ENV = unit.create_test_env(_ENV)
 
 describe('operators', function()
@@ -377,6 +380,131 @@ describe('operators', function()
 
     it('should return true for equal strings', function()
       expect(operators.le('hello', 'hello')).to.be_true()
+    end)
+  end)
+
+  describe('gt', function()
+    it('should return true when a > b', function()
+      expect(operators.gt(3, 2)).to.be_true()
+    end)
+
+    it('should return false when a <= b', function()
+      expect(operators.gt(2, 3)).to.be_false()
+      expect(operators.gt(2, 2)).to.be_false()
+    end)
+  end)
+
+  describe('ge', function()
+    it('should return true when a >= b', function()
+      expect(operators.ge(3, 2)).to.be_true()
+      expect(operators.ge(2, 2)).to.be_true()
+    end)
+
+    it('should return false when a < b', function()
+      expect(operators.ge(2, 3)).to.be_false()
+    end)
+  end)
+
+  describe('ne', function()
+    it('should return true when a ~= b', function()
+      expect(operators.ne(1, 2)).to.be_true()
+    end)
+
+    it('should return false when a == b', function()
+      expect(operators.ne(1, 1)).to.be_false()
+    end)
+
+    it('should work with strings', function()
+      expect(operators.ne('a', 'b')).to.be_true()
+      expect(operators.ne('a', 'a')).to.be_false()
+    end)
+  end)
+
+  describe('itemgetter', function()
+    it('should return a function that gets a single key', function()
+      local get_name = operators.itemgetter('name')
+      expect(get_name({name = 'Alice', age = 30})).to.be_equal_to('Alice')
+    end)
+
+    it('should work with numeric keys', function()
+      local get_first = operators.itemgetter(1)
+      expect(get_first({10, 20, 30})).to.be_equal_to(10)
+    end)
+
+    it('should return nil for missing keys', function()
+      local get_x = operators.itemgetter('x')
+      expect(get_x({a = 1})).to.be_nil()
+    end)
+
+    it('should be usable as a key function for sort_by', function()
+      local data = llx.List{{age=30}, {age=20}, {age=25}}
+      local result = llx.functional.sort_by(data, operators.itemgetter('age'))
+      expect(result[1].age).to.be_equal_to(20)
+      expect(result[2].age).to.be_equal_to(25)
+      expect(result[3].age).to.be_equal_to(30)
+    end)
+  end)
+
+  describe('attrgetter', function()
+    it('should access a simple attribute', function()
+      local get_name = operators.attrgetter('name')
+      expect(get_name({name = 'Alice'})).to.be_equal_to('Alice')
+    end)
+
+    it('should access nested attributes with dot path', function()
+      local get_city = operators.attrgetter('address.city')
+      local obj = {address = {city = 'NYC'}}
+      expect(get_city(obj)).to.be_equal_to('NYC')
+    end)
+
+    it('should return nil for missing path', function()
+      local get_deep = operators.attrgetter('a.b.c')
+      expect(get_deep({a = {}})).to.be_equal_to(nil)
+    end)
+  end)
+
+  describe('methodcaller', function()
+    it('should call a named method', function()
+      local call_upper = operators.methodcaller('upper')
+      expect(call_upper('hello')).to.be_equal_to('HELLO')
+    end)
+
+    it('should pass extra arguments to the method', function()
+      local call_rep = operators.methodcaller('rep', 3)
+      expect(call_rep('ab')).to.be_equal_to('ababab')
+    end)
+  end)
+
+  describe('not_', function()
+    it('should negate truthy values', function()
+      expect(operators.not_(true)).to.be_equal_to(false)
+    end)
+
+    it('should negate falsy values', function()
+      expect(operators.not_(false)).to.be_equal_to(true)
+      expect(operators.not_(nil)).to.be_equal_to(true)
+    end)
+  end)
+
+  describe('and_', function()
+    it('should return second value when both truthy', function()
+      expect(operators.and_(1, 2)).to.be_equal_to(2)
+    end)
+
+    it('should return first falsy value', function()
+      expect(operators.and_(false, 2)).to.be_equal_to(false)
+      expect(operators.and_(nil, 2)).to.be_equal_to(nil)
+    end)
+  end)
+
+  describe('or_', function()
+    it('should return first truthy value', function()
+      expect(operators.or_(1, 2)).to.be_equal_to(1)
+    end)
+
+    it('should return second value when first is falsy', function()
+      expect(operators.or_(false, 2)).to.be_equal_to(2)
+      expect(operators.or_(nil, 'fallback')).to.be_equal_to('fallback')
     end)
   end)
 end)
