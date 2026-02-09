@@ -33,7 +33,7 @@ describe('ListTest', function()
       mock(v)
     end
     expect(mock).to.have_been_called_times(3)
-    local calls = mock:get_calls()
+    local calls = mock:mock_get_calls()
     expect(calls[1].args[1]).to.be_equal_to('a')
     expect(calls[2].args[1]).to.be_equal_to('b')
     expect(calls[3].args[1]).to.be_equal_to('c')
