@@ -186,4 +186,89 @@ function tovalue(s)
   return load('return '.. s)()
 end
 
+--- Returns true if v is a table.
+-- @param v The value to check
+-- @return boolean
+function is_table(v) return type(v) == 'table' end
+
+--- Returns true if v is a string.
+-- @param v The value to check
+-- @return boolean
+function is_string(v) return type(v) == 'string' end
+
+--- Returns true if v is a number.
+-- @param v The value to check
+-- @return boolean
+function is_number(v) return type(v) == 'number' end
+
+--- Returns true if v is a function.
+-- @param v The value to check
+-- @return boolean
+function is_function(v) return type(v) == 'function' end
+
+--- Returns true if v is a boolean.
+-- @param v The value to check
+-- @return boolean
+function is_boolean(v) return type(v) == 'boolean' end
+
+--- Returns true if v is nil.
+-- @param v The value to check
+-- @return boolean
+function is_nil(v) return v == nil end
+
+--- Shallow-clones a value.
+-- Tables are shallow-copied; non-table values are returned unchanged.
+-- @param v The value to clone
+-- @return A shallow copy of v
+function clone(v)
+  if type(v) ~= 'table' then return v end
+  local copy = {}
+  for k, val in pairs(v) do
+    copy[k] = val
+  end
+  return setmetatable(copy, getmetatable(v))
+end
+
+--- Calls a function n times, collecting results into a List.
+-- @param n Number of times to call
+-- @param f Function to call; receives the 1-based index as argument
+-- @return A List of results
+function times(n, f)
+  local List = require('llx.types.list').List
+  local result = List{}
+  for i = 1, n do
+    result:insert(f(i))
+  end
+  return result
+end
+
+--- Creates a function from predicate/transformer pairs.
+-- The first pair whose predicate returns true determines the result.
+-- @param pairs A table of {predicate, transformer} pairs
+-- @return A function that applies the first matching transformer
+function cond(pairs)
+  return function(...)
+    for i = 1, #pairs do
+      local predicate = pairs[i][1]
+      local transformer = pairs[i][2]
+      if predicate(...) then
+        return transformer(...)
+      end
+    end
+    return nil
+  end
+end
+
+--- Materializes any iterator into a List.
+-- @param iterator An iterator function
+-- @return A List of all yielded values
+function collect(iterator)
+  local List = require('llx.types.list').List
+  local result = List{}
+  for _, v in iterator do
+    result:insert(v)
+  end
+  return result
+end
+
 return _M

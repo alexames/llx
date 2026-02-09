@@ -53,6 +53,33 @@ function range(a, b, c)
   end
 end
 
+--- Creates an inclusive range iterator.
+-- Like range but includes the end value.
+-- @param a If only argument: end value (start=1). If 2+ arguments: start value.
+-- @param b End value (inclusive)
+-- @param c Step value (default: 1)
+-- @return Iterator function yielding (index, value) pairs
+function range_inclusive(a, b, c)
+  local start = b and a or 1
+  local finish = b or a
+  local step = c or 1
+  if step == 0 then
+    error("range_inclusive() step argument must not be zero", 2)
+  end
+  local start = start - step
+  local index = 0
+  local i
+  return step > 0 and function()
+    i = (i or start) + step
+    index = index + 1
+    return i <= finish and index or nil, i
+  end or function()
+    i = (i or start) + step
+    index = index + 1
+    return i >= finish and index or nil, i
+  end
+end
+
 -- Internal helper for control state management
 local function control_updater(control_holder, new_control, ...)
   control_holder[1] = new_control
