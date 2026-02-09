@@ -304,7 +304,7 @@ custom_matchers.have_been_called = function()
     if not is_mock(actual) then
       error('have_been_called() expects a Mock, got ' .. type(actual), 3)
     end
-    local count = actual:get_call_count()
+    local count = actual:mock_get_call_count()
     return {
       pass = count > 0,
       actual = tostring(count) .. ' call(s)',
@@ -320,7 +320,7 @@ custom_matchers.have_been_called_times = function(expected)
     if not is_mock(actual) then
       error('have_been_called_times() expects a Mock, got ' .. type(actual), 3)
     end
-    local count = actual:get_call_count()
+    local count = actual:mock_get_call_count()
     return {
       pass = count == expected,
       actual = tostring(count) .. ' call(s)',
@@ -337,7 +337,7 @@ custom_matchers.have_been_called_with = function(...)
     if not is_mock(actual) then
       error('have_been_called_with() expects a Mock, got ' .. type(actual), 3)
     end
-    local calls = actual:get_calls()
+    local calls = actual:mock_get_calls()
     for _, call in ipairs(calls) do
       if match_args(call.args, expected_args) then
         return {
@@ -365,7 +365,7 @@ custom_matchers.have_been_last_called_with = function(...)
     if not is_mock(actual) then
       error('have_been_last_called_with() expects a Mock, got ' .. type(actual), 3)
     end
-    local last_call = actual:get_last_call()
+    local last_call = actual:mock_get_last_call()
     if not last_call then
       return {
         pass = false,
@@ -396,11 +396,11 @@ custom_matchers.have_been_nth_called_with = function(n, ...)
     if not is_mock(actual) then
       error('have_been_nth_called_with() expects a Mock, got ' .. type(actual), 3)
     end
-    local call = actual:get_call(n)
+    local call = actual:mock_get_call(n)
     if not call then
       return {
         pass = false,
-        actual = 'mock was called ' .. tostring(actual:get_call_count()) .. ' time(s)',
+        actual = 'mock was called ' .. tostring(actual:mock_get_call_count()) .. ' time(s)',
         positive_message = 'have been nth called with',
         negative_message = 'not have been nth called with',
         expected = 'call #' .. tostring(n) .. ' with arguments matching: ' .. format_args(expected_args)

@@ -143,14 +143,14 @@ Mock = class 'Mock' {
   --- Get the number of times the mock has been called
   -- @param self Mock instance
   -- @return number of calls
-  get_call_count = function(self)
+  mock_get_call_count = function(self)
     return self._call_count
   end;
 
   --- Get all calls made to the mock
   -- @param self Mock instance
   -- @return array of call records {args = {...}, return_value = ...}
-  get_calls = function(self)
+  mock_get_calls = function(self)
     return self._call_history
   end;
 
@@ -158,14 +158,14 @@ Mock = class 'Mock' {
   -- @param self Mock instance
   -- @param n Call number (1-indexed)
   -- @return call record {args = {...}, return_value = ...} or nil
-  get_call = function(self, n)
+  mock_get_call = function(self, n)
     return self._call_history[n]
   end;
 
   --- Get the last call made to the mock
   -- @param self Mock instance
   -- @return call record {args = {...}, return_value = ...} or nil
-  get_last_call = function(self)
+  mock_get_last_call = function(self)
     return self._call_history[#self._call_history]
   end;
 
