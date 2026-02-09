@@ -288,6 +288,7 @@ custom_matchers.have_keys = matchers.have_keys
 custom_matchers.be_even = matchers.be_even
 custom_matchers.be_odd = matchers.be_odd
 custom_matchers.none_of = matchers.none_of
+custom_matchers.yield_values = matchers.yields_values
 
 -- Helper to check if value is a Mock instance
 local function is_mock(value)
@@ -824,6 +825,21 @@ local it = setmetatable({
   end,
   todo = function(name)
     return it_impl(name, nil, false, false, true)
+  end,
+  each = function(cases)
+    return function(name_template, func)
+      for _, case in ipairs(cases) do
+        local args = type(case) == 'table' and case or {case}
+        local arg_idx = 0
+        local name = name_template:gsub('%%[sd]', function()
+          arg_idx = arg_idx + 1
+          return tostring(args[arg_idx] or '')
+        end)
+        it_impl(name, function()
+          func(table.unpack(args))
+        end)
+      end
+    end
   end
 }, {
   __call = function(_, name, func, skip, only)
@@ -958,6 +974,21 @@ local describe = setmetatable({
   end,
   only = function(name, func)
     return describe_impl(name, func, false, true)
+  end,
+  each = function(cases)
+    return function(name_template, func)
+      for _, case in ipairs(cases) do
+        local args = type(case) == 'table' and case or {case}
+        local arg_idx = 0
+        local name = name_template:gsub('%%[sd]', function()
+          arg_idx = arg_idx + 1
+          return tostring(args[arg_idx] or '')
+        end)
+        describe_impl(name, function()
+          func(table.unpack(args))
+        end)
+      end
+    end
   end
 }, {
   __call = function(_, name, func, skip, only)

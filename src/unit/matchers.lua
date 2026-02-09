@@ -782,6 +782,51 @@ local function be_odd()
   end
 end
 
+--- Checks if a coroutine function yields the expected values in sequence.
+-- @param expected_values Array of expected yield values
+local function yields_values(expected_values)
+  return function(actual)
+    if type(actual) ~= 'function' then
+      return {
+        pass = false,
+        actual = tostring(actual) .. ' (type: ' .. type(actual) .. ')',
+        positive_message = 'yield values',
+        negative_message = 'not yield values',
+        expected = value_to_string(expected_values)
+      }
+    end
+
+    local co = coroutine.create(actual)
+    local actual_values = {}
+    while true do
+      local ok, val = coroutine.resume(co)
+      if not ok then
+        -- Coroutine errored
+        return {
+          pass = false,
+          actual = 'coroutine error: ' .. tostring(val),
+          positive_message = 'yield values',
+          negative_message = 'not yield values',
+          expected = value_to_string(expected_values)
+        }
+      end
+      if coroutine.status(co) == 'dead' then
+        break
+      end
+      table.insert(actual_values, val)
+    end
+
+    local is_equal = deep_equals(actual_values, expected_values)
+    return {
+      pass = is_equal,
+      actual = value_to_string(actual_values),
+      positive_message = 'yield values',
+      negative_message = 'not yield values',
+      expected = value_to_string(expected_values)
+    }
+  end
+end
+
 return {
   negate=negate,
   equals=equals,
@@ -816,4 +861,5 @@ return {
   have_keys=have_keys,
   be_even=be_even,
   be_odd=be_odd,
+  yields_values=yields_values,
 }
