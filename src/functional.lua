@@ -36,6 +36,9 @@ function range(a, b, c)
   local start = b and a or 1
   local finish = b or a
   local step = c or 1
+  if step == 0 then
+    error("range() step argument must not be zero", 2)
+  end
   local start = start - step
   local index = 0
   local i
@@ -802,17 +805,19 @@ function reduce(sequence, lambda, initial_value)
 end
 
 --- Returns the minimum element of a sequence.
+-- Stable: returns the first minimum element among equivalent values.
 -- @param sequence The input sequence
 -- @return The minimum value
 function min(sequence)
-  return reduce(sequence, function(a, b) return a < b and a or b end)
+  return reduce(sequence, function(a, b) return b < a and b or a end)
 end
 
 --- Returns the maximum element of a sequence.
+-- Stable: returns the last maximum element among equivalent values.
 -- @param sequence The input sequence
 -- @return The maximum value
 function max(sequence)
-  return reduce(sequence, function(a, b) return a > b and a or b end)
+  return reduce(sequence, function(a, b) return b > a and b or a end)
 end
 
 --- Returns the sum of all elements in a sequence.
@@ -1067,9 +1072,16 @@ function memoize(func, key_func)
 
   key_func = key_func or function(...)
     local args = {...}
-    if #args == 0 then return "__no_args__" end
-    if #args == 1 then return args[1] end
-    return table.concat(args, "|")
+    local n = select('#', ...)
+    if n == 0 then return "" end
+    if n == 1 then return args[1] end
+    -- Use \0 as separator (cannot appear in tostring output) and include
+    -- argument count to avoid collisions between different arities.
+    local parts = {tostring(n)}
+    for i = 1, n do
+      parts[i + 1] = tostring(args[i])
+    end
+    return table.concat(parts, "\0")
   end
 
   return function(...)
@@ -1120,6 +1132,67 @@ end
 -- @return true if no elements match, false otherwise
 function none(predicate, sequence)
   return not any(predicate, sequence)
+end
+
+--- Returns a new function with some arguments pre-filled from the left.
+-- @param func The function to partially apply
+-- @param ... Arguments to pre-fill
+-- @return A new function that calls func with the pre-filled arguments
+--   followed by any additional arguments
+-- @usage
+-- local add5 = partial(function(a, b) return a + b end, 5)
+-- add5(3)  -- returns 8
+function partial(func, ...)
+  local bound = table.pack(...)
+  return function(...)
+    local args = {}
+    for i = 1, bound.n do
+      args[i] = bound[i]
+    end
+    local extra = table.pack(...)
+    for i = 1, extra.n do
+      args[bound.n + i] = extra[i]
+    end
+    return func(table.unpack(args, 1, bound.n + extra.n))
+  end
+end
+
+--- Composes functions right-to-left.
+-- compose(f, g)(x) equals f(g(x)). The rightmost function may accept
+-- multiple arguments; all others receive a single value.
+-- @param ... Functions to compose
+-- @return A new function representing the composition
+-- @usage
+-- local double_then_inc = compose(inc, double)
+-- double_then_inc(3)  -- returns 7 (inc(double(3)))
+function compose(...)
+  local fns = table.pack(...)
+  return function(...)
+    local result = table.pack(fns[fns.n](...))
+    for i = fns.n - 1, 1, -1 do
+      result = table.pack(fns[i](table.unpack(result, 1, result.n)))
+    end
+    return table.unpack(result, 1, result.n)
+  end
+end
+
+--- Composes functions left-to-right.
+-- pipe(f, g)(x) equals g(f(x)). The first function may accept
+-- multiple arguments; all others receive a single value.
+-- @param ... Functions to compose
+-- @return A new function representing the pipeline
+-- @usage
+-- local double_then_inc = pipe(double, inc)
+-- double_then_inc(3)  -- returns 7 (inc(double(3)))
+function pipe(...)
+  local fns = table.pack(...)
+  return function(...)
+    local result = table.pack(fns[1](...))
+    for i = 2, fns.n do
+      result = table.pack(fns[i](table.unpack(result, 1, result.n)))
+    end
+    return table.unpack(result, 1, result.n)
+  end
 end
 
 --- Calls a function with each element for side effects, passing values through.
