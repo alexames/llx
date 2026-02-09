@@ -131,10 +131,6 @@ build = {
       ["llx.bytecode.typetags"] = "src/bytecode/typetags.lua",
       ["llx.bytecode.util"] = "src/bytecode/util.lua",
 
-      -- experimental submodule
-      ["llx.experimental.export"] = "src/experimental/export.lua",
-      ["llx.experimental.man"] = "src/experimental/man.lua",
-
       -- unit testing submodule
       ["llx.unit"] = "src/unit/init.lua",
       ["llx.unit.test_api"] = "src/unit/test_api.lua",

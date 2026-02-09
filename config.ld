@@ -14,7 +14,6 @@ file = {
   'src',
   exclude = {
     'src/bytecode',
-    'src/experimental',
   }
 }
 

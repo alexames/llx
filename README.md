@@ -220,8 +220,7 @@ llx
 ├── unit/             -- Unit testing framework with mocks
 ├── debug/            -- Debugging utilities
 ├── strict/           -- Strict mode for globals
-├── bytecode/         -- Bytecode manipulation
-└── experimental/     -- Experimental features
+└── bytecode/         -- Bytecode manipulation
 ```
 
 ## Running Tests
