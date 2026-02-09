@@ -1,3 +1,4 @@
+local llx = require 'llx'
 local unit = require 'llx.unit'
 
 _ENV = unit.create_test_env(_ENV)
@@ -325,4 +326,6 @@ describe('spy_on', function()
   end)
 end)
 
-unit.run_unit_tests()
+if llx.main_file() then
+  unit.run_unit_tests()
+end

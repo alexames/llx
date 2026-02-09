@@ -1,3 +1,4 @@
+local llx = require 'llx'
 local unit = require 'llx.unit'
 local matchers = require 'llx.unit.matchers'
 
@@ -135,4 +136,6 @@ describe('unit test framework', function()
   end)
 end)
 
-unit.run_unit_tests()
+if llx.main_file() then
+  unit.run_unit_tests()
+end

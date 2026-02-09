@@ -1,3 +1,4 @@
+local llx = require 'llx'
 local unit = require 'llx.unit'
 local matchers_mod = require 'llx.unit.matchers'
 local test_api = require 'llx.unit.test_api'
@@ -392,4 +393,6 @@ describe.each({
   end)
 end)
 
-unit.run_unit_tests()
+if llx.main_file() then
+  unit.run_unit_tests()
+end
