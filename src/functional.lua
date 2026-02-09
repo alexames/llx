@@ -1269,6 +1269,177 @@ function identity(...)
   return ...
 end
 
+--- Removes falsey (nil and false) values from a sequence.
+-- @param sequence Input iterator
+-- @return Iterator yielding only truthy values
+function compact(sequence)
+  local elements = List{}
+  for _, v in sequence do
+    if v then
+      elements:insert(v)
+    end
+  end
+  local index = 0
+  return function()
+    index = index + 1
+    if index > #elements then return nil end
+    return index, elements[index]
+  end
+end
+
+--- Returns a new List with elements in random order (Fisher-Yates shuffle).
+-- Does not modify the input.
+-- @param sequence Input iterator or list
+-- @return A new shuffled List
+function shuffle(sequence)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+  local n = #elements
+  for i = n, 2, -1 do
+    local j = math.random(1, i)
+    elements[i], elements[j] = elements[j], elements[i]
+  end
+  return elements
+end
+
+--- Returns n randomly selected elements from a sequence.
+-- Does not modify the input.
+-- @param sequence Input iterator or list
+-- @param n Number of elements to sample
+-- @return A new List of sampled elements
+function sample(sequence, n)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+  -- Fisher-Yates partial shuffle
+  local len = #elements
+  if n > len then n = len end
+  for i = 1, n do
+    local j = math.random(i, len)
+    elements[i], elements[j] = elements[j], elements[i]
+  end
+  local result = List{}
+  for i = 1, n do
+    result:insert(elements[i])
+  end
+  return result
+end
+
+--- Returns a sorted List from any iterator.
+-- Does not modify the input.
+-- @param sequence Input iterator or list
+-- @param cmp Optional comparator function
+-- @return A new sorted List
+function sorted(sequence, cmp)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+  table.sort(elements, cmp)
+  return elements
+end
+
+--- Generates an infinite sequence by repeated function application.
+-- Yields seed, f(seed), f(f(seed)), ...
+-- @param f The function to apply repeatedly
+-- @param seed The initial value
+-- @return Iterator yielding (index, value) pairs
+function iterate(f, seed)
+  local index = 0
+  local current = seed
+  local first = true
+  return function()
+    if first then
+      first = false
+    else
+      current = f(current)
+    end
+    index = index + 1
+    return index, current
+  end
+end
+
+--- Sorts a sequence using a key-extraction function (Schwartzian transform).
+-- Does not modify the input.
+-- @param sequence Input iterator or list
+-- @param key_func Function to extract the sort key from each element
+-- @return A new sorted List
+function sort_by(sequence, key_func)
+  local elements = List{}
+  for _, v in sequence do
+    elements:insert(v)
+  end
+  local keys = {}
+  for i = 1, #elements do
+    keys[i] = key_func(elements[i])
+  end
+  -- Build index array, sort by key, extract
+  local indices = {}
+  for i = 1, #elements do indices[i] = i end
+  table.sort(indices, function(a, b) return keys[a] < keys[b] end)
+  local result = List{}
+  for i = 1, #indices do
+    result:insert(elements[indices[i]])
+  end
+  return result
+end
+
+--- Returns the element with the minimum value of a key function.
+-- @param sequence Input iterator or list
+-- @param key_func Function to extract the comparison key
+-- @return The element with the minimum key
+function min_by(sequence, key_func)
+  local best = nil
+  local best_key = nil
+  for _, v in sequence do
+    local k = key_func(v)
+    if best_key == nil or k < best_key then
+      best = v
+      best_key = k
+    end
+  end
+  return best
+end
+
+--- Returns the element with the maximum value of a key function.
+-- @param sequence Input iterator or list
+-- @param key_func Function to extract the comparison key
+-- @return The element with the maximum key
+function max_by(sequence, key_func)
+  local best = nil
+  local best_key = nil
+  for _, v in sequence do
+    local k = key_func(v)
+    if best_key == nil or k > best_key then
+      best = v
+      best_key = k
+    end
+  end
+  return best
+end
+
+--- Recursively flattens nested lists to a given depth.
+-- @param sequence Input list
+-- @param depth Maximum depth to flatten (default: infinite)
+-- @return A new flattened List
+function flatten_deep(sequence, depth)
+  local result = List{}
+  local function helper(seq, d)
+    for _, v in seq do
+      if type(v) == 'table' and (d == nil or d > 0) then
+        helper(v, d and d - 1 or nil)
+      else
+        result:insert(v)
+      end
+    end
+  end
+  helper(sequence, depth)
+  return result
+end
+
 --- Returns overlapping windows of a given width over a sequence.
 -- Generalizes pairwise to arbitrary window sizes.
 -- @param sequence Input iterator
