@@ -1,6 +1,18 @@
-local enum = require 'enum'
+--- Lua 5.4 opcode definitions.
+-- Defines all 83 Lua 5.4 VM opcodes as a bidirectional enum, allowing
+-- lookup by opcode number or by name. Each opcode entry contains both
+-- a name string and a numeric value.
+-- @module llx.bytecode.lua54.opcodes
 
-local opcodes = enum.enum{
+local environment = require 'llx.environment'
+local enum = require 'llx.bytecode.lua54.enum' . enum
+
+local _ENV, _M = environment.create_module_environment()
+
+--- Bidirectional enum of all Lua 5.4 opcodes.
+-- Supports lookup by integer value (e.g. opcodes[0]) or by name
+-- (e.g. opcodes.OP_MOVE). Each entry has .name and .value fields.
+opcodes = enum{
   [0]='OP_MOVE',   -- A B R[A] := R[B]
   'OP_LOADI',      -- A sBx R[A] := sBx
   'OP_LOADF',      -- A sBx R[A] := (lua_Number)sBx
@@ -112,6 +124,4 @@ local opcodes = enum.enum{
   'OP_EXTRAARG'    -- Ax  extra (larger) argument for previous opcode
 }
 
-return {
-  opcodes = opcodes,
-}
+return _M

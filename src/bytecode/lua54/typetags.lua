@@ -1,10 +1,29 @@
-local enum = require 'enum'
+--- Lua 5.4 type tags for bytecode constants.
+-- Defines the base type tags and their variant forms as used in the
+-- Lua 5.4 bytecode constant pool. Each tag identifies the type of a
+-- constant value stored in a compiled chunk.
+-- @module llx.bytecode.lua54.typetags
 
+local environment = require 'llx.environment'
+local enum = require 'llx.bytecode.lua54.enum' . enum
+
+local _ENV, _M = environment.create_module_environment()
+
+--- Compute a variant type tag from a base type and variant number.
+-- Variants encode subtype information in the upper nibble.
+-- @param t the base type tag enum object
+-- @param v the variant number
+-- @return the combined variant tag value
 function makevariant(t, v)
   return t.value | (v << 4)
 end
 
-typetags = enum.enum{
+--- Bidirectional enum of all Lua 5.4 type tags and their variants.
+-- Base types: tnil, tboolean, tlightuserdata, tnumber, tstring,
+-- ttable, tfunction, tuserdata, tthread.
+-- Variants include: vnil, vempty, vabstkey, vnotable, vfalse, vtrue,
+-- vnumint, vnumflt, vsrtstr, vlngstr, vtable, vlcl, vlcf, vccl, etc.
+typetags = enum{
   [0] = 'tnil',
   [1] = 'tboolean',
   [2] = 'tlightuserdata',
@@ -43,6 +62,4 @@ typetags:insert(makevariant(typetags.tuserdata, 0), 'vuserdata')
 
 typetags:insert(makevariant(typetags.tthread, 0), 'vthread')
 
-return {
-  typetags = typetags
-}
+return _M

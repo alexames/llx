@@ -121,15 +121,16 @@ build = {
       ["llx.types.userdata"] = "src/types/userdata.lua",
 
       -- bytecode submodule
-      ["llx.bytecode.bcode"] = "src/bytecode/bcode.lua",
-      ["llx.bytecode.bytestream"] = "src/bytecode/bytestream.lua",
-      ["llx.bytecode.constants"] = "src/bytecode/constants.lua",
-      ["llx.bytecode.enum"] = "src/bytecode/enum.lua",
-      ["llx.bytecode.instructions"] = "src/bytecode/instructions.lua",
-      ["llx.bytecode.main"] = "src/bytecode/main.lua",
-      ["llx.bytecode.opcodes"] = "src/bytecode/opcodes.lua",
-      ["llx.bytecode.typetags"] = "src/bytecode/typetags.lua",
-      ["llx.bytecode.util"] = "src/bytecode/util.lua",
+      ["llx.bytecode"] = "src/bytecode/init.lua",
+      ["llx.bytecode.lua54"] = "src/bytecode/lua54/init.lua",
+      ["llx.bytecode.lua54.bcode"] = "src/bytecode/lua54/bcode.lua",
+      ["llx.bytecode.lua54.bytestream"] = "src/bytecode/lua54/bytestream.lua",
+      ["llx.bytecode.lua54.constants"] = "src/bytecode/lua54/constants.lua",
+      ["llx.bytecode.lua54.enum"] = "src/bytecode/lua54/enum.lua",
+      ["llx.bytecode.lua54.instructions"] = "src/bytecode/lua54/instructions.lua",
+      ["llx.bytecode.lua54.opcodes"] = "src/bytecode/lua54/opcodes.lua",
+      ["llx.bytecode.lua54.typetags"] = "src/bytecode/lua54/typetags.lua",
+      ["llx.bytecode.lua54.util"] = "src/bytecode/lua54/util.lua",
 
       -- unit testing submodule
       ["llx.unit"] = "src/unit/init.lua",

@@ -1,6 +1,19 @@
-local opcodes_module = require 'opcodes'
+--- Lua 5.4 bytecode instruction decoder.
+-- Decodes 32-bit bytecode instructions into their component fields
+-- (opcode, A, B, C, Bx, sBx, Ax, sJ, etc.) and provides string
+-- representations for debugging and inspection.
+-- @module llx.bytecode.lua54.instructions
+
+local environment = require 'llx.environment'
+local opcodes_module = require 'llx.bytecode.lua54.opcodes'
+
+local _ENV, _M = environment.create_module_environment()
 
 local opcodes = opcodes_module.opcodes
+
+--- Create a register argument descriptor.
+-- @param arg the instruction field name (e.g. 'A', 'B', 'C')
+-- @return an argument descriptor that formats as R[n]
 local function R(arg)
   return {
     repr = function(self, instruction)
@@ -12,6 +25,10 @@ local function R(arg)
     arg = arg,
   }
 end
+
+--- Create a constant pool argument descriptor.
+-- @param arg the instruction field name
+-- @return an argument descriptor that resolves to a constant value
 local function K(arg)
   return {
     repr = function(self, instruction)
@@ -23,6 +40,11 @@ local function K(arg)
     arg = arg,
   }
 end
+
+--- Create a register-or-constant argument descriptor.
+-- Uses the k flag to determine whether to display as a register or constant.
+-- @param arg the instruction field name
+-- @return an argument descriptor that resolves to either R[n] or a constant
 local function RK(arg)
   return {
     repr = function(self, instruction)
@@ -38,6 +60,10 @@ local function RK(arg)
     arg = arg,
   }
 end
+
+--- Create an upvalue argument descriptor.
+-- @param arg the instruction field name
+-- @return an argument descriptor that resolves to an upvalue name
 local function UpValue(arg)
   return {
     repr = function(self, instruction)
@@ -49,6 +75,10 @@ local function UpValue(arg)
     arg = arg,
   }
 end
+
+--- Create a raw value argument descriptor.
+-- @param arg the instruction field name
+-- @return an argument descriptor that displays the raw numeric value
 local function Value(arg)
   return {
     repr = function(self, instruction)
@@ -60,6 +90,10 @@ local function Value(arg)
     arg = arg,
   }
 end
+
+--- Create a prototype index argument descriptor.
+-- @param arg the instruction field name
+-- @return an argument descriptor for closure prototype references
 local function KPROTO(arg)
   return {
     repr = function(self, instruction)
@@ -72,15 +106,16 @@ local function KPROTO(arg)
   }
 end
 
-local op_code_arg_metatable = {
-
-}
+--- Create a composite opcode argument descriptor from a list of field descriptors.
+-- Combines multiple field descriptors into a single representation.
+-- @param args array of field descriptors (R, K, RK, UpValue, Value, KPROTO)
+-- @return a composite descriptor with repr and str methods
 local function OpCodeArg(args)
   return {
     repr = function(self, instruction)
       local result = ''
       for i, v in ipairs(args) do
-        result = result 
+        result = result
                  .. ', '
                  .. string.format('%s=%i', v.arg, v:repr(instruction))
       end
@@ -99,6 +134,7 @@ local function OpCodeArg(args)
   }
 end
 
+--- Argument format table mapping each opcode to its field descriptors.
 local opcode_args = {
   [opcodes.OP_MOVE]       = OpCodeArg{R'A', R'B'},
   [opcodes.OP_LOADI]      = OpCodeArg{R'A', Value'sBx'},
@@ -210,10 +246,11 @@ local opcode_args = {
   [opcodes.OP_EXTRAARG]   = OpCodeArg{Value'Ax'},
 }
 
-local function hex(v)
-  return string.format('0x%X', v)
-end
-
+--- Extract a bitfield from a 32-bit instruction.
+-- @param start the starting bit position (0-indexed from LSB)
+-- @param size the number of bits to extract
+-- @param signed if truthy, interpret the field as signed using excess-K encoding
+-- @return a function that extracts the field from an instruction object
 local function extract_bits(start, size, signed)
   local bitmask = ~(~0 << size)
   return function(self)
@@ -222,9 +259,7 @@ local function extract_bits(start, size, signed)
   end
 end
 
--- We assume that instructions are unsigned 32-bit integers.
--- All instructions have an opcode in the first 7 bits.
--- Instructions can have the following formats:
+-- Instruction format reference:
 --       |3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0|
 --       |1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0|
 -- iABC  |      C(8)     |      B(8)     |k|     A(8)      |   Op(7)     |
@@ -233,11 +268,7 @@ end
 -- iAsBx |           sBx (signed)(17)      |     A(8)      |   Op(7)     |
 -- iAx   |                      Ax(25)                     |   Op(7)     |
 -- isJ   |                      sJ (signed)(25)            |   Op(7)     |
---
--- ('v' stands for "variant", 's' for "signed", 'x' for "extended".)
--- A signed argument is represented in excess K: The represented value is
--- the written unsigned value minus K, where K is half (rounded down) the
--- maximum value for the corresponding unsigned argument.
+
 local instruction_metatable = {
   i   = extract_bits(0,              7),
   A   = extract_bits(7,              8),
@@ -245,6 +276,7 @@ local instruction_metatable = {
   B   = extract_bits(7 + 8 + 1,      8),
   sB  = extract_bits(7 + 8 + 1,      8, true),
   C   = extract_bits(7 + 8 + 1 + 8,  8),
+  sC  = extract_bits(7 + 8 + 1 + 8,  8, true),
 
   vB  = extract_bits(7 + 8 + 1,      6),
   vC  = extract_bits(7 + 8 + 1 + 6, 10),
@@ -254,6 +286,10 @@ local instruction_metatable = {
   Ax  = extract_bits(7,             25),
   sJ  = extract_bits(7,             25, true),
 
+  --- Convert the instruction to a human-readable string.
+  -- Shows the opcode name, argument values, and a hex dump with
+  -- resolved argument names.
+  -- @return formatted instruction string
   __tostring = function(self)
     local i = self:i()
     local op = opcodes[i]
@@ -265,10 +301,13 @@ local instruction_metatable = {
 }
 
 instruction_metatable.__index = instruction_metatable
+
+--- Create a new Instruction from a 32-bit bytecode word.
+-- @param bytecode the raw 32-bit instruction value
+-- @param proto the function prototype containing constants and upvalue names
+-- @return a new Instruction object with field accessor methods
 function Instruction(bytecode, proto)
   return setmetatable({_bytecode = bytecode, _proto=proto}, instruction_metatable)
 end
 
-return {
-  Instruction
-}
+return _M

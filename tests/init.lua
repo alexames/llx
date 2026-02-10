@@ -53,6 +53,16 @@ require 'llx.tests.types.test_list_methods'
 require 'llx.tests.types.test_matchers'
 require 'llx.tests.types.test_type_checkers'
 
+-- bytecode/ tests
+require 'llx.tests.bytecode.lua54.test_bytestream'
+require 'llx.tests.bytecode.lua54.test_constants'
+require 'llx.tests.bytecode.lua54.test_enum'
+require 'llx.tests.bytecode.lua54.test_typetags'
+require 'llx.tests.bytecode.lua54.test_opcodes'
+require 'llx.tests.bytecode.lua54.test_instructions'
+require 'llx.tests.bytecode.lua54.test_bcode'
+require 'llx.tests.bytecode.lua54.test_util'
+
 -- unit/ tests
 require 'llx.tests.unit.test_mock'
 require 'llx.tests.unit.test_unit'

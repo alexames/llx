@@ -33,4 +33,5 @@ return require 'llx.flatten_submodules' {
   proxy = require 'llx.proxy',
   truthy = require 'llx.truthy',
   type_check_decorator = require 'llx.type_check_decorator',
+  bytecode = require 'llx.bytecode',
 }
