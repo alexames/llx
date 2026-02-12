@@ -9,9 +9,12 @@ allow_defined = true
 ignore = {
   "_M",   -- module return table, assigned but consumed by require()
   "_ENV", -- reassigned as part of the module pattern
+  "113",  -- accessing undefined variable (cross-module refs via _ENV)
   "131",  -- unused global variable (module exports consumed externally)
+  "211",  -- unused variable (module-pattern locals like `local Foo = require(...)`)
   "212",  -- unused argument (interface/callback signatures)
   "213",  -- unused loop variable
+  "431",  -- shadowing upvalue (common in nested scopes)
 }
 
 exclude_files = {

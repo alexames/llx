@@ -102,7 +102,7 @@ local function expect(actual)
     if type(matcher_creator) ~= 'function' then
       return nil
     end
-    
+
       return function(...)
       local matcher = matcher_creator(...)
       if negated then
@@ -123,7 +123,7 @@ local function expect(actual)
           if type(expect_obj._actual) ~= 'function' then
             error('throw() expects a function, got ' .. type(expect_obj._actual), level)
           end
-          
+
           local successful, exception = pcall(expect_obj._actual)
 
           if successful then
@@ -680,7 +680,7 @@ local TestSuite = class 'TestSuite' {
 
     return result
   end,
-  
+
   name = function(self)
     return table.concat(self._name_path, ' > ')
   end,

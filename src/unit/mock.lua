@@ -176,10 +176,10 @@ Mock = class 'Mock' {
   __call = function(self, ...)
     local args = {n = select('#', ...), ...}
     self._call_count = self._call_count + 1
-    
+
     local return_value = nil
     local return_values = nil
-    
+
     -- Priority order:
     -- 1. Implementation queue (highest priority)
     if #self._implementation_queue > 0 then
@@ -203,14 +203,14 @@ Mock = class 'Mock' {
       return_values = {nil}
       return_value = nil
     end
-    
+
     -- Record the call
     table.insert(self._call_history, {
       args = args,
       return_value = return_value,
       return_values = return_values,
     })
-    
+
     -- Return the value(s)
     return table.unpack(return_values)
   end;
@@ -231,17 +231,17 @@ local function spy_on(object, method_name)
   if type(original) ~= 'function' then
     error('spy_on: "' .. tostring(method_name) .. '" is not a function', 2)
   end
-  
+
   local spy = Mock()
   spy._original = original
   spy._object = object
   spy._method_name = method_name
-  
+
   -- Override the original method to call the spy
   object[method_name] = function(...)
     return spy(...)
   end
-  
+
   -- Add restore method
   spy.mock_restore = function(self)
     if self._original then
@@ -255,7 +255,7 @@ local function spy_on(object, method_name)
   spy:mock_implementation(function(...)
     return original(...)
   end)
-  
+
   table.insert(active_spies, spy)
 
   return spy

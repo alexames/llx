@@ -65,7 +65,7 @@ InvocationGraphEdge = class 'InvocationGraphEdge' {
 
   __tostring = function(self)
     return string.format('InvocationGraphEdge(%s, %s, %s, %s)',
-      self.source_node, self.source_slot, self.destination_node, 
+      self.source_node, self.source_slot, self.destination_node,
       self.destination_slot)
   end,
 }
@@ -109,7 +109,7 @@ InvocationGraph = class 'InvocationGraph' {
       return {node.func(table.unpack(arguments))}
     end
 
-    local results = {} 
+    local results = {}
     for i, node in ipairs(self.nodes) do
       results[i] = results[i] or eval_node(results, self.nodes, i)
     end
@@ -178,7 +178,7 @@ TracedFunctionInvocation = class 'TracedFunctionInvocation' {
 
   __tostring = function(self)
     return string.format(
-      'TracedFunctionInvocation(%s(%s), %s)', self.func, 
+      'TracedFunctionInvocation(%s(%s), %s)', self.func,
       table.concat(self.arguments, ','), self.invocation_id)
   end,
 }
@@ -256,7 +256,7 @@ Tracer = class 'Tracer' : extends(Decorator) {
       local traced_function = TracedFunctionInvocation(
         registered_function, argument_pack.traced_arguments,
         get_invocation_id())
-      local raw_results = 
+      local raw_results =
         {registered_function(table.unpack(argument_pack.raw_arguments))}
       local traced_results = {}
       for i, raw_result in ipairs(raw_results) do

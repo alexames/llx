@@ -108,7 +108,7 @@ end
 local function build_test_tree(tests, suite_path)
   local tree = {}
   local suite_path_len = #suite_path
-  
+
   for _, test in ipairs(tests) do
     if not test.name_path then
       -- Fallback for tests without name_path
@@ -117,12 +117,12 @@ local function build_test_tree(tests, suite_path)
       -- Find where this test belongs in the tree
       local current = tree
       local test_path = test.name_path
-      
+
       -- Navigate/create the path for nested describe blocks
       for i = suite_path_len + 1, #test_path - 1 do
         local segment = test_path[i]
         local found = false
-        
+
         -- Look for existing describe block at this level
         for _, item in ipairs(current) do
           if item.type == 'describe' and item.name == segment then
@@ -131,7 +131,7 @@ local function build_test_tree(tests, suite_path)
             break
           end
         end
-        
+
         -- Create new describe block if not found
         if not found then
           local new_describe = {
@@ -143,12 +143,12 @@ local function build_test_tree(tests, suite_path)
           current = new_describe.children
         end
       end
-      
+
       -- Add the test at the appropriate level
       table.insert(current, {type = 'test', data = test})
     end
   end
-  
+
   return tree
 end
 
@@ -319,7 +319,7 @@ HierarchicalLogger = class 'HierarchicalLogger' {
       elapsed = elapsed,
     }
     table.insert(current_hierarchical_logger.current_suite.tests, test_info)
-    
+
     if successful then
       current_hierarchical_logger.current_suite.passed = current_hierarchical_logger.current_suite.passed + 1
       current_hierarchical_logger.total_passed = current_hierarchical_logger.total_passed + 1
@@ -342,30 +342,30 @@ HierarchicalLogger = class 'HierarchicalLogger' {
     if not current_hierarchical_logger then
       error('HierarchicalLogger instance not found')
     end
-    
+
     -- Print each test suite hierarchically
     for _, suite in ipairs(current_hierarchical_logger.test_suites) do
       -- Get the suite's base name (last element of name_path)
       local suite_name = suite.name_path[#suite.name_path]
       local suite_color = suite.failed > 0 and red or green
       local suite_symbol = suite.failed > 0 and '-' or '+'
-      
+
       -- Print suite header
       printf('%s%s%s %s%s', color(suite_color), suite_symbol, reset(), suite_name, reset())
-      
+
       -- Build tree from tests
       local tree = build_test_tree(suite.tests, suite.name_path)
-      
+
       -- Print the tree
       print_tree(tree, 1)
       print()
     end
-    
+
     -- Print summary
     print()
     local all_passed = total_failure_count == 0
     local summary_color = all_passed and green or red
-    
+
     local suite_count = #current_hierarchical_logger.test_suites
     local passed_suites = 0
     local failed_suites = 0
@@ -376,14 +376,14 @@ HierarchicalLogger = class 'HierarchicalLogger' {
         failed_suites = failed_suites + 1
       end
     end
-    
+
     printf('Test Suites: %s%d %s, %d total',
            color(summary_color),
            all_passed and passed_suites or failed_suites,
            all_passed and 'passed' or 'failed',
            suite_count)
     print()
-    
+
     local skipped_count = current_hierarchical_logger.total_skipped or 0
     local skipped_str = skipped_count > 0 and string.format(', %s%d skipped%s', color(bright_cyan), skipped_count, reset()) or ''
     local todo_count = current_hierarchical_logger.total_todo or 0
@@ -396,7 +396,7 @@ HierarchicalLogger = class 'HierarchicalLogger' {
            todo_str,
            total_test_count)
     print()
-    
+
     if all_passed then
       printf('%s+%s All tests passed!', color(green), reset())
     else

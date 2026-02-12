@@ -27,7 +27,7 @@ function metatable:__call( v)
   end
 end
 
-function metatable:__tostring() 
+function metatable:__tostring()
   return 'Float'
 end
 

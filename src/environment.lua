@@ -121,7 +121,7 @@ local function create_module_environment(using_modules)
       end
     end
   end
-  
+
   local environment = setmetatable({}, {
     __index = function(self, k)
       local result = rawget(module, k) or rawget(using_table, k) or _ENV[k]

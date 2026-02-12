@@ -14,7 +14,7 @@ ExceptionGroup = class 'ExceptionGroup' : extends(Exception) {
     for i, exception in ipairs(exception_list) do
       if not first then what = what .. '\n  ' end
       first = false
-      what = what .. exception.what 
+      what = what .. exception.what
     end
     Exception.__init(self, what, (level or 1) + 1)
     self.exception_list = exception_list

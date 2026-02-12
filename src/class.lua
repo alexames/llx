@@ -353,7 +353,7 @@ local function create_class_definer(class_table, class_table_proxy)
              string.format('%s must list at least one base class when extending',
                            class_table.__name))
       for i, base in ipairs(arg) do
-        assert(type(base) == 'table', 
+        assert(type(base) == 'table',
                string.format('%s must inherit from table, not %s',
                              class_table.__name, type(base)))
         local base_name = base.__name

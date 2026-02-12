@@ -29,7 +29,7 @@ function color(fg, bg)
   fg = fg and fg.fg
   bg = bg and bg.bg
   assert(fg or bg)
-  if fg and bg then 
+  if fg and bg then
     return string.format('\27[%s;%sm', fg, bg)
   else
     return string.format('\27[%sm', fg or bg)
