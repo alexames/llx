@@ -814,6 +814,21 @@ describe('derived_class', function()
     b.prop = 100
     expect(b.prop).to.be_equal_to(100)
   end)
+
+  it('should inherit falsy values from base class', function()
+    local Base = class 'Base' { enabled = false }
+    local Derived = class 'Derived' : extends(Base) {}
+    local d = Derived()
+    expect(d.enabled).to.be_equal_to(false)
+  end)
+
+  it('should inherit falsy values through multiple levels', function()
+    local A = class 'A' { flag = false }
+    local B = class 'B' : extends(A) {}
+    local C = class 'C' : extends(B) {}
+    local c = C()
+    expect(c.flag).to.be_equal_to(false)
+  end)
 end)
 
 if llx.main_file() then

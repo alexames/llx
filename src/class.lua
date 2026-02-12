@@ -349,7 +349,9 @@ local function create_class_definer(class_table, class_table_proxy)
   class_definer = {
     extends = function(self, ...)
       local arg = {...}
-      assert(#arg > 0, '%s must list at least one base class when extending')
+      assert(#arg > 0,
+             string.format('%s must list at least one base class when extending',
+                           class_table.__name))
       for i, base in ipairs(arg) do
         assert(type(base) == 'table', 
                string.format('%s must inherit from table, not %s',
@@ -486,7 +488,7 @@ local function create_internal_class_table(name)
     if class_table.__superclasses then
       for _, base in ipairs(class_table.__superclasses) do
         local value = base[k]
-        if value then return value end
+        if value ~= nil then return value end
       end
     end
     return nil
@@ -502,7 +504,9 @@ local function create_internal_class_table(name)
   -- @param k The key of the field or property to retrieve
   -- @return The value of the field or property if found, otherwise nil
   local function __index(t, k)
-    return rawget(class_table, k) or try_get_superclass_value(k)
+    local v = rawget(class_table, k)
+    if v ~= nil then return v end
+    return try_get_superclass_value(k)
   end
 
   --- Checks if an object is an instance of the class.
