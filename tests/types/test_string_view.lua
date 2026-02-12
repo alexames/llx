@@ -1,10 +1,6 @@
-local class_module = require 'llx.class'
-local decorator = require 'llx.decorator'
-local property = require 'llx.property'
-local string_view = require 'llx.string_view'
 local unit = require 'llx.unit'
-
-local class = class_module.class
+local llx = require 'llx'
+local string_view = require 'llx.string_view'
 local StringView = string_view.StringView
 
 _ENV = unit.create_test_env(_ENV)
@@ -119,6 +115,25 @@ describe('StringViewStringMethodTests', function()
     local view = StringView("abc", 1, 3)
     expect(view.char).to.be_nil()
   end)
+
+  it('should support # operator via __len', function()
+    local view = StringView("hello world", 4, 5) -- "lo wo"
+    expect(#view).to.be_equal_to(5)
+  end)
+
+  it('should support equality for views with same content', function()
+    local v1 = StringView("abcdef", 2, 3) -- "bcd"
+    local v2 = StringView("xbcdy", 2, 3)  -- "bcd"
+    expect(v1 == v2).to.be_true()
+  end)
+
+  it('should not be equal for views with different content', function()
+    local v1 = StringView("abcdef", 1, 3) -- "abc"
+    local v2 = StringView("abcdef", 2, 3) -- "bcd"
+    expect(v1 == v2).to.be_false()
+  end)
 end)
 
-unit.run_unit_tests()
+if llx.main_file() then
+  unit.run_unit_tests()
+end

@@ -51,6 +51,7 @@ require 'llx.tests.strict.test_strict'
 require 'llx.tests.types.test_list'
 require 'llx.tests.types.test_list_methods'
 require 'llx.tests.types.test_matchers'
+require 'llx.tests.types.test_string_view'
 require 'llx.tests.types.test_type_checkers'
 
 -- bytecode/ tests

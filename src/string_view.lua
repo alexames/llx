@@ -7,6 +7,15 @@ local _ENV, _M = environment.create_module_environment()
 
 local class = class_module.class
 
+local EXCLUDED_METHODS = {
+  format = true,
+  dump = true,
+  pack = true,
+  packsize = true,
+  unpack = true,
+  char = true,
+}
+
 --- StringView: A lightweight non-copying view into a substring
 StringView = class 'StringView' {
   -- Constructor
@@ -31,6 +40,15 @@ StringView = class 'StringView' {
     return self._len
   end,
 
+  __len = function(self)
+    return self._len
+  end,
+
+  __eq = function(a, b)
+    if tostring(a) == tostring(b) then return true end
+    return false
+  end,
+
   --- Access byte by index (relative to the view, 1-based)
   __index = function(self, key)
     -- Methods
@@ -53,15 +71,7 @@ StringView = class 'StringView' {
     end
 
     -- Methods that should not be exposed
-    local excluded_methods = {
-      format = true,
-      dump = true,
-      pack = true,
-      packsize = true,
-      unpack = true,
-      char = true,
-    }
-    if excluded_methods[key] then
+    if EXCLUDED_METHODS[key] then
       return nil
     end
 
