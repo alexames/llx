@@ -94,12 +94,16 @@ describe('lesser', function()
     expect(core.lesser(10, 5)).to.be_equal_to(5)
   end)
 
-  it('should return first when equal (due to short-circuit)', function()
+  it('should return second when equal', function()
     expect(core.lesser(5, 5)).to.be_equal_to(5)
   end)
 
   it('should work with negative numbers', function()
     expect(core.lesser(-10, -5)).to.be_equal_to(-10)
+  end)
+
+  it('should work with zero', function()
+    expect(core.lesser(0, 1)).to.be_equal_to(0)
   end)
 end)
 
@@ -112,7 +116,7 @@ describe('greater', function()
     expect(core.greater(2, 8)).to.be_equal_to(8)
   end)
 
-  it('should return first when equal (due to short-circuit)', function()
+  it('should return second when equal', function()
     expect(core.greater(5, 5)).to.be_equal_to(5)
   end)
 
@@ -166,9 +170,9 @@ describe('odd', function()
     expect(core.odd(100)).to.be_falsy()
   end)
 
-  it('should return true for positive odd numbers', function()
-    expect(core.odd(1)).to.be_truthy()
-    expect(core.odd(3)).to.be_truthy()
+  it('should return true for negative odd numbers', function()
+    expect(core.odd(-1)).to.be_truthy()
+    expect(core.odd(-3)).to.be_truthy()
   end)
 end)
 
@@ -248,6 +252,14 @@ describe('tovalue', function()
 
   it('should evaluate nil', function()
     expect(core.tovalue('nil')).to.be_nil()
+  end)
+
+  it('should error on invalid expression', function()
+    expect(function() core.tovalue('if') end).to.throw()
+  end)
+
+  it('should error on non-string argument', function()
+    expect(function() core.tovalue(42) end).to.throw()
   end)
 end)
 

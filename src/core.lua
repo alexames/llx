@@ -130,23 +130,23 @@ function cmp(a, b)
 end
 
 --- Returns the lesser of two values.
--- Unlike the < operator, returns the actual lesser value instead of a boolean.
--- @param a First value
--- @param b Second value
+-- When equal, returns the second argument (b).
+-- @param a First value (must support < comparison)
+-- @param b Second value (must support < comparison)
 -- @return The lesser of a and b
 -- @usage min_val = lesser(5, 10)  -- returns 5
 function lesser(a, b)
-  return a < b and a or b
+  if a < b then return a else return b end
 end
 
 --- Returns the greater of two values.
--- Unlike the > operator, returns the actual greater value instead of a boolean.
--- @param a First value
--- @param b Second value
+-- When equal, returns the second argument (b).
+-- @param a First value (must support > comparison)
+-- @param b Second value (must support > comparison)
 -- @return The greater of a and b
 -- @usage max_val = greater(5, 10)  -- returns 10
 function greater(a, b)
-  return a > b and a or b
+  if a > b then return a else return b end
 end
 
 --- Checks if a number is even.
@@ -156,10 +156,10 @@ end
 function even(v) return v % 2 == 0 end
 
 --- Checks if a number is odd.
--- @param v The number to check
+-- @param v The number to check (must be an integer)
 -- @return true if odd, false if even
 -- @usage if odd(3) then print("odd") end
-function odd(v) return v % 2 == 1 end
+function odd(v) return v % 2 ~= 0 end
 
 --- Checks if a value is not nil.
 -- Useful as a predicate function for filter operations.
@@ -179,11 +179,16 @@ function noop(...) return ... end
 
 --- Evaluates a Lua expression string.
 -- Parses and executes a string as a Lua expression, returning the result.
--- @param s The expression string to evaluate
+-- @param s The expression string to evaluate (must be a valid Lua expression)
 -- @return The result of evaluating the expression
 -- @usage local x = tovalue("1 + 2")  -- returns 3
 function tovalue(s)
-  return load('return '.. s)()
+  assert(type(s) == 'string', 'tovalue: expected string, got ' .. type(s))
+  local chunk, err = load('return ' .. s)
+  if not chunk then
+    error('tovalue: invalid expression: ' .. err, 2)
+  end
+  return chunk()
 end
 
 --- Returns true if v is a table.
