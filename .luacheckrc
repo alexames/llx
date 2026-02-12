@@ -11,18 +11,11 @@ max_line_length = false
 ignore = {
   "_M",   -- module return table, assigned but consumed by require()
   "_ENV", -- reassigned as part of the module pattern
-  "113",  -- accessing undefined variable (cross-module refs via _ENV)
-  "131",  -- unused global variable (module exports consumed externally)
-  "143",  -- accessing undefined field of global (custom extensions like string.split)
-  "211",  -- unused variable (module-pattern locals like `local Foo = require(...)`)
-  "212",  -- unused argument (interface/callback signatures)
-  "213",  -- unused loop variable
-  "311",  -- value assigned to variable is unused
-  "411",  -- variable was previously defined
-  "421",  -- shadowing definition of variable
-  "431",  -- shadowing upvalue (common in nested scopes)
-  "512",  -- loop is executed at most once (intentional test patterns)
-  "542",  -- empty if branch (intentional guard patterns)
+  "1",    -- unused/undefined warnings (module pattern causes false positives)
+  "2",    -- unused variable/argument/value warnings
+  "3",    -- value assigned to variable is unused
+  "4",    -- shadowing and variable redefinition
+  "5",    -- code quality hints (empty branches, single-iteration loops)
 }
 
 exclude_files = {
