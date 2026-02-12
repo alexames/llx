@@ -820,7 +820,7 @@ end
 -- local sum = reduce(range(5), function(a, b) return a + b end)  -- 10
 function reduce(sequence, lambda, initial_value)
   local control, result
-  if initial_value then
+  if initial_value ~= nil then
     control, result = nil, initial_value
   else
     control, result = sequence()
@@ -840,7 +840,7 @@ function min(sequence)
 end
 
 --- Returns the maximum element of a sequence.
--- Stable: returns the last maximum element among equivalent values.
+-- Stable: returns the first maximum element among equivalent values.
 -- @param sequence The input sequence
 -- @return The maximum value
 function max(sequence)
@@ -848,17 +848,19 @@ function max(sequence)
 end
 
 --- Returns the sum of all elements in a sequence.
+-- Returns 0 for an empty sequence (additive identity).
 -- @param sequence The input sequence
 -- @return The sum
 function sum(sequence)
-  return reduce(sequence, operators.add)
+  return reduce(sequence, operators.add, 0)
 end
 
 --- Returns the product of all elements in a sequence.
+-- Returns 1 for an empty sequence (multiplicative identity).
 -- @param sequence The input sequence
 -- @return The product
 function product(sequence)
-  return reduce(sequence, operators.mul)
+  return reduce(sequence, operators.mul, 1)
 end
 
 --- Internal implementation for zip functions.
@@ -1406,7 +1408,10 @@ function sort_by(sequence, key_func)
   -- Build index array, sort by key, extract
   local indices = {}
   for i = 1, #elements do indices[i] = i end
-  table.sort(indices, function(a, b) return keys[a] < keys[b] end)
+  table.sort(indices, function(a, b)
+    if keys[a] == keys[b] then return a < b end
+    return keys[a] < keys[b]
+  end)
   local result = List{}
   for i = 1, #indices do
     result:insert(elements[indices[i]])
