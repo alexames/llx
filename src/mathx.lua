@@ -16,6 +16,7 @@ local _ENV, _M = environment.create_module_environment()
 -- @return lo if x < lo, hi if x > hi, otherwise x
 -- @usage clamp(15, 0, 10)  -- returns 10
 function clamp(x, lo, hi)
+  assert(lo <= hi, 'clamp: lo must be <= hi')
   if x < lo then return lo end
   if x > hi then return hi end
   return x
@@ -62,8 +63,9 @@ end
 -- @return The arithmetic mean
 -- @usage mean({1, 2, 3, 4, 5})  -- returns 3
 function mean(sequence)
-  local sum = 0
   local n = #sequence
+  assert(n > 0, 'mean: sequence must be non-empty')
+  local sum = 0
   for i = 1, n do
     sum = sum + sequence[i]
   end
@@ -76,6 +78,7 @@ end
 -- @return The median value
 -- @usage median({3, 1, 2})  -- returns 2
 function median(sequence)
+  assert(#sequence > 0, 'median: sequence must be non-empty')
   local sorted = {}
   for i = 1, #sequence do
     sorted[i] = sequence[i]
@@ -108,13 +111,14 @@ end
 -- @return The LCM
 function lcm(a, b)
   if a == 0 or b == 0 then return 0 end
-  return math.abs(a * b) // gcd(a, b)
+  return math.abs(a) // gcd(a, b) * math.abs(b)
 end
 
 --- Computes the factorial of a non-negative integer.
 -- @param n A non-negative integer
 -- @return n!
 function factorial(n)
+  assert(n >= 0 and n % 1 == 0, 'factorial: n must be a non-negative integer')
   local result = 1
   for i = 2, n do
     result = result * i
@@ -139,6 +143,7 @@ end
 -- @param out_hi Output range upper bound
 -- @return The remapped value
 function remap(v, in_lo, in_hi, out_lo, out_hi)
+  assert(in_lo ~= in_hi, 'remap: input range must be non-degenerate')
   return out_lo + (v - in_lo) * (out_hi - out_lo) / (in_hi - in_lo)
 end
 
@@ -158,6 +163,7 @@ end
 -- @param sequence A table of values
 -- @return The mode
 function mode(sequence)
+  assert(#sequence > 0, 'mode: sequence must be non-empty')
   local counts = {}
   local order = {}
   for i = 1, #sequence do
@@ -184,8 +190,9 @@ end
 -- @param sequence A table of numbers
 -- @return The sample variance
 function variance(sequence)
-  local m = mean(sequence)
   local n = #sequence
+  assert(n >= 2, 'variance: sequence must have at least 2 elements')
+  local m = mean(sequence)
   local sum_sq = 0
   for i = 1, n do
     local d = sequence[i] - m
@@ -198,8 +205,9 @@ end
 -- @param sequence A table of numbers
 -- @return The population variance
 function pvariance(sequence)
-  local m = mean(sequence)
   local n = #sequence
+  assert(n > 0, 'pvariance: sequence must be non-empty')
+  local m = mean(sequence)
   local sum_sq = 0
   for i = 1, n do
     local d = sequence[i] - m
@@ -243,6 +251,7 @@ end
 -- @param hi Upper bound (exclusive)
 -- @return The wrapped value
 function wrap_around(x, lo, hi)
+  assert(hi > lo, 'wrap_around: hi must be > lo')
   local range = hi - lo
   return lo + (x - lo) % range
 end
@@ -254,6 +263,7 @@ end
 -- @param v The value to find t for
 -- @return t in [0, 1] when v is between a and b
 function inverse_lerp(a, b, v)
+  assert(a ~= b, 'inverse_lerp: a and b must be distinct')
   return (v - a) / (b - a)
 end
 
@@ -262,8 +272,10 @@ end
 -- @return The harmonic mean
 function harmonic_mean(sequence)
   local n = #sequence
+  assert(n > 0, 'harmonic_mean: sequence must be non-empty')
   local sum_recip = 0
   for i = 1, n do
+    assert(sequence[i] > 0, 'harmonic_mean: all elements must be positive')
     sum_recip = sum_recip + 1 / sequence[i]
   end
   return n / sum_recip
@@ -274,8 +286,10 @@ end
 -- @return The geometric mean
 function geometric_mean(sequence)
   local n = #sequence
+  assert(n > 0, 'geometric_mean: sequence must be non-empty')
   local sum_log = 0
   for i = 1, n do
+    assert(sequence[i] > 0, 'geometric_mean: all elements must be positive')
     sum_log = sum_log + math.log(sequence[i])
   end
   return math.exp(sum_log / n)
@@ -286,6 +300,8 @@ end
 -- @param q The quantile (0 = min, 0.5 = median, 1 = max)
 -- @return The interpolated quantile value
 function quantile(sequence, q)
+  assert(#sequence > 0, 'quantile: sequence must be non-empty')
+  assert(q >= 0 and q <= 1, 'quantile: q must be in [0, 1]')
   local sorted = {}
   for i = 1, #sequence do
     sorted[i] = sequence[i]

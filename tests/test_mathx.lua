@@ -48,6 +48,77 @@ describe('mathx', function()
     end)
   end)
 
+  describe('preconditions', function()
+    it('clamp should reject lo > hi', function()
+      expect(function() llx.mathx.clamp(5, 10, 0) end).to.throw()
+    end)
+
+    it('mean should reject empty sequence', function()
+      expect(function() llx.mathx.mean({}) end).to.throw()
+    end)
+
+    it('median should reject empty sequence', function()
+      expect(function() llx.mathx.median({}) end).to.throw()
+    end)
+
+    it('variance should reject sequence with fewer than 2 elements', function()
+      expect(function() llx.mathx.variance({1}) end).to.throw()
+    end)
+
+    it('pvariance should reject empty sequence', function()
+      expect(function() llx.mathx.pvariance({}) end).to.throw()
+    end)
+
+    it('factorial should reject negative numbers', function()
+      expect(function() llx.mathx.factorial(-1) end).to.throw()
+    end)
+
+    it('factorial should reject non-integers', function()
+      expect(function() llx.mathx.factorial(2.5) end).to.throw()
+    end)
+
+    it('remap should reject degenerate input range', function()
+      expect(function() llx.mathx.remap(5, 10, 10, 0, 100) end).to.throw()
+    end)
+
+    it('inverse_lerp should reject identical endpoints', function()
+      expect(function() llx.mathx.inverse_lerp(5, 5, 5) end).to.throw()
+    end)
+
+    it('wrap_around should reject hi <= lo', function()
+      expect(function() llx.mathx.wrap_around(5, 10, 10) end).to.throw()
+    end)
+
+    it('harmonic_mean should reject empty sequence', function()
+      expect(function() llx.mathx.harmonic_mean({}) end).to.throw()
+    end)
+
+    it('harmonic_mean should reject non-positive elements', function()
+      expect(function() llx.mathx.harmonic_mean({1, -2, 3}) end).to.throw()
+    end)
+
+    it('geometric_mean should reject empty sequence', function()
+      expect(function() llx.mathx.geometric_mean({}) end).to.throw()
+    end)
+
+    it('geometric_mean should reject non-positive elements', function()
+      expect(function() llx.mathx.geometric_mean({1, 0, 3}) end).to.throw()
+    end)
+
+    it('mode should reject empty sequence', function()
+      expect(function() llx.mathx.mode({}) end).to.throw()
+    end)
+
+    it('quantile should reject empty sequence', function()
+      expect(function() llx.mathx.quantile({}, 0.5) end).to.throw()
+    end)
+
+    it('quantile should reject q outside [0,1]', function()
+      expect(function() llx.mathx.quantile({1,2,3}, -0.1) end).to.throw()
+      expect(function() llx.mathx.quantile({1,2,3}, 1.1) end).to.throw()
+    end)
+  end)
+
   describe('sign', function()
     it('should return 1 for positive numbers', function()
       expect(llx.mathx.sign(5)).to.be_equal_to(1)
@@ -144,6 +215,13 @@ describe('mathx', function()
 
     it('should handle equal values', function()
       expect(llx.mathx.lcm(7, 7)).to.be_equal_to(7)
+    end)
+
+    it('should avoid intermediate overflow by dividing before multiplying', function()
+      -- Two large numbers whose product would overflow but whose LCM fits
+      local a = 2^40
+      local b = 2^40 * 3
+      expect(llx.mathx.lcm(a, b)).to.be_equal_to(2^40 * 3)
     end)
   end)
 
