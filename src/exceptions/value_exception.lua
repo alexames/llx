@@ -7,7 +7,7 @@ local Exception = require 'llx.exceptions.exception' . Exception
 local _ENV, _M = environment.create_module_environment()
 
 ValueException =
-    class 'InvalidArgumentException' : extends(Exception) {
+    class 'ValueException' : extends(Exception) {
   __init = function(self, what, level)
     Exception.__init(self, what, (level or 1) + 1)
   end,

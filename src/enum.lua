@@ -10,7 +10,7 @@ local enum_metatable = {
   end,
 
   __tostring = function(self)
-    return 'midi.' .. self.enum.__name .. '.' .. self.name
+    return self.enum.__name .. '.' .. self.name
   end,
 
   __tostringf = function(self, formatter)
@@ -20,7 +20,7 @@ local enum_metatable = {
 
 function enum(name)
   local enum_table = {
-    __name=assert(type(name) and name, 'enums must have a name')
+    __name=assert(type(name) == 'string' and name, 'enums must have a string name')
   }
   return function(t)
     for k, v in pairs(t) do

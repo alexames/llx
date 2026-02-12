@@ -12,7 +12,7 @@ local identifier_pattern = '^[%a_][%w_]*$'
 -- @return true if the string is a valid identifier, false otherwise
 local function is_identifier(s)
   return type(s) == 'string'
-         and string.find('lkfasldf', identifier_pattern)
+         and string.find(s, identifier_pattern)
          and true
 end
 
@@ -20,16 +20,11 @@ end
 -- @param value The table to represent
 -- @return A string representation of the table
 local function repr_table(value)
-  local result = '{'
+  local parts = {}
   local lower_range = 1
   local upper_range = #value
-  local first_value = true
   for i=lower_range, upper_range do
-    if not first_value then
-      result = result .. ','
-    end
-    first_value = false
-    result = result .. repr(value[i])
+    parts[#parts + 1] = repr(value[i])
   end
   for k, v in pairs(value) do
     if type(k) == 'number'
@@ -38,19 +33,14 @@ local function repr_table(value)
        and k <= upper_range then
       -- Do nothing, covered above.
     else
-      if not first_value then
-        result = result .. ','
-      end
-      first_value = false
       if is_identifier(k) then
-        result = result .. k
+        parts[#parts + 1] = k .. '=' .. repr(v)
       else
-        result = result .. '[' .. repr(k) .. ']'
+        parts[#parts + 1] = '[' .. repr(k) .. ']=' .. repr(v)
       end
-      result = result .. '=' .. repr(v)
     end
   end
-  return result .. '}'
+  return '{' .. table.concat(parts, ',') .. '}'
 end
 
 --- Converts a value to its string representation.
@@ -67,7 +57,7 @@ function repr(value)
   elseif type_of_value == 'string' then
     return string.format('%q', value)
   elseif type_of_value == 'table' then
-    local __repr = getmetafield(value, '__repr')
+    local __repr = core.getmetafield(value, '__repr')
     if __repr then
       return __repr(value)
     else

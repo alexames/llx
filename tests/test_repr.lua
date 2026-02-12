@@ -67,36 +67,36 @@ describe('repr', function()
     end)
   end)
 
-  -- NOTE: repr for tables currently errors because getmetafield is referenced
-  -- as a bare name in the module but was not imported into the module
-  -- environment (it should be core.getmetafield or local getmetafield =
-  -- core.getmetafield). We test that the error is raised as expected.
   describe('table values', function()
-    it('should error due to missing getmetafield in module environment', function()
-      expect(function() repr({}) end).to.throw()
+    it('should represent an empty table', function()
+      expect(repr({})).to.be_equal_to('{}')
     end)
 
-    it('should error for non-empty arrays', function()
-      expect(function() repr({1, 2, 3}) end).to.throw()
+    it('should represent non-empty arrays', function()
+      expect(repr({1, 2, 3})).to.be_equal_to('{1,2,3}')
     end)
 
-    it('should error for tables with string keys', function()
-      expect(function() repr({a = 1}) end).to.throw()
+    it('should represent tables with string keys', function()
+      expect(repr({a = 1})).to.be_equal_to('{a=1}')
     end)
 
-    it('should error for nested tables', function()
-      expect(function() repr({{1, 2}, {3, 4}}) end).to.throw()
+    it('should represent nested tables', function()
+      expect(repr({{1, 2}, {3, 4}})).to.be_equal_to('{{1,2},{3,4}}')
+    end)
+
+    it('should bracket-quote non-identifier keys', function()
+      expect(repr({['a b'] = 1})).to.be_equal_to('{["a b"]=1}')
     end)
   end)
 
   describe('custom __repr metamethod', function()
-    it('should error because getmetafield lookup fails', function()
+    it('should use __repr when present', function()
       local obj = setmetatable({value = 42}, {
         __repr = function(self)
           return 'CustomObj(' .. tostring(self.value) .. ')'
         end
       })
-      expect(function() repr(obj) end).to.throw()
+      expect(repr(obj)).to.be_equal_to('CustomObj(42)')
     end)
   end)
 

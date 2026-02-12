@@ -136,7 +136,7 @@ describe('enum', function()
         [3] = 'Blue',
       }
       local s = tostring(Color[1])
-      expect(s).to.be_equal_to('midi.Color.Red')
+      expect(s).to.be_equal_to('Color.Red')
     end)
 
     it('should produce correct tostring for each member', function()
@@ -145,16 +145,16 @@ describe('enum', function()
         [2] = 'Green',
         [3] = 'Blue',
       }
-      expect(tostring(Color[1])).to.be_equal_to('midi.Color.Red')
-      expect(tostring(Color[2])).to.be_equal_to('midi.Color.Green')
-      expect(tostring(Color[3])).to.be_equal_to('midi.Color.Blue')
+      expect(tostring(Color[1])).to.be_equal_to('Color.Red')
+      expect(tostring(Color[2])).to.be_equal_to('Color.Green')
+      expect(tostring(Color[3])).to.be_equal_to('Color.Blue')
     end)
 
     it('should work via the name lookup as well', function()
       local Color = enum 'Color' {
         [1] = 'Red',
       }
-      expect(tostring(Color.Red)).to.be_equal_to('midi.Color.Red')
+      expect(tostring(Color.Red)).to.be_equal_to('Color.Red')
     end)
   end)
 
