@@ -17,7 +17,7 @@ function hash_integer(value, hash)
   return hash
 end
 
-function hash_nil(hash)
+function hash_nil(value, hash)
   return hash
 end
 
@@ -26,7 +26,11 @@ function hash_boolean(value, hash)
 end
 
 function hash_number(value, hash)
-  return hash_integer(value, hash)
+  if value % 1 == 0 then
+    return hash_integer(value, hash)
+  end
+  local bytes = string.pack('d', value)
+  return hash_string(bytes, hash)
 end
 
 function hash_string(value, hash)
@@ -61,7 +65,7 @@ local function get_ordered_keys(value)
   table.sort(boolean_keys)
   table.sort(number_keys)
   table.sort(string_keys)
-  table.sort(table_keys)
+  table.sort(table_keys, function(a, b) return tostring(a) < tostring(b) end)
 
   local result = boolean_keys
   extend_list(result, number_keys)

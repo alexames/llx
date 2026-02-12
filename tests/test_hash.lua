@@ -6,9 +6,9 @@ _ENV = unit.create_test_env(_ENV)
 
 describe('hash', function()
   describe('hash_nil', function()
-    it('should return nil when hashing nil', function()
+    it('should return a number when hashing nil', function()
       local result = hash.hash(nil)
-      expect(result).to.be_nil()
+      expect(result).to.be_a('number')
     end)
 
     it('should be deterministic for nil', function()
@@ -57,6 +57,18 @@ describe('hash', function()
 
     it('should produce different hashes for positive and negative', function()
       expect(hash.hash(5)).to_not.be_equal_to(hash.hash(-5))
+    end)
+
+    it('should produce different hashes for integer and float with same floor', function()
+      expect(hash.hash(1)).to_not.be_equal_to(hash.hash(1.5))
+    end)
+
+    it('should produce different hashes for distinct floats', function()
+      expect(hash.hash(0.1)).to_not.be_equal_to(hash.hash(0.2))
+    end)
+
+    it('should produce same hash for integer and equivalent float', function()
+      expect(hash.hash(1)).to.be_equal_to(hash.hash(1.0))
     end)
   end)
 
@@ -142,6 +154,13 @@ describe('hash', function()
       local h2 = hash.hash({inner = {a = 1}})
       expect(h1).to.be_equal_to(h2)
     end)
+
+    it('should not crash when hashing a table with table keys', function()
+      local inner1 = {x = 1}
+      local inner2 = {x = 2}
+      local t = {[inner1] = 'a', [inner2] = 'b'}
+      expect(function() hash.hash(t) end).to_not.throw()
+    end)
   end)
 
   describe('hash across types', function()
@@ -209,7 +228,7 @@ describe('hash', function()
 
     it('hash_nil should return hash unchanged', function()
       local input_hash = 12345
-      expect(hash.hash_nil(input_hash)).to.be_equal_to(input_hash)
+      expect(hash.hash_nil(nil, input_hash)).to.be_equal_to(input_hash)
     end)
 
     it('hash_boolean should hash true as 1 and false as 0', function()
