@@ -155,23 +155,14 @@ describe('Number __validate', function()
       expect(matches_schema(schema, 10)).to.be_true()
     end)
 
-    it('should reject a value equal to minimum', function()
-      -- The source uses <= so equal values are rejected
-      expect(function()
-        matches_schema(Schema { type = Number, minimum = 5 }, 5)
-      end).to.throw()
+    it('should accept a value equal to minimum (inclusive)', function()
+      local schema = Schema { type = Number, minimum = 5 }
+      expect(matches_schema(schema, 5)).to.be_true()
     end)
 
     it('should reject a value less than minimum', function()
       expect(function()
         matches_schema(Schema { type = Number, minimum = 5 }, 3)
-      end).to.throw()
-    end)
-
-    it('should error in nothrow mode for value equal to minimum due to missing global', function()
-      local schema = Schema { type = Number, minimum = 5 }
-      expect(function()
-        matches_schema(schema, 5, true)
       end).to.throw()
     end)
   end)
@@ -182,11 +173,9 @@ describe('Number __validate', function()
       expect(matches_schema(schema, 5)).to.be_true()
     end)
 
-    it('should reject a value equal to maximum', function()
-      -- The source uses >= so equal values are rejected
-      expect(function()
-        matches_schema(Schema { type = Number, maximum = 10 }, 10)
-      end).to.throw()
+    it('should accept a value equal to maximum (inclusive)', function()
+      local schema = Schema { type = Number, maximum = 10 }
+      expect(matches_schema(schema, 10)).to.be_true()
     end)
 
     it('should reject a value greater than maximum', function()

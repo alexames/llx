@@ -1,12 +1,6 @@
 local unit = require 'llx.unit'
 local llx = require 'llx'
 
--- The type_check_decorator module references isinstance without importing it.
--- It relies on isinstance being available in the global environment (_G), since
--- the module environment's __index falls back to _ENV. We must set it globally
--- before calling any wrapped functions.
-isinstance = require 'llx.isinstance' . isinstance
-
 local type_check_decorator_module = require 'llx.type_check_decorator'
 local type_check_decorator = type_check_decorator_module.type_check_decorator
 local types = require 'llx.types'

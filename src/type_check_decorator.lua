@@ -4,11 +4,13 @@ local class_module = require 'llx.class'
 local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
 local getclass_module = require 'llx.getclass'
+local isinstance_module = require 'llx.isinstance'
 
 local _ENV, _M = environment.create_module_environment()
 
 local class = class_module.class
 local getclass = getclass_module.getclass
+local isinstance = isinstance_module.isinstance
 local InvalidArgumentException = exceptions.InvalidArgumentException
 
 local function check_types(location, expected_types, argument_list)

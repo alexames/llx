@@ -22,7 +22,7 @@ function Number:__validate(schema, path, level, check_field)
     end
   end
   if schema.minimum then
-    if self <= schema.minimum then
+    if self < schema.minimum then
       local failure_reason = string.format(
           'expected minimum value (inclusive) of %s, got %s', schema.minimum,
           self)
@@ -31,7 +31,7 @@ function Number:__validate(schema, path, level, check_field)
     end
   end
   if schema.exclusive_minimum then
-    if self < schema.exclusive_minimum then
+    if self <= schema.exclusive_minimum then
       local failure_reason = string.format(
           'expected minimum value (exclusive) of %s, got %s',
           schema.exclusive_minimum, self)
@@ -40,18 +40,18 @@ function Number:__validate(schema, path, level, check_field)
     end
   end
   if schema.maximum then
-    if self >= schema.maximum then
+    if self > schema.maximum then
       local failure_reason = string.format(
-          'expected minimum value (inclusive) of %s, got %s', schema.maximum, self)
+          'expected maximum value (inclusive) of %s, got %s', schema.maximum, self)
       return false, SchemaConstraintFailureException(
           path, failure_reason, level + 1)
     end
   end
   if schema.exclusive_maximum then
+    if self >= schema.exclusive_maximum then
       local failure_reason = string.format(
-          'expected minimum value (exclusive) of %s, got %s',
+          'expected maximum value (exclusive) of %s, got %s',
           schema.exclusive_maximum, self)
-    if self > schema.exclusive_maximum then
       return false, SchemaConstraintFailureException(
           path, failure_reason, level + 1)
     end

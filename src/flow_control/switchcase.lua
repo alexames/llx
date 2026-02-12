@@ -1,6 +1,7 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local Table = require 'llx.types.table' . Table
+local isinstance = require 'llx.isinstance' . isinstance
 
 -- switch {
 --   value;
@@ -29,7 +30,7 @@ function type_switch(value)
   return function(cases)
     local sorted_cases = {}
     for k, v in pairs(cases) do table.insert(sorted_cases, k) end
-    Table.sort(cases, function(a, b) return a.index < b.index end)
+    Table.sort(sorted_cases, function(a, b) return a.index < b.index end)
     local _, key =
       Table.ifind_if(
         sorted_cases,
