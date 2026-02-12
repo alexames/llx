@@ -1,0 +1,15 @@
+name: Publish
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    uses: alexames/luarocks-repository/.github/workflows/publish.yml@main
+    with:
+      package-name: llx
+    secrets:
+      REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
