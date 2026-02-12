@@ -71,7 +71,7 @@ StringFormatter = class 'StringFormatter' {
   end,
 
   ['nil'] = function(self) self:insert('nil') end,
-  boolean = default_formatter,
+  boolean = function(self, value) self:insert(tostring(value)) end,
   number = default_formatter,
   string = function(self, value)
     local begin_quote
@@ -162,7 +162,7 @@ StringFormatter = class 'StringFormatter' {
 
   table_key = function(self, key)
     local key_type = type(key)
-    local is_name = key_type == 'string' and key:gmatch(NAME_PATTERN)
+    local is_name = key_type == 'string' and key:match(NAME_PATTERN) and not rawget(KEYWORDS, '_values')[key]
     if is_name then
       self:insert(key)
     else
