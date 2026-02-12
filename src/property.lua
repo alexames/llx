@@ -30,7 +30,7 @@ local function try_get_property(class_table, t, k)
   if class_table.__superclasses then
     for _, base in ipairs(class_table.__superclasses) do
       local value = try_get_property(base, t, k)
-      if value then
+      if value ~= nil then
         return value
       end
     end
@@ -69,15 +69,15 @@ Property = class 'Property' : extends(Decorator) {
     if properties == nil then
       properties = {}
       class_table.__properties = properties
-    end
-    local old_index = class_table.__index
-    local old_newindex = class_table.__newindex or rawset
-    class_table.__index = function(t, k)
-      return try_get_property(class_table, t, k) or old_index(t, k)
-    end
-    class_table.__newindex = function(t, k, v)
-      if not try_set_property(class_table, t, k, v) then
-        old_newindex(t, k, v)
+      local old_index = class_table.__index
+      local old_newindex = class_table.__newindex or rawset
+      class_table.__index = function(t, k)
+        return try_get_property(class_table, t, k) or old_index(t, k)
+      end
+      class_table.__newindex = function(t, k, v)
+        if not try_set_property(class_table, t, k, v) then
+          old_newindex(t, k, v)
+        end
       end
     end
     return properties, name, value
