@@ -54,14 +54,11 @@ function String:__validate(schema, path, level, check_field)
 end
 
 function String:join(t)
-  local result = ''
-  for i=1, #t do
-    if i > 1 then
-      result = result .. self
-    end
-    result = result .. tostring(t[i])
+  local parts = {}
+  for i = 1, #t do
+    parts[i] = tostring(t[i])
   end
-  return result
+  return table.concat(parts, self)
 end
 
 function String:empty()
@@ -356,7 +353,8 @@ end
 
 function string_metatable:__shr(n)
   if n < 0 then return self << n end
-  return self:sub(-(n)) .. self:sub(1, -(n + 1))
+  if n == 0 then return self end
+  return self:sub(-n) .. self:sub(1, -n - 1)
 end
 
 function string_metatable:__call(state, control)

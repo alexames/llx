@@ -1061,8 +1061,8 @@ describe('String', function()
       expect('abcde' >> 2).to.be_equal_to('deabc')
     end)
 
-    it('should return the string doubled for rotation of 0 due to sub(-0) behavior', function()
-      expect('abcde' >> 0).to.be_equal_to('abcdeabcde')
+    it('should return the same string for rotation of 0', function()
+      expect('abcde' >> 0).to.be_equal_to('abcde')
     end)
   end)
 
