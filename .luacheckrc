@@ -2,13 +2,17 @@ std = "lua54"
 
 -- Source modules use `local _ENV, _M = llx.environment.create_module_environment()`
 -- which replaces _ENV with a custom module table. After this, all unqualified names
--- resolve against the new environment. `allow_defined_top = true` permits these
--- module-level definitions without flagging them as globals.
-allow_defined_top = true
+-- resolve against the new environment. `allow_defined` permits these module-level
+-- definitions and cross-references without flagging them as globals.
+allow_defined = true
 
--- _M is the module return table, always assigned but consumed by require().
--- _ENV is reassigned as part of the module pattern.
-ignore = { "_M", "_ENV" }
+ignore = {
+  "_M",   -- module return table, assigned but consumed by require()
+  "_ENV", -- reassigned as part of the module pattern
+  "131",  -- unused global variable (module exports consumed externally)
+  "212",  -- unused argument (interface/callback signatures)
+  "213",  -- unused loop variable
+}
 
 exclude_files = {
   "lua_modules",
