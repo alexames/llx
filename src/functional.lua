@@ -23,7 +23,8 @@ local nonnil = core.nonnil
 local noop = core.noop
 
 --- Creates an iterator over a range of numbers.
--- Similar to Python's range() function. Can be called with 1, 2, or 3 arguments.
+-- Similar to Python's range() function. Can be called
+-- with 1, 2, or 3 arguments.
 -- @param a If only argument: end value (start=1). If 2+ arguments: start value.
 -- @param b End value (exclusive)
 -- @param c Step value (default: 1). Can be negative for descending ranges.
@@ -940,7 +941,8 @@ function cartesian_product(...)
 end
 
 --- Maps a function over a sequence and flattens the results.
--- Each element is transformed to an iterable, then all iterables are concatenated.
+-- Each element is transformed to an iterable, then all
+-- iterables are concatenated.
 -- @param lambda Function that returns an iterable for each element
 -- @param sequence Input sequence
 -- @return Iterator over flattened results

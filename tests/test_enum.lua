@@ -51,7 +51,8 @@ describe('enum', function()
       expect(val.name).to.be_equal_to('Red')
     end)
 
-    it('should have the correct numeric value for a value looked up by index', function()
+    it('should have the correct numeric value for a '
+      .. 'value looked up by index', function()
       local Color = enum 'Color' {
         [1] = 'Red',
         [2] = 'Green',
@@ -84,7 +85,8 @@ describe('enum', function()
       expect(val).to_not.be_nil()
     end)
 
-    it('should have the correct numeric value when looked up by name', function()
+    it('should have the correct numeric value when '
+      .. 'looked up by name', function()
       local Color = enum 'Color' {
         [1] = 'Red',
         [2] = 'Green',
@@ -116,7 +118,8 @@ describe('enum', function()
   end)
 
   describe('identity between index and name lookups', function()
-    it('should return the same enum object for index and name lookups', function()
+    it('should return the same enum object for index '
+      .. 'and name lookups', function()
       local Color = enum 'Color' {
         [1] = 'Red',
         [2] = 'Green',
@@ -213,7 +216,8 @@ describe('enum', function()
       expect(Status[404].name).to.be_equal_to('NotFound')
     end)
 
-    it('should support bidirectional lookup with non-contiguous indices', function()
+    it('should support bidirectional lookup with '
+      .. 'non-contiguous indices', function()
       local Status = enum 'Status' {
         [0] = 'OK',
         [404] = 'NotFound',

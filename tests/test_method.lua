@@ -31,7 +31,8 @@ local function make_method(function_args)
   for _, decorator in ipairs(function_args.decorators or {}) do
     underlying_function = decorator(underlying_function)
   end
-  underlying_function = type_check_decorator(underlying_function, function_args.types)
+  underlying_function = type_check_decorator(
+    underlying_function, function_args.types)
   -- Build a table with the same shape that method.__init would produce,
   -- then use method.__call as its __call metamethod.
   return setmetatable(
@@ -294,7 +295,8 @@ describe('method', function()
       expect(m(5)).to.be_equal_to(10)
     end)
 
-    it('should throw for wrong arg type even when return type is specified', function()
+    it('should throw for wrong arg type even when '
+      .. 'return type is specified', function()
       local m = make_method {
         function(x) return x end,
         types = { args = { Integer }, returns = { Integer } },

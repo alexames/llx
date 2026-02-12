@@ -247,7 +247,8 @@ describe('String __validate', function()
       expect(matches_schema(schema, 'abc')).to.be_true()
     end)
 
-    it('should reject a string violating min_length even if pattern matches', function()
+    it('should reject a string violating min_length '
+      .. 'even if pattern matches', function()
       expect(function()
         matches_schema(
           Schema { type = String, min_length = 5, pattern = '^%a+$' }, 'abc')
@@ -288,7 +289,9 @@ describe('Table __validate', function()
           name = { type = String },
         },
       }
-      expect(matches_schema(schema, { name = 'Alice', extra = true })).to.be_true()
+      expect(matches_schema(
+        schema, { name = 'Alice', extra = true }
+      )).to.be_true()
     end)
 
     it('should accept a table with missing optional properties', function()
@@ -343,7 +346,8 @@ describe('Table __validate', function()
       end).to.throw()
     end)
 
-    it('should return false in nothrow mode for missing required field', function()
+    it('should return false in nothrow mode for missing '
+      .. 'required field', function()
       local schema = Schema {
         type = Table,
         properties = {

@@ -58,10 +58,12 @@ describe('tostringf', function()
     end)
 
     it('should use single quotes when string contains double quotes', function()
-      expect(tostringf('say "hi"', styles.minimal)).to.be_equal_to("'say \"hi\"'")
+      expect(tostringf('say "hi"', styles.minimal))
+        .to.be_equal_to("'say \"hi\"'")
     end)
 
-    it('should use long bracket notation when string contains both quote types', function()
+    it('should use long bracket notation when string contains '
+      .. 'both quote types', function()
       local value = [[it's a "test"]]
       local result = tostringf(value, styles.minimal)
       -- Should use long brackets like [=[...]=] or similar
@@ -86,11 +88,13 @@ describe('tostringf', function()
     end)
 
     it('should format a list of strings', function()
-      expect(tostringf({'a', 'b'}, styles.minimal)).to.be_equal_to("{\'a\',\'b\'}")
+      expect(tostringf({'a', 'b'}, styles.minimal))
+        .to.be_equal_to("{\'a\',\'b\'}")
     end)
 
     it('should format a list of booleans', function()
-      expect(tostringf({true, false}, styles.minimal)).to.be_equal_to('{true,false}')
+      expect(tostringf({true, false}, styles.minimal))
+        .to.be_equal_to('{true,false}')
     end)
 
     it('should format a table with string keys', function()
@@ -118,7 +122,8 @@ describe('tostringf', function()
       expect(result).to.be_equal_to(expected)
     end)
 
-    it('should format a table with string key with spaces around assignment', function()
+    it('should format a table with string key with spaces '
+      .. 'around assignment', function()
       local result = tostringf({x=1}, styles.struct)
       local expected = '{\n  x = 1,\n}'
       expect(result).to.be_equal_to(expected)
@@ -126,7 +131,8 @@ describe('tostringf', function()
   end)
 
   describe('table key formatting', function()
-    it('should use bracket notation for numeric keys in non-list tables', function()
+    it('should use bracket notation for numeric keys '
+      .. 'in non-list tables', function()
       -- A table that is not a pure list (mixed keys)
       local t = {[1] = 'a', x = 'b'}
       local result = tostringf(t, styles.minimal)

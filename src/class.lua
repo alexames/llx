@@ -221,7 +221,8 @@
 -- When a class defines a key starting with `__`, it is recorded in the
 -- `__metafields` table. Metamethods are propagated to all subclasses that
 -- have not defined their own version. When a superclass later defines a new
--- metamethod, it is pushed down to subclasses via `try_set_metafield_on_subclasses`.
+-- metamethod, it is pushed down to subclasses via
+-- `try_set_metafield_on_subclasses`.
 --
 -- ## Index resolution
 --
@@ -350,8 +351,10 @@ local function create_class_definer(class_table, class_table_proxy)
     extends = function(self, ...)
       local arg = {...}
       assert(#arg > 0,
-             string.format('%s must list at least one base class when extending',
-                           class_table.__name))
+             string.format(
+               '%s must list at least one base class'
+               .. ' when extending',
+               class_table.__name))
       for i, base in ipairs(arg) do
         assert(type(base) == 'table',
                string.format('%s must inherit from table, not %s',
@@ -549,9 +552,11 @@ end
 -- definition for use in class creation.
 --
 -- @param name_or_definition The name of the class (string) or a table
---                           containing the class definition for anonymous classes
--- @return name The resolved class name (or anonymous class name if a table was provided)
--- @return class_definition The class definition table (or nil if a name was provided)
+--   containing the class definition for anonymous classes
+-- @return name The resolved class name (or anonymous
+--   class name if a table was provided)
+-- @return class_definition The class definition table
+--   (or nil if a name was provided)
 local function class_argument_resolver(name_or_definition)
   local name = nil
   local class_definition = nil

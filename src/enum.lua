@@ -20,7 +20,9 @@ local enum_metatable = {
 
 function enum(name)
   local enum_table = {
-    __name=assert(type(name) == 'string' and name, 'enums must have a string name')
+    __name=assert(
+      type(name) == 'string' and name,
+      'enums must have a string name')
   }
   return function(t)
     for k, v in pairs(t) do

@@ -318,7 +318,8 @@ describe('string utilities', function()
     end)
 
     it('should escape all special chars', function()
-      expect(('()%.+*?[]^$'):escape_pattern()).to.be_equal_to('%(%)%%%.%+%*%?%[%]%^%$')
+      expect(('()%.+*?[]^$'):escape_pattern())
+        .to.be_equal_to('%(%)%%%.%+%*%?%[%]%^%$')
     end)
 
     it('should leave normal chars unchanged', function()
@@ -372,15 +373,20 @@ describe('string utilities', function()
 
   describe('template', function()
     it('should substitute named variables', function()
-      expect(('Hello, ${name}!'):template({name = 'World'})).to.be_equal_to('Hello, World!')
+      expect(('Hello, ${name}!'):template({name = 'World'}))
+        .to.be_equal_to('Hello, World!')
     end)
 
     it('should substitute multiple variables', function()
-      expect(('${a} + ${b} = ${c}'):template({a = '1', b = '2', c = '3'})).to.be_equal_to('1 + 2 = 3')
+      expect(
+        ('${a} + ${b} = ${c}'):template(
+          {a = '1', b = '2', c = '3'})
+      ).to.be_equal_to('1 + 2 = 3')
     end)
 
     it('should leave unmatched placeholders unchanged', function()
-      expect(('${x} and ${y}'):template({x = 'found'})).to.be_equal_to('found and ${y}')
+      expect(('${x} and ${y}'):template({x = 'found'}))
+        .to.be_equal_to('found and ${y}')
     end)
 
     it('should handle numeric values', function()

@@ -33,34 +33,51 @@ TestLogger = class 'TestLogger' {
   --- Prints the beginning of a single test.
   test_begin = function(test_suite, test_name)
     printf('%s[ Run      ] %s%s.%s%s',
-           color(green), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset())
+           color(green), color(bright_cyan),
+           test_suite:name(),
+           table.concat(test_name, '.'), reset())
   end;
 
   --- Prints the result of a test case.
-  test_end = function(test_suite, test_name, successful, err, elapsed)
-    local time_str = elapsed and string.format(' (%.3fs)', elapsed) or ''
+  test_end = function(
+      test_suite, test_name, successful, err, elapsed)
+    local time_str = elapsed
+      and string.format(' (%.3fs)', elapsed) or ''
     if successful then
       printf('%s[       OK ] %s%s.%s%s%s',
-             color(green), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset(), time_str)
+             color(green), color(bright_cyan),
+             test_suite:name(),
+             table.concat(test_name, '.'),
+             reset(), time_str)
     elseif type(err) == 'table' and err.type then
       printf('%s[  FAILURE ] %s%s.%s%s%s\n%s',
-             color(red), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset(), time_str, tostring(err))
+             color(red), color(bright_cyan),
+             test_suite:name(),
+             table.concat(test_name, '.'),
+             reset(), time_str, tostring(err))
     else
       printf('%s[   ERROR  ] %s%s.%s%s%s\n%s',
-             color(red), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset(), time_str, tostring(err))
+             color(red), color(bright_cyan),
+             test_suite:name(),
+             table.concat(test_name, '.'),
+             reset(), time_str, tostring(err))
     end
   end;
 
   --- Prints when a test is skipped.
   test_skip = function(test_suite, test_name)
     printf('%s[  SKIPPED ] %s%s.%s%s',
-           color(bright_cyan), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset())
+           color(bright_cyan), color(bright_cyan),
+           test_suite:name(),
+           table.concat(test_name, '.'), reset())
   end;
 
   --- Prints when a test is marked as todo.
   test_todo = function(test_suite, test_name)
     printf('%s[    TODO  ] %s%s.%s%s',
-           color(bright_cyan), color(bright_cyan), test_suite:name(), table.concat(test_name, '.'), reset())
+           color(bright_cyan), color(bright_cyan),
+           test_suite:name(),
+           table.concat(test_name, '.'), reset())
   end;
 
   --- Prints summary of the test class.
@@ -180,21 +197,38 @@ local function print_tree(items, indent)
       local has_failures = has_failing_descendant(item)
       local describe_color = has_failures and red or green
       local describe_symbol = has_failures and '-' or '+'
-      printf('%s%s%s%s %s%s', indent_str, color(describe_color), describe_symbol, reset(), item.name, reset())
+      printf('%s%s%s%s %s%s',
+        indent_str, color(describe_color),
+        describe_symbol, reset(),
+        item.name, reset())
       print_tree(item.children, indent + 1)
     elseif item.type == 'test' then
       local test = item.data
-      local time_str = test.elapsed and string.format(' (%.3fs)', test.elapsed) or ''
-      local slow_warning = (test.elapsed and test.elapsed > 0.1) and ' [SLOW]' or ''
+      local time_str = test.elapsed
+        and string.format(' (%.3fs)', test.elapsed)
+        or ''
+      local slow_warning = (test.elapsed
+        and test.elapsed > 0.1) and ' [SLOW]' or ''
       if test.todo then
-        printf('%s%s*%s %s [TODO]%s', indent_str, color(bright_cyan), reset(), test.name, reset())
+        printf('%s%s*%s %s [TODO]%s',
+          indent_str, color(bright_cyan),
+          reset(), test.name, reset())
       elseif test.skipped then
-        printf('%s%s~%s %s [SKIPPED]%s', indent_str, color(bright_cyan), reset(), test.name, reset())
+        printf('%s%s~%s %s [SKIPPED]%s',
+          indent_str, color(bright_cyan),
+          reset(), test.name, reset())
       elseif test.passed then
-        printf('%s%s+%s %s%s%s%s', indent_str, color(green), reset(), test.name, time_str, slow_warning, reset())
+        printf('%s%s+%s %s%s%s%s',
+          indent_str, color(green), reset(),
+          test.name, time_str,
+          slow_warning, reset())
       else
-        local label = test.is_failure and 'FAIL' or 'ERROR'
-        printf('%s%s-%s %s [%s]%s%s%s', indent_str, color(red), reset(), test.name, label, time_str, slow_warning, reset())
+        local label = test.is_failure
+          and 'FAIL' or 'ERROR'
+        printf('%s%s-%s %s [%s]%s%s%s',
+          indent_str, color(red), reset(),
+          test.name, label, time_str,
+          slow_warning, reset())
         -- Print error details
         if test.error then
           local error_str = tostring(test.error)
@@ -264,12 +298,15 @@ HierarchicalLogger = class 'HierarchicalLogger' {
       passed = 0,
       failed = 0,
     }
-    table.insert(current_hierarchical_logger.test_suites, current_hierarchical_logger.current_suite)
+    table.insert(
+      current_hierarchical_logger.test_suites,
+      current_hierarchical_logger.current_suite)
   end;
 
   --- Prints the beginning of a single test.
   test_begin = function(test_suite, test_name)
-    -- Hierarchical logger doesn't print test begin, we'll print it in test_end
+    -- Hierarchical logger doesn't print test begin,
+    -- we'll print it in test_end
   end;
 
   --- Records when a test is skipped.
@@ -283,9 +320,12 @@ HierarchicalLogger = class 'HierarchicalLogger' {
       passed = true,
       skipped = true,
     }
-    table.insert(current_hierarchical_logger.current_suite.tests, test_info)
-    current_hierarchical_logger.total_skipped = (current_hierarchical_logger.total_skipped or 0) + 1
-    current_hierarchical_logger.total_tests = current_hierarchical_logger.total_tests + 1
+    local logger = current_hierarchical_logger
+    table.insert(logger.current_suite.tests,
+      test_info)
+    logger.total_skipped =
+      (logger.total_skipped or 0) + 1
+    logger.total_tests = logger.total_tests + 1
   end;
 
   --- Records when a test is marked as todo.
@@ -299,9 +339,12 @@ HierarchicalLogger = class 'HierarchicalLogger' {
       passed = true,
       todo = true,
     }
-    table.insert(current_hierarchical_logger.current_suite.tests, test_info)
-    current_hierarchical_logger.total_todo = (current_hierarchical_logger.total_todo or 0) + 1
-    current_hierarchical_logger.total_tests = current_hierarchical_logger.total_tests + 1
+    local logger = current_hierarchical_logger
+    table.insert(logger.current_suite.tests,
+      test_info)
+    logger.total_todo =
+      (logger.total_todo or 0) + 1
+    logger.total_tests = logger.total_tests + 1
   end;
 
   --- Prints the result of a test case.
@@ -318,16 +361,22 @@ HierarchicalLogger = class 'HierarchicalLogger' {
       is_failure = type(err) == 'table' and err.type ~= nil,
       elapsed = elapsed,
     }
-    table.insert(current_hierarchical_logger.current_suite.tests, test_info)
+    local logger = current_hierarchical_logger
+    table.insert(
+      logger.current_suite.tests, test_info)
 
     if successful then
-      current_hierarchical_logger.current_suite.passed = current_hierarchical_logger.current_suite.passed + 1
-      current_hierarchical_logger.total_passed = current_hierarchical_logger.total_passed + 1
+      logger.current_suite.passed =
+        logger.current_suite.passed + 1
+      logger.total_passed =
+        logger.total_passed + 1
     else
-      current_hierarchical_logger.current_suite.failed = current_hierarchical_logger.current_suite.failed + 1
-      current_hierarchical_logger.total_failed = current_hierarchical_logger.total_failed + 1
+      logger.current_suite.failed =
+        logger.current_suite.failed + 1
+      logger.total_failed =
+        logger.total_failed + 1
     end
-    current_hierarchical_logger.total_tests = current_hierarchical_logger.total_tests + 1
+    logger.total_tests = logger.total_tests + 1
   end;
 
   --- Prints summary of the test class.
@@ -351,7 +400,9 @@ HierarchicalLogger = class 'HierarchicalLogger' {
       local suite_symbol = suite.failed > 0 and '-' or '+'
 
       -- Print suite header
-      printf('%s%s%s %s%s', color(suite_color), suite_symbol, reset(), suite_name, reset())
+      printf('%s%s%s %s%s',
+        color(suite_color), suite_symbol,
+        reset(), suite_name, reset())
 
       -- Build tree from tests
       local tree = build_test_tree(suite.tests, suite.name_path)
@@ -384,13 +435,24 @@ HierarchicalLogger = class 'HierarchicalLogger' {
            suite_count)
     print()
 
-    local skipped_count = current_hierarchical_logger.total_skipped or 0
-    local skipped_str = skipped_count > 0 and string.format(', %s%d skipped%s', color(bright_cyan), skipped_count, reset()) or ''
-    local todo_count = current_hierarchical_logger.total_todo or 0
-    local todo_str = todo_count > 0 and string.format(', %s%d todo%s', color(bright_cyan), todo_count, reset()) or ''
+    local skipped_count =
+      current_hierarchical_logger.total_skipped or 0
+    local skipped_str = skipped_count > 0
+      and string.format(', %s%d skipped%s',
+        color(bright_cyan), skipped_count,
+        reset())
+      or ''
+    local todo_count =
+      current_hierarchical_logger.total_todo or 0
+    local todo_str = todo_count > 0
+      and string.format(', %s%d todo%s',
+        color(bright_cyan), todo_count, reset())
+      or ''
     printf('Tests:       %s%d %s%s%s, %d total',
            color(summary_color),
-           all_passed and total_test_count - skipped_count or total_failure_count,
+           all_passed
+             and total_test_count - skipped_count
+             or total_failure_count,
            all_passed and 'passed' or 'failed',
            skipped_str,
            todo_str,
@@ -400,7 +462,8 @@ HierarchicalLogger = class 'HierarchicalLogger' {
     if all_passed then
       printf('%s+%s All tests passed!', color(green), reset())
     else
-      printf('%s-%s %d test(s) failed', color(red), reset(), total_failure_count)
+      printf('%s-%s %d test(s) failed',
+        color(red), reset(), total_failure_count)
     end
     print()
   end;

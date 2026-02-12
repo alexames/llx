@@ -19,7 +19,7 @@ Mock = class 'Mock' {
   -- @param self Mock instance
   -- @param default_return_value Optional default return value for all calls
   __init = function(self, default_return_value)
-    self._call_history = {}              -- Array of {args = {...}, return_value = ...}
+    self._call_history = {}    -- {args = {...}, return_value = ...}
     self._call_count = 0
     self._default_implementation = nil   -- Function for all calls
     -- Store default return value as table to support multiple return values
@@ -30,7 +30,7 @@ Mock = class 'Mock' {
     end
     self._implementation_queue = {}       -- Queue of functions for next calls
     self._return_value_queue = {}         -- Queue of values for next calls
-    self._name = nil                     -- Optional name for better error messages
+    self._name = nil               -- Optional name
   end;
 
   --- Set a default return value for all calls
@@ -75,7 +75,9 @@ Mock = class 'Mock' {
   -- @return self for chaining
   mock_implementation_once = function(self, func)
     if type(func) ~= 'function' then
-      error('mock_implementation_once expects a function, got ' .. type(func), 2)
+      error(
+        'mock_implementation_once expects a '
+        .. 'function, got ' .. type(func), 2)
     end
     table.insert(self._implementation_queue, func)
     return self
@@ -118,7 +120,9 @@ Mock = class 'Mock' {
   -- @return self for chaining
   mock_return_value_sequence = function(self, values)
     for _, value in ipairs(values) do
-      table.insert(self._return_value_queue, type(value) == 'table' and value or {value})
+      table.insert(self._return_value_queue,
+        type(value) == 'table' and value
+          or {value})
     end
     return self
   end;
@@ -226,7 +230,9 @@ local active_spies = {}
 local function spy_on(object, method_name)
   local original = object[method_name]
   if not original then
-    error('spy_on: method "' .. tostring(method_name) .. '" does not exist on object', 2)
+    error('spy_on: method "'
+      .. tostring(method_name)
+      .. '" does not exist on object', 2)
   end
   if type(original) ~= 'function' then
     error('spy_on: "' .. tostring(method_name) .. '" is not a function', 2)

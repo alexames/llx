@@ -55,7 +55,10 @@ FunctionRegistry = class 'FunctionRegistry' {
 }
 
 InvocationGraphEdge = class 'InvocationGraphEdge' {
-  __init = function(self, source_node, source_slot, destination_node, destination_slot, expected_type)
+  __init = function(
+      self, source_node, source_slot,
+      destination_node, destination_slot,
+      expected_type)
     self.source_node = source_node
     self.source_slot = source_slot
     self.destination_node = destination_node
@@ -160,7 +163,10 @@ TracedValue = class 'TracedValue' {
         local src_slot = argument.index
         local dst_node = target_node_index
         local dst_slot = i
-        graph.edges:insert(InvocationGraphEdge(src_node, src_slot, dst_node, dst_slot))
+        graph.edges:insert(
+          InvocationGraphEdge(
+            src_node, src_slot,
+            dst_node, dst_slot))
         target_node.argument_edges[i] = {src_node=src_node, src_slot=src_slot}
       end
     end
@@ -190,7 +196,8 @@ local function get_invocation_id()
   return result
 end
 
-local parameters = TracedFunctionInvocation('Parameters', {}, get_invocation_id())
+local parameters = TracedFunctionInvocation(
+  'Parameters', {}, get_invocation_id())
 local parameters_index = 1
 
 function TracedParameter(value)
@@ -203,7 +210,8 @@ TracedValuePack = class 'TracedValuePack' {
   __init = function(self, args)
     local constants_values = {}
     local function constants_fn() return table.unpack(constants_values) end
-    local constants = TracedFunctionInvocation(constants_fn, {}, get_invocation_id())
+    local constants = TracedFunctionInvocation(
+      constants_fn, {}, get_invocation_id())
     local constants_index = 1
 
 

@@ -55,7 +55,9 @@ describe('functional combinators', function()
       local function inc(x) return x + 1 end
       local function negate(x) return -x end
       local composed = llx.functional.compose(negate, inc, double)
-      -- compose(negate, inc, double)(3) = negate(inc(double(3))) = negate(inc(6)) = negate(7) = -7
+      -- compose(negate, inc, double)(3)
+      --   = negate(inc(double(3)))
+      --   = negate(inc(6)) = negate(7) = -7
       expect(composed(3)).to.be_equal_to(-7)
     end)
 
@@ -119,12 +121,14 @@ describe('functional combinators', function()
     end)
 
     it('should curry a three-argument function', function()
-      local add3 = llx.functional.curry(function(a, b, c) return a + b + c end, 3)
+      local add3 = llx.functional.curry(
+        function(a, b, c) return a + b + c end, 3)
       expect(add3(1)(2)(3)).to.be_equal_to(6)
     end)
 
     it('should allow partial application with multiple args', function()
-      local add3 = llx.functional.curry(function(a, b, c) return a + b + c end, 3)
+      local add3 = llx.functional.curry(
+        function(a, b, c) return a + b + c end, 3)
       expect(add3(1, 2)(3)).to.be_equal_to(6)
     end)
   end)

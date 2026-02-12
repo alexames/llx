@@ -3,7 +3,9 @@
 local environment = require 'llx.environment'
 local ExceptionGroup = require 'llx.exceptions.exception_group' . ExceptionGroup
 local getmetafield = require 'llx.core' . getmetafield
-local SchemaMissingFieldException = require 'llx.exceptions.schema_exception' . SchemaMissingFieldException
+local SchemaMissingFieldException =
+  require 'llx.exceptions.schema_exception'
+    .SchemaMissingFieldException
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -408,7 +410,9 @@ function Table:concat(sep, i, j)
     if type(value) == 'table' or type(value) == 'userdata' then
       local __tostring = getmetafield(value, '__tostring')
       if type(__tostring) ~= 'function' then
-        error('Attempt to concatenate a table or userdata without a __tostring metamethod')
+        error('Attempt to concatenate a table '
+          .. 'or userdata without a '
+          .. '__tostring metamethod')
       end
       value = __tostring(value)
     end

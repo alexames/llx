@@ -16,7 +16,8 @@ describe('functional iterators', function()
   describe('sliding_window', function()
     it('should return overlapping windows of the given width', function()
       local result = llx.List{}
-      for i, a, b, c in llx.functional.sliding_window(llx.List{1, 2, 3, 4, 5}, 3) do
+      for i, a, b, c in llx.functional.sliding_window(
+        llx.List{1, 2, 3, 4, 5}, 3) do
         result:insert(llx.List{a, b, c})
       end
       expect(result).to.be_equal_to(llx.List{
@@ -42,7 +43,8 @@ describe('functional iterators', function()
       expect(#result).to.be_equal_to(0)
     end)
 
-    it('should return one window when sequence length equals window size', function()
+    it('should return one window when sequence length '
+      .. 'equals window size', function()
       local result = llx.List{}
       for i, a, b in llx.functional.sliding_window(llx.List{1, 2}, 2) do
         result:insert(llx.List{a, b})
@@ -103,7 +105,8 @@ describe('functional iterators', function()
     end)
 
     it('should transpose triples into three lists', function()
-      local a, b, c = llx.functional.unzip(llx.List{{1, 'a', true}, {2, 'b', false}})
+      local a, b, c = llx.functional.unzip(
+        llx.List{{1, 'a', true}, {2, 'b', false}})
       expect(a).to.be_equal_to(llx.List{1, 2})
       expect(b).to.be_equal_to(llx.List{'a', 'b'})
       expect(c).to.be_equal_to(llx.List{true, false})
@@ -245,7 +248,9 @@ describe('functional iterators', function()
     end)
 
     it('should accept a custom comparator', function()
-      local result = llx.functional.sorted(llx.List{3, 1, 4}, function(a, b) return a > b end)
+      local result = llx.functional.sorted(
+        llx.List{3, 1, 4},
+        function(a, b) return a > b end)
       expect(result).to.be_equal_to(llx.List{4, 3, 1})
     end)
 
@@ -271,7 +276,8 @@ describe('functional iterators', function()
   describe('sort_by', function()
     it('should sort by a key function', function()
       local input = llx.List{{name='Charlie'}, {name='Alice'}, {name='Bob'}}
-      local result = llx.functional.sort_by(input, function(x) return x.name end)
+      local result = llx.functional.sort_by(
+        input, function(x) return x.name end)
       expect(result[1].name).to.be_equal_to('Alice')
       expect(result[2].name).to.be_equal_to('Bob')
       expect(result[3].name).to.be_equal_to('Charlie')
@@ -302,7 +308,8 @@ describe('functional iterators', function()
 
   describe('flatten_deep', function()
     it('should flatten nested lists recursively', function()
-      local result = llx.functional.flatten_deep(llx.List{1, llx.List{2, llx.List{3, 4}}, 5})
+      local result = llx.functional.flatten_deep(
+        llx.List{1, llx.List{2, llx.List{3, 4}}, 5})
       expect(result).to.be_equal_to(llx.List{1, 2, 3, 4, 5})
     end)
 
@@ -394,7 +401,8 @@ describe('functional iterators', function()
 
   describe('unique_justseen', function()
     it('should remove consecutive duplicates', function()
-      local result = llx.functional.unique_justseen(llx.List{1, 1, 2, 2, 3, 1, 1})
+      local result = llx.functional.unique_justseen(
+        llx.List{1, 1, 2, 2, 3, 1, 1})
       expect(result).to.be_equal_to(llx.List{1, 2, 3, 1})
     end)
 
@@ -474,7 +482,9 @@ describe('functional iterators', function()
   describe('scan', function()
     it('should produce running accumulations', function()
       local result = llx.List{}
-      for _, v in llx.functional.scan(llx.List{1, 2, 3, 4}, function(a, b) return a + b end, 0) do
+      for _, v in llx.functional.scan(
+        llx.List{1, 2, 3, 4},
+        function(a, b) return a + b end, 0) do
         result:insert(v)
       end
       expect(result).to.be_equal_to(llx.List{1, 3, 6, 10})
@@ -482,7 +492,9 @@ describe('functional iterators', function()
 
     it('should work without initial value', function()
       local result = llx.List{}
-      for _, v in llx.functional.scan(llx.List{1, 2, 3}, function(a, b) return a + b end) do
+      for _, v in llx.functional.scan(
+        llx.List{1, 2, 3},
+        function(a, b) return a + b end) do
         result:insert(v)
       end
       expect(result).to.be_equal_to(llx.List{1, 3, 6})

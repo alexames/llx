@@ -42,7 +42,9 @@ function Number:__validate(schema, path, level, check_field)
   if schema.maximum then
     if self > schema.maximum then
       local failure_reason = string.format(
-          'expected maximum value (inclusive) of %s, got %s', schema.maximum, self)
+          'expected maximum value (inclusive) '
+          .. 'of %s, got %s',
+          schema.maximum, self)
       return false, SchemaConstraintFailureException(
           path, failure_reason, level + 1)
     end

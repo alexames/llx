@@ -162,14 +162,16 @@ describe('Mock', function()
       expect(m).to.have_been_called_with('hello', 42)
     end)
 
-    it('should verify last call arguments with have_been_last_called_with', function()
+    it('should verify last call arguments with '
+      .. 'have_been_last_called_with', function()
       local m = Mock()
       m('first')
       m('last')
       expect(m).to.have_been_last_called_with('last')
     end)
 
-    it('should verify nth call arguments with have_been_nth_called_with', function()
+    it('should verify nth call arguments with '
+      .. 'have_been_nth_called_with', function()
       local m = Mock()
       m('a')
       m('b')
@@ -241,7 +243,8 @@ describe('Mock', function()
       expect(ok).to.be_false()
     end)
 
-    it('should verify last return value with have_last_returned_with', function()
+    it('should verify last return value with '
+      .. 'have_last_returned_with', function()
       local m = Mock()
       m:mock_return_value_once(1)
       m:mock_return_value_once(2)

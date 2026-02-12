@@ -13,7 +13,8 @@ describe('isinstance', function()
       expect(isinstance('hello', types.String)).to.be_true()
     end)
 
-    it('should return true for an empty string checked against String', function()
+    it('should return true for an empty string checked '
+      .. 'against String', function()
       expect(isinstance('', types.String)).to.be_true()
     end)
 
@@ -103,28 +104,32 @@ describe('isinstance', function()
       expect(isinstance(f, Bar)).to.be_false()
     end)
 
-    it('should return true for an instance checked against its base class', function()
+    it('should return true for an instance checked '
+      .. 'against its base class', function()
       local Base = class 'Base' {}
       local Derived = class 'Derived' : extends(Base) {}
       local d = Derived()
       expect(isinstance(d, Base)).to.be_true()
     end)
 
-    it('should return true for an instance checked against its own derived class', function()
+    it('should return true for an instance checked '
+      .. 'against its own derived class', function()
       local Base = class 'Base' {}
       local Derived = class 'Derived' : extends(Base) {}
       local d = Derived()
       expect(isinstance(d, Derived)).to.be_true()
     end)
 
-    it('should return false for a base class instance checked against a derived class', function()
+    it('should return false for a base class instance '
+      .. 'checked against a derived class', function()
       local Base = class 'Base' {}
       local Derived = class 'Derived' : extends(Base) {}
       local b = Base()
       expect(isinstance(b, Derived)).to.be_false()
     end)
 
-    it('should return true for a deeply inherited instance checked against the root class', function()
+    it('should return true for a deeply inherited instance '
+      .. 'checked against the root class', function()
       local A = class 'A' {}
       local B = class 'B' : extends(A) {}
       local C = class 'C' : extends(B) {}
@@ -132,7 +137,8 @@ describe('isinstance', function()
       expect(isinstance(c, A)).to.be_true()
     end)
 
-    it('should return true for a deeply inherited instance checked against the middle class', function()
+    it('should return true for a deeply inherited instance '
+      .. 'checked against the middle class', function()
       local A = class 'A' {}
       local B = class 'B' : extends(A) {}
       local C = class 'C' : extends(B) {}
@@ -147,7 +153,8 @@ describe('isinstance', function()
       expect(isinstance('hello', fake_type)).to.be_false()
     end)
 
-    it('should return false for a number against a type with no __isinstance', function()
+    it('should return false for a number against a type '
+      .. 'with no __isinstance', function()
       local fake_type = { __name = 'FakeType' }
       expect(isinstance(42, fake_type)).to.be_false()
     end)

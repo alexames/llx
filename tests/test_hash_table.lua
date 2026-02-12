@@ -90,7 +90,8 @@ describe('HashTable', function()
   end)
 
   describe('get and set with table keys', function()
-    it('should store and retrieve using table keys with same content', function()
+    it('should store and retrieve using table keys '
+      .. 'with same content', function()
       local ht = HashTable()
       ht[{1, 2, 3}] = 'list'
       expect(ht[{1, 2, 3}]).to.be_equal_to('list')
@@ -104,7 +105,8 @@ describe('HashTable', function()
       expect(ht[key2]).to.be_equal_to('value')
     end)
 
-    it('should treat tables with different content as different keys', function()
+    it('should treat tables with different content '
+      .. 'as different keys', function()
       local ht = HashTable()
       ht[{a = 1}] = 'first'
       ht[{a = 2}] = 'second'
@@ -121,7 +123,8 @@ describe('HashTable', function()
       expect(ht[t1]).to.be_equal_to('tuple_value')
     end)
 
-    it('should retrieve value using a different Tuple with same content', function()
+    it('should retrieve value using a different Tuple '
+      .. 'with same content', function()
       local ht = HashTable()
       local t1 = Tuple{10, 20}
       local t2 = Tuple{10, 20}
@@ -255,7 +258,8 @@ describe('HashTable', function()
   end)
 
   describe('mixed key types', function()
-    it('should store values with string, number, and boolean keys simultaneously', function()
+    it('should store values with string, number, and '
+      .. 'boolean keys simultaneously', function()
       local ht = HashTable()
       ht['str'] = 'string_key'
       ht[42] = 'number_key'

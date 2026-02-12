@@ -56,7 +56,8 @@ describe('Property', function()
       expect(f.value).to.be_equal_to(42)
     end)
 
-    it('should throw error when trying to set a getter-only property', function()
+    it('should throw error when trying to set a '
+      .. 'getter-only property', function()
       local Foo = class 'Foo' {
         ['value' | property] = {
           get = function(self)
@@ -95,7 +96,8 @@ describe('Property', function()
       expect(f._value).to.be_equal_to(99)
     end)
 
-    it('should throw error when trying to get a setter-only property', function()
+    it('should throw error when trying to get a '
+      .. 'setter-only property', function()
       local Foo = class 'Foo' {
         ['value' | property] = {
           set = function(self, v)
@@ -258,7 +260,8 @@ describe('Property', function()
   end)
 
   describe('non-property fields', function()
-    it('should still allow regular field access on instances with properties', function()
+    it('should still allow regular field access on '
+      .. 'instances with properties', function()
       local Foo = class 'Foo' {
         ['prop' | property] = {
           get = function(self) return self._prop end,
@@ -270,7 +273,8 @@ describe('Property', function()
       expect(f.regular_field).to.be_equal_to(42)
     end)
 
-    it('should still allow regular field assignment on instances with properties', function()
+    it('should still allow regular field assignment on '
+      .. 'instances with properties', function()
       local Foo = class 'Foo' {
         ['prop' | property] = {
           get = function(self) return self._prop end,

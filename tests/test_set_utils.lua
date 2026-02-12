@@ -179,7 +179,8 @@ describe('set utilities', function()
       expect(s).to.be_equal_to(llx.Set{1, 2})
     end)
 
-    it('should handle collisions (multiple elements mapping to same value)', function()
+    it('should handle collisions (multiple elements '
+      .. 'mapping to same value)', function()
       local s = llx.Set{1, 2, 3}
       local result = s:map(function() return 'x' end)
       expect(result:len()).to.be_equal_to(1)

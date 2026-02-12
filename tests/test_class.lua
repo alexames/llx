@@ -103,7 +103,8 @@ describe('class', function()
     expect(foo.bar).to.be_equal_to(100)
   end)
 
-  it('should set class field and make it accessible on existing instance', function()
+  it('should set class field and make it accessible on '
+    .. 'existing instance', function()
     local foo = class 'foo' {}
     local f = foo()
     foo.bar = 100
@@ -213,7 +214,8 @@ describe('class', function()
     expect(function() local x = f.prop end).to.throw()
   end)
 
-  it('should get and set property when both getter and setter are provided', function()
+  it('should get and set property when both getter and '
+    .. 'setter are provided', function()
     local foo = class 'foo' {
       ['prop' | property.property] = {
         set=function(self, v)
@@ -406,7 +408,8 @@ describe('derived_class', function()
     expect(foo.foo_value).to.be_equal_to(100)
   end)
 
-  it('should set class field on base and make it accessible on base with different name', function()
+  it('should set class field on base and make it accessible '
+    .. 'on base with different name', function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
@@ -415,7 +418,8 @@ describe('derived_class', function()
     expect(foo.bar_value).to.be_equal_to(200)
   end)
 
-  it('should set class field on base and make it accessible on existing derived instance', function()
+  it('should set class field on base and make it accessible '
+    .. 'on existing derived instance', function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
@@ -424,7 +428,9 @@ describe('derived_class', function()
     expect(b.foo_value).to.be_equal_to(100)
   end)
 
-  it('should set class field on base and make it accessible on existing derived instance with different name', function()
+  it('should set class field on base and make it accessible '
+    .. 'on existing derived instance with different name',
+    function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
@@ -433,7 +439,8 @@ describe('derived_class', function()
     expect(b.bar_value).to.be_equal_to(200)
   end)
 
-  it('should set class field on base and make it accessible on new derived instance', function()
+  it('should set class field on base and make it accessible '
+    .. 'on new derived instance', function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
@@ -443,7 +450,9 @@ describe('derived_class', function()
     expect(c.foo_value).to.be_equal_to(100)
   end)
 
-  it('should set class field on base and make it accessible on new derived instance with different name', function()
+  it('should set class field on base and make it accessible '
+    .. 'on new derived instance with different name',
+    function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local b = bar()
@@ -484,7 +493,8 @@ describe('derived_class', function()
     expect(mock).to.have_been_called_times(1)
   end)
 
-  it('should override base class tostring with derived class tostring', function()
+  it('should override base class tostring with derived '
+    .. 'class tostring', function()
     local foo_mock = Mock()
     local bar_mock = Mock()
     bar_mock:mock_return_value('custom tostring')
@@ -689,7 +699,8 @@ describe('derived_class', function()
     expect(bar.__meta).to.be_equal_to(200)
   end)
 
-  it('should inherit __meta from first level to second level when set independently', function()
+  it('should inherit __meta from first level to second '
+    .. 'level when set independently', function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local baz = class 'baz' : extends(bar) {}
@@ -716,7 +727,8 @@ describe('derived_class', function()
     expect(bar.__meta).to.be_equal_to(200)
   end)
 
-  it('should inherit __meta from first level to second level when base set after', function()
+  it('should inherit __meta from first level to second '
+    .. 'level when base set after', function()
     local foo = class 'foo' {}
     local bar = class 'bar' : extends(foo) {}
     local baz = class 'baz' : extends(bar) {}
@@ -747,7 +759,8 @@ describe('derived_class', function()
     expect(descendant.__meta).to.be_equal_to(200)
   end)
 
-  it('should set property value when setter is provided in base class', function()
+  it('should set property value when setter is provided '
+    .. 'in base class', function()
     local foo = class 'foo' {
       ['prop' | property.property] = {
         set=function(self, v)
@@ -761,7 +774,8 @@ describe('derived_class', function()
     expect(b._prop).to.be_equal_to(100)
   end)
 
-  it('should throw error when setting property without setter in base class', function()
+  it('should throw error when setting property without '
+    .. 'setter in base class', function()
     local foo = class 'foo' {
       ['prop' | property.property] = {
         -- No setter
@@ -772,7 +786,8 @@ describe('derived_class', function()
     expect(function() b.prop = 100 end).to.throw()
   end)
 
-  it('should get property value when getter is provided in base class', function()
+  it('should get property value when getter is provided '
+    .. 'in base class', function()
     local foo = class 'foo' {
       ['prop' | property.property] = {
         get=function(self)
@@ -786,7 +801,8 @@ describe('derived_class', function()
     expect(b.prop).to.be_equal_to(100)
   end)
 
-  it('should throw error when getting property without getter in base class', function()
+  it('should throw error when getting property without '
+    .. 'getter in base class', function()
     local foo = class 'foo' {
       ['prop' | property.property] = {
         -- No getter
@@ -798,7 +814,8 @@ describe('derived_class', function()
     expect(function() local x = b.prop end).to.throw()
   end)
 
-  it('should get and set property when both getter and setter are provided in base class', function()
+  it('should get and set property when both getter and '
+    .. 'setter are provided in base class', function()
     local foo = class 'foo' {
       ['prop' | property.property] = {
         set=function(self, v)

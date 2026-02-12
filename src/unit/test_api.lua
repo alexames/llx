@@ -19,17 +19,23 @@ local function evaluate_matcher(actual, matcher, level)
   level = level or 3
   local result = matcher(actual)
   if type(result) ~= 'table' or result.pass == nil then
-    error('Matcher must return a table with pass, actual, positive_message, negative_message, and expected fields', level)
+    error('Matcher must return a table with pass, '
+      .. 'actual, positive_message, '
+      .. 'negative_message, and expected fields',
+      level)
   end
   if not result.pass then
-    local msg = 'expected ' .. result.actual .. '\nto ' .. result.positive_message .. '\n  ' .. result.expected
+    local msg = 'expected ' .. result.actual
+      .. '\nto ' .. result.positive_message
+      .. '\n  ' .. result.expected
     error(setmetatable({message = msg, type = ASSERTION_FAILURE}, {
       __tostring = function(self) return self.message end
     }), level)
   end
 end
 
---- Checks if an error is an assertion failure (as opposed to an unexpected error).
+--- Checks if an error is an assertion failure
+-- (as opposed to an unexpected error).
 local function is_assertion_failure(err)
   return type(err) == 'table' and err.type == ASSERTION_FAILURE
 end
@@ -46,13 +52,15 @@ local global_after_all_hooks = {}
 
 --- Public table for registering custom matchers.
 -- Users can add their own matchers by assigning to this table.
--- Matchers should be functions that take arguments and return a matcher function.
+-- Matchers should be functions that take arguments and
+-- return a matcher function.
 -- For example: matchers.be_equal_to = matchers.equals
 local custom_matchers = {}
 
 --- Registers a custom matcher with validation.
--- The matcher function should accept arguments and return a function that accepts
--- the actual value and returns a result table with pass, actual, positive_message,
+-- The matcher function should accept arguments and return
+-- a function that accepts the actual value and returns a
+-- result table with pass, actual, positive_message,
 -- negative_message, and expected fields.
 -- @param name The name of the matcher (string)
 -- @param matcher_fn The matcher creator function
@@ -61,7 +69,8 @@ local function expect_extend(name, matcher_fn)
     error('expect.extend: name must be a string, got ' .. type(name), 2)
   end
   if type(matcher_fn) ~= 'function' then
-    error('expect.extend: matcher must be a function, got ' .. type(matcher_fn), 2)
+    error('expect.extend: matcher must be a function, '
+      .. 'got ' .. type(matcher_fn), 2)
   end
   -- Validate the matcher by calling it with a dummy value
   local ok, err = pcall(function()
@@ -76,7 +85,9 @@ local function expect_extend(name, matcher_fn)
     if result.pass == nil then
       error('matcher result must have a "pass" field')
     end
-    local required_fields = {'actual', 'positive_message', 'negative_message', 'expected'}
+    local required_fields = {
+      'actual', 'positive_message',
+      'negative_message', 'expected'}
     for _, field in ipairs(required_fields) do
       if result[field] == nil then
         error('matcher result missing required field: ' .. field)
@@ -84,7 +95,8 @@ local function expect_extend(name, matcher_fn)
     end
   end)
   if not ok then
-    error('expect.extend: invalid matcher "' .. name .. '": ' .. tostring(err), 2)
+    error('expect.extend: invalid matcher "'
+      .. name .. '": ' .. tostring(err), 2)
   end
   custom_matchers[name] = matcher_fn
 end
@@ -121,25 +133,39 @@ local function expect(actual)
         return function(expected)
           local level = 3
           if type(expect_obj._actual) ~= 'function' then
-            error('throw() expects a function, got ' .. type(expect_obj._actual), level)
+            error(
+              'throw() expects a function, got '
+              .. type(expect_obj._actual), level)
           end
 
-          local successful, exception = pcall(expect_obj._actual)
+          local successful, exception =
+            pcall(expect_obj._actual)
 
           if successful then
-            error('expected function to raise error', level)
+            error(
+              'expected function to raise error',
+              level)
           end
-          -- Now we know it threw, match the message if expected
+          -- Now we know it threw, match the message
+          -- if expected
           if expected then
             local exception_msg = exception
-            if type(expected) == 'string' and type(exception) == 'string' then
-              local path_colon = exception:find(':', 1, true)
-              local line_colon = exception:find(':', path_colon + 1, true)
+            if type(expected) == 'string'
+                and type(exception) == 'string' then
+              local path_colon =
+                exception:find(':', 1, true)
+              local line_colon =
+                exception:find(':', path_colon + 1,
+                  true)
               if line_colon then
-                exception_msg = exception:sub(line_colon + 2)
+                exception_msg =
+                  exception:sub(line_colon + 2)
               end
             end
-            evaluate_matcher(exception_msg, matchers.equals(expected), level + 1)
+            evaluate_matcher(
+              exception_msg,
+              matchers.equals(expected),
+              level + 1)
           end
         end
       elseif key == 'match' then
@@ -173,11 +199,17 @@ local function expect(actual)
         return function(expected)
           local level = 3
           if type(expect_obj._actual) ~= 'function' then
-            error('throw() expects a function, got ' .. type(expect_obj._actual), level)
+            error(
+              'throw() expects a function, got '
+              .. type(expect_obj._actual), level)
           end
-          local successful, exception = pcall(expect_obj._actual)
+          local successful, exception =
+            pcall(expect_obj._actual)
           if not successful then
-            error('expected function not to raise error, but got: ' .. tostring(exception), level)
+            error(
+              'expected function not to raise '
+              .. 'error, but got: '
+              .. tostring(exception), level)
           end
         end
       elseif key == 'match' then
@@ -186,11 +218,17 @@ local function expect(actual)
         end
       elseif key == 'satisfy' then
         return function(...)
-          evaluate_matcher(expect_obj._actual, matchers.negate(matchers.all_of(...)), 3)
+          evaluate_matcher(
+            expect_obj._actual,
+            matchers.negate(matchers.all_of(...)),
+            3)
         end
       elseif key == 'satisfy_any' then
         return function(...)
-          evaluate_matcher(expect_obj._actual, matchers.negate(matchers.any_of(...)), 3)
+          evaluate_matcher(
+            expect_obj._actual,
+            matchers.negate(matchers.any_of(...)),
+            3)
         end
       else
         -- Look up in custom_matchers
@@ -341,7 +379,10 @@ local function match_args(actual_args, expected_args)
     elseif type(expected) == 'function' then
       local result = expected(actual)
       if type(result) ~= 'table' or result.pass == nil then
-        error('Matcher must return a table with pass, actual, positive_message, negative_message, and expected fields', 2)
+        error('Matcher must return a table with '
+          .. 'pass, actual, positive_message, '
+          .. 'negative_message, and expected '
+          .. 'fields', 2)
       end
       if not result.pass then
         return false
@@ -420,7 +461,9 @@ custom_matchers.have_been_last_called_with = function(...)
   local expected_args = pack_args(...)
   return function(actual)
     if not is_mock(actual) then
-      error('have_been_last_called_with() expects a Mock, got ' .. type(actual), 3)
+      error(
+        'have_been_last_called_with() expects '
+        .. 'a Mock, got ' .. type(actual), 3)
     end
     local last_call = actual:mock_get_last_call()
     if not last_call then
@@ -446,30 +489,48 @@ end
 custom_matchers.have_been_nth_called_with = function(n, ...)
   -- Validate n is a positive integer
   if type(n) ~= 'number' or n < 1 or math.floor(n) ~= n then
-    error('have_been_nth_called_with() expects a positive integer as first argument, got ' .. tostring(n), 3)
+    error(
+      'have_been_nth_called_with() expects a '
+      .. 'positive integer as first argument, '
+      .. 'got ' .. tostring(n), 3)
   end
   local expected_args = pack_args(...)
   return function(actual)
     if not is_mock(actual) then
-      error('have_been_nth_called_with() expects a Mock, got ' .. type(actual), 3)
+      error(
+        'have_been_nth_called_with() expects '
+        .. 'a Mock, got ' .. type(actual), 3)
     end
     local call = actual:mock_get_call(n)
     if not call then
       return {
         pass = false,
-        actual = 'mock was called ' .. tostring(actual:mock_get_call_count()) .. ' time(s)',
-        positive_message = 'have been nth called with',
-        negative_message = 'not have been nth called with',
-        expected = 'call #' .. tostring(n) .. ' with arguments matching: ' .. format_args(expected_args)
+        actual = 'mock was called '
+          .. tostring(actual:mock_get_call_count())
+          .. ' time(s)',
+        positive_message =
+          'have been nth called with',
+        negative_message =
+          'not have been nth called with',
+        expected = 'call #' .. tostring(n)
+          .. ' with arguments matching: '
+          .. format_args(expected_args)
       }
     end
-    local matched = match_args(call.args, expected_args)
+    local matched =
+      match_args(call.args, expected_args)
     return {
       pass = matched,
-      actual = 'call #' .. tostring(n) .. ' was with: ' .. format_args(call.args),
-      positive_message = 'have been nth called with',
-      negative_message = 'not have been nth called with',
-      expected = 'call #' .. tostring(n) .. ' with arguments matching: ' .. format_args(expected_args)
+      actual = 'call #' .. tostring(n)
+        .. ' was with: '
+        .. format_args(call.args),
+      positive_message =
+        'have been nth called with',
+      negative_message =
+        'not have been nth called with',
+      expected = 'call #' .. tostring(n)
+        .. ' with arguments matching: '
+        .. format_args(expected_args)
     }
   end
 end
@@ -551,7 +612,10 @@ end
 
 custom_matchers.have_nth_returned_with = function(n, expected_value)
   if type(n) ~= 'number' or n < 1 or math.floor(n) ~= n then
-    error('have_nth_returned_with() expects a positive integer as first argument, got ' .. tostring(n), 3)
+    error(
+      'have_nth_returned_with() expects a '
+      .. 'positive integer as first argument, '
+      .. 'got ' .. tostring(n), 3)
   end
   return function(actual)
     if not is_mock(actual) then
@@ -561,23 +625,36 @@ custom_matchers.have_nth_returned_with = function(n, expected_value)
     if not call then
       return {
         pass = false,
-        actual = 'mock was called ' .. tostring(actual:mock_get_call_count()) .. ' time(s)',
-        positive_message = 'have nth returned with',
-        negative_message = 'not have nth returned with',
-        expected = 'call #' .. tostring(n) .. ' returning ' .. tostring(expected_value)
+        actual = 'mock was called '
+          .. tostring(actual:mock_get_call_count())
+          .. ' time(s)',
+        positive_message =
+          'have nth returned with',
+        negative_message =
+          'not have nth returned with',
+        expected = 'call #' .. tostring(n)
+          .. ' returning '
+          .. tostring(expected_value)
       }
     end
     return {
       pass = call.return_value == expected_value,
-      actual = 'call #' .. tostring(n) .. ' returned: ' .. tostring(call.return_value),
-      positive_message = 'have nth returned with',
-      negative_message = 'not have nth returned with',
-      expected = 'call #' .. tostring(n) .. ' returning ' .. tostring(expected_value)
+      actual = 'call #' .. tostring(n)
+        .. ' returned: '
+        .. tostring(call.return_value),
+      positive_message =
+        'have nth returned with',
+      negative_message =
+        'not have nth returned with',
+      expected = 'call #' .. tostring(n)
+        .. ' returning '
+        .. tostring(expected_value)
     }
   end
 end
 
--- Special matchers that need custom handling (not registered in custom_matchers)
+-- Special matchers that need custom handling
+-- (not registered in custom_matchers)
 -- These are handled directly in the proxy __index functions
 
 --- Test class for describe/it style tests
@@ -693,14 +770,19 @@ local TestSuite = class 'TestSuite' {
     if not setup_ok then
       pcall(self.teardown, self)
       local elapsed = os.clock() - start_time
-      printer.test_end(self, test.name, false, "setUp failed: " .. tostring(setup_err), elapsed)
+      printer.test_end(
+        self, test.name, false,
+        "setUp failed: " .. tostring(setup_err),
+        elapsed)
       return false, setup_err
     end
     local successful, err = pcall(test.func, self, ...)
     local teardown_ok, teardown_err = pcall(self.teardown, self)
     pcall(mock_module.restore_all_spies)
     if not teardown_ok then
-      err = (err and tostring(err) or "") .. "\ntearDown failed: " .. tostring(teardown_err)
+      err = (err and tostring(err) or "")
+        .. "\ntearDown failed: "
+        .. tostring(teardown_err)
       successful = false
     end
     local elapsed = os.clock() - start_time
@@ -760,8 +842,11 @@ local TestSuite = class 'TestSuite' {
       -- Skip tests from suites whose before_all failed
       if suite_before_all_failed[test_suite] then
         printer.test_begin(self, test.name)
-        printer.test_end(self, test.name, false,
-          "before_all failed: " .. tostring(suite_before_all_failed[test_suite]))
+        printer.test_end(
+          self, test.name, false,
+          "before_all failed: "
+          .. tostring(
+            suite_before_all_failed[test_suite]))
         failure_count = failure_count + 1
       elseif test.todo then
         printer.test_todo(self, test.name)
@@ -1035,7 +1120,8 @@ local function before_all(func)
   context.before_all = func
 end
 
---- Teardown function that runs once after all tests in the current describe block
+--- Teardown function that runs once after all tests
+-- in the current describe block
 -- @param func Teardown function
 local function after_all(func)
   local context = describe_context_stack[#describe_context_stack]

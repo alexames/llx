@@ -81,7 +81,8 @@ StringView = class 'StringView' {
       return function(_, ...)
         local args = { ... }
 
-        -- Special handling for find() - need to adjust return values to view space
+        -- Special handling for find() - need to adjust
+        -- return values to view space
         if key == "find" then
           -- Adjust init parameter if provided
           if #args > 0 and type(args[1]) == "string" then
@@ -114,7 +115,8 @@ StringView = class 'StringView' {
 
         -- Special handling for reverse() - reverse only the view portion
         if key == "reverse" then
-          local view_str = self._str:sub(self._start, self._start + self._len - 1)
+          local view_str = self._str:sub(
+            self._start, self._start + self._len - 1)
           return view_str:reverse()
         end
 

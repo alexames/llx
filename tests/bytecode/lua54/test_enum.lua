@@ -80,7 +80,8 @@ describe('bytecode enum', function()
   end)
 
   describe('enum object identity', function()
-    it('should return the same object for forward and reverse lookups', function()
+    it('should return the same object for forward '
+      .. 'and reverse lookups', function()
       local opcodes = enum {
         [0] = 'MOVE',
         [1] = 'LOADI',
@@ -145,7 +146,8 @@ describe('bytecode enum', function()
   end)
 
   describe('multiple entries', function()
-    it('should handle many entries with correct bidirectional lookups', function()
+    it('should handle many entries with correct '
+      .. 'bidirectional lookups', function()
       local tags = enum {
         [0] = 'LUA_VNIL',
         [1] = 'LUA_VFALSE',

@@ -105,13 +105,15 @@ describe('Tuple', function()
       expect(hash.hash(t1)).to_not.be_equal_to(hash.hash(t2))
     end)
 
-    it('should produce different hashes for tuples of different lengths', function()
+    it('should produce different hashes for tuples '
+      .. 'of different lengths', function()
       local t1 = Tuple{1, 2}
       local t2 = Tuple{1, 2, 3}
       expect(hash.hash(t1)).to_not.be_equal_to(hash.hash(t2))
     end)
 
-    it('should produce different hashes for tuples with same elements in different order', function()
+    it('should produce different hashes for tuples with '
+      .. 'same elements in different order', function()
       local t1 = Tuple{1, 2, 3}
       local t2 = Tuple{3, 2, 1}
       expect(hash.hash(t1)).to_not.be_equal_to(hash.hash(t2))
@@ -123,7 +125,8 @@ describe('Tuple', function()
       expect(hash.hash(t1)).to.be_equal_to(hash.hash(t2))
     end)
 
-    it('should produce different hashes for tuples with different element types', function()
+    it('should produce different hashes for tuples with '
+      .. 'different element types', function()
       local t1 = Tuple{1, 2}
       local t2 = Tuple{'1', '2'}
       expect(hash.hash(t1)).to_not.be_equal_to(hash.hash(t2))

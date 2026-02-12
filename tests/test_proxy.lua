@@ -262,13 +262,15 @@ describe('Proxy', function()
       expect(p1 < p2).to.be_false()
     end)
 
-    it('should support less than or equal (proxy <= proxy) with equal values', function()
+    it('should support less than or equal '
+      .. '(proxy <= proxy) with equal values', function()
       local p1 = Proxy(1)
       local p2 = Proxy(1)
       expect(p1 <= p2).to.be_true()
     end)
 
-    it('should correctly evaluate less than or equal when strictly less', function()
+    it('should correctly evaluate less than or equal '
+      .. 'when strictly less', function()
       local p1 = Proxy(1)
       local p2 = Proxy(2)
       expect(p1 <= p2).to.be_true()
@@ -280,17 +282,20 @@ describe('Proxy', function()
       expect(p1 <= p2).to.be_false()
     end)
 
-    it('should support less than with number on right (proxy < number)', function()
+    it('should support less than with number on right '
+      .. '(proxy < number)', function()
       local p = Proxy(1)
       expect(p < 5).to.be_true()
     end)
 
-    it('should support less than with number on left (number < proxy)', function()
+    it('should support less than with number on left '
+      .. '(number < proxy)', function()
       local p = Proxy(5)
       expect(1 < p).to.be_true()
     end)
 
-    it('should support less than or equal with number (proxy <= number)', function()
+    it('should support less than or equal with number '
+      .. '(proxy <= number)', function()
       local p = Proxy(5)
       expect(p <= 5).to.be_true()
     end)
@@ -445,7 +450,8 @@ describe('Proxy', function()
   end)
 
   describe('value swapping', function()
-    it('should reflect new value after set_proxy_value in arithmetic', function()
+    it('should reflect new value after set_proxy_value '
+      .. 'in arithmetic', function()
       local p = Proxy(10)
       expect(p + 1).to.be_equal_to(11)
       set_proxy_value(p, 20)

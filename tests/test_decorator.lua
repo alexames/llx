@@ -141,7 +141,8 @@ describe('Decorator', function()
       expect(result.decorator_table[1]).to.be_equal_to(d)
     end)
 
-    it('should allow chaining custom decorators with base decorators', function()
+    it('should allow chaining custom decorators with '
+      .. 'base decorators', function()
       local MyDecorator = class 'MyDecorator' : extends(Decorator) {
         decorate = function(self, target, name, value)
           return target, name, value

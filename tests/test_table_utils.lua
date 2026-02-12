@@ -31,7 +31,8 @@ describe('table utilities', function()
   describe('entries', function()
     it('should return key-value pairs as a list of lists', function()
       local t = {x = 10, y = 20}
-      local result = llx.Table.entries(t):sort(function(a, b) return a[1] < b[1] end)
+      local result = llx.Table.entries(t):sort(
+        function(a, b) return a[1] < b[1] end)
       expect(result[1]).to.be_equal_to(llx.List{'x', 10})
       expect(result[2]).to.be_equal_to(llx.List{'y', 20})
     end)

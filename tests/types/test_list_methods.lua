@@ -161,7 +161,10 @@ describe('List Methods', function()
 
     it('should return group order', function()
       local list = llx.List{1, 2, 3, 4, 5}
-      local groups, order = list:group_by(function(x) return x % 2 == 0 and 'even' or 'odd' end)
+      local groups, order = list:group_by(
+        function(x)
+          return x % 2 == 0 and 'even' or 'odd'
+        end)
 
       expect(order[1]).to.be_equal_to('odd')
       expect(order[2]).to.be_equal_to('even')

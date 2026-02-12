@@ -110,7 +110,8 @@ describe('bytestream', function()
       local data = 'test data'
       local stream1 = ByteStream(data)
       local stream2 = ByteStream(data)
-      expect(stream1:read_literal(9)).to.be_equal_to(stream2:read_string_vector(9))
+      expect(stream1:read_literal(9))
+        .to.be_equal_to(stream2:read_string_vector(9))
     end)
   end)
 
@@ -154,7 +155,8 @@ describe('bytestream', function()
     it('should read multi-byte varint for value 300', function()
       -- 300 = 2 * 128 + 44
       -- First byte: 0x02 (high bit clear = more bytes, value bits = 2)
-      -- Second byte: 0x80 | 0x2C = 0xAC (high bit set = last byte, value bits = 44)
+      -- Second byte: 0x80 | 0x2C = 0xAC
+      -- (high bit set = last byte, value bits = 44)
       -- Result: (2 << 7) | 44 = 256 + 44 = 300
       local stream = ByteStream(string.char(0x02, 0xAC))
       expect(stream:read_varint()).to.be_equal_to(300)

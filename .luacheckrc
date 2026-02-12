@@ -6,7 +6,7 @@ std = "lua54"
 -- definitions and cross-references without flagging them as globals.
 allow_defined = true
 
-max_line_length = false
+max_line_length = 80
 
 ignore = {
   "_M",   -- module return table, assigned but consumed by require()

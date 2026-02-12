@@ -251,7 +251,8 @@ end
 -- @return A table of lowercased word strings
 local function split_words(s)
   -- Insert a separator before uppercase letters that follow lowercase or
-  -- before the last letter of a consecutive uppercase run (e.g. HTMLParser -> HTML_Parser)
+  -- before the last letter of a consecutive uppercase run
+  -- (e.g. HTMLParser -> HTML_Parser)
   local spaced = s:gsub('(%u+)(%u%l)', '%1 %2')
   spaced = spaced:gsub('(%l)(%u)', '%1 %2')
   local words = {}
@@ -301,7 +302,8 @@ function String:is_digit()
   return #self > 0 and self:find('^%d+$') ~= nil
 end
 
---- Returns true if the string is non-empty and contains only letters and digits.
+--- Returns true if the string is non-empty and contains
+-- only letters and digits.
 -- @return boolean
 function String:is_alnum()
   return #self > 0 and self:find('^%w+$') ~= nil

@@ -18,7 +18,8 @@ method = class 'method' {
     for _, decorator in ipairs(function_args.decorators or {}) do
       underlying_function = decorator(underlying_function)
     end
-    self.underlying_function = type_check_decorator(underlying_function, function_args.types)
+    self.underlying_function = type_check_decorator(
+      underlying_function, function_args.types)
   end;
 
   __call = function(self, ...)
@@ -32,6 +33,7 @@ return _M
 -- Improve lists so they are intrinsically typed
 -- Add a dict type checker
 -- Add a tuple type checker, both intrinsically typed and not
--- refactor error message to just return a string, and allow them to compose better
+-- refactor error message to just return a string,
+-- and allow them to compose better
 -- Add examples of other things that can be checked for, like even numbers
 -- better handling of metatable/userdata types

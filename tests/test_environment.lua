@@ -28,7 +28,8 @@ describe('environment', function()
       expect(proxy.my_var).to.be_equal_to(42)
     end)
 
-    it('should make function assignments in environment callable via proxy', function()
+    it('should make function assignments in environment '
+      .. 'callable via proxy', function()
       local env, proxy = environment.create_module_environment()
       env.add = function(a, b) return a + b end
       expect(proxy.add(10, 20)).to.be_equal_to(30)
@@ -66,7 +67,8 @@ describe('environment', function()
       end).to.throw()
     end)
 
-    it('should error when assigning to proxy even after environment assignment', function()
+    it('should error when assigning to proxy even after '
+      .. 'environment assignment', function()
       local env, proxy = environment.create_module_environment()
       env.existing = 123
       expect(function()
@@ -85,7 +87,8 @@ describe('environment', function()
   end)
 
   describe('environment __index errors on missing fields', function()
-    it('should error when accessing non-existent field on environment', function()
+    it('should error when accessing non-existent field '
+      .. 'on environment', function()
       local env, proxy = environment.create_module_environment()
       expect(function()
         local _ = env.totally_nonexistent_field_xyz
@@ -147,7 +150,8 @@ describe('environment', function()
       end).to.throw()
     end)
 
-    it('should allow environment assignments to shadow using_module symbols', function()
+    it('should allow environment assignments to shadow '
+      .. 'using_module symbols', function()
       local mod_a = {value = 'from_module'}
       local env, proxy = environment.create_module_environment({mod_a})
       -- Before assignment, reads the using_module value

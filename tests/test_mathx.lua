@@ -170,7 +170,8 @@ describe('mathx', function()
       expect(llx.mathx.median({3, 1, 2})).to.be_equal_to(2)
     end)
 
-    it('should return the average of two middle values for even-length', function()
+    it('should return the average of two middle values '
+      .. 'for even-length', function()
       expect(llx.mathx.median({1, 2, 3, 4})).to.be_equal_to(2.5)
     end)
 
@@ -217,7 +218,8 @@ describe('mathx', function()
       expect(llx.mathx.lcm(7, 7)).to.be_equal_to(7)
     end)
 
-    it('should avoid intermediate overflow by dividing before multiplying', function()
+    it('should avoid intermediate overflow by dividing '
+      .. 'before multiplying', function()
       -- Two large numbers whose product would overflow but whose LCM fits
       local a = 2^40
       local b = 2^40 * 3

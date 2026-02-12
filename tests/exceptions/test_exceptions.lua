@@ -10,8 +10,10 @@ local InvalidArgumentTypeException = llx.exceptions.InvalidArgumentTypeException
 local NotImplementedException = llx.exceptions.NotImplementedException
 local RuntimeError = llx.exceptions.RuntimeError
 local SchemaException = llx.exceptions.SchemaException
-local SchemaFieldTypeMismatchException = llx.exceptions.SchemaFieldTypeMismatchException
-local SchemaConstraintFailureException = llx.exceptions.SchemaConstraintFailureException
+local SchemaFieldTypeMismatchException =
+  llx.exceptions.SchemaFieldTypeMismatchException
+local SchemaConstraintFailureException =
+  llx.exceptions.SchemaConstraintFailureException
 local SchemaMissingFieldException = llx.exceptions.SchemaMissingFieldException
 local TypeError = llx.exceptions.TypeError
 local ValueException = llx.exceptions.ValueException
@@ -90,7 +92,8 @@ describe('ExceptionGroup', function()
     expect(eg.exception_list).to_not.be_nil()
   end)
 
-  it('should have the correct number of exceptions in exception_list', function()
+  it('should have the correct number of exceptions '
+    .. 'in exception_list', function()
     local e1 = Exception('error one')
     local e2 = Exception('error two')
     local eg = ExceptionGroup({e1, e2})
@@ -720,17 +723,20 @@ describe('exception type isolation', function()
     expect(isinstance(e, IndexError)).to.be_false()
   end)
 
-  it('should not consider RuntimeError an instance of NotImplementedException', function()
+  it('should not consider RuntimeError an instance of '
+    .. 'NotImplementedException', function()
     local e = RuntimeError('x')
     expect(isinstance(e, NotImplementedException)).to.be_false()
   end)
 
-  it('should not consider SchemaException an instance of InvalidArgumentException', function()
+  it('should not consider SchemaException an instance of '
+    .. 'InvalidArgumentException', function()
     local e = SchemaException({'p'}, 'r')
     expect(isinstance(e, InvalidArgumentException)).to.be_false()
   end)
 
-  it('should not consider InvalidArgumentException an instance of SchemaException', function()
+  it('should not consider InvalidArgumentException '
+    .. 'an instance of SchemaException', function()
     local e = InvalidArgumentException(1, 'reason')
     expect(isinstance(e, SchemaException)).to.be_false()
   end)

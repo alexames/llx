@@ -84,7 +84,8 @@ describe('ListTest', function()
     expect(list:sub(6, 1, -1)).to.be_equal_to({6, 5, 4, 3, 2, 1})
   end)
 
-  it('should return reversed sublist with step -2 from indices 6 to 1', function()
+  it('should return reversed sublist with step -2 '
+    .. 'from indices 6 to 1', function()
     local list = List{1, 2, 3, 4, 5, 6}
     expect(list:sub(6, 1, -2)).to.be_equal_to({6, 4, 2})
   end)
@@ -94,7 +95,8 @@ describe('ListTest', function()
     expect(list:sub(1, 0)).to.be_equal_to({})
   end)
 
-  it('should return full list when sub is called with only start index', function()
+  it('should return full list when sub is called with '
+    .. 'only start index', function()
     local list = List{1, 2, 3, 4, 5, 6}
     expect(list:sub(0)).to.be_equal_to({1, 2, 3, 4, 5, 6})
   end)

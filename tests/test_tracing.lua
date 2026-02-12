@@ -71,7 +71,8 @@ end)
 -------------------------------------------------------------------------------
 
 describe('FunctionRegistry', function()
-  it('should wrap assigned functions as RegisteredFunction instances', function()
+  it('should wrap assigned functions as '
+    .. 'RegisteredFunction instances', function()
     local registry = FunctionRegistry('MyModule')
     registry.add = function(a, b) return a + b end
     expect(isinstance(registry.add, RegisteredFunction)).to.be_true()
@@ -505,7 +506,8 @@ describe('Tracer', function()
     expect(r2.index).to.be_equal_to(2)
   end)
 
-  it('should share the same invocation source for multiple return values', function()
+  it('should share the same invocation source for '
+    .. 'multiple return values', function()
     local tracer = tracing.tracer
     local MyClass = class 'TracerTestClass6' {
       ['duo' | tracer] = function(self, a, b) return a + b, a - b end,
@@ -572,7 +574,8 @@ describe('generate_invocation_graph', function()
     expect(#graph.nodes).to.be_greater_than(1)
   end)
 
-  it('should produce a graph that can be evaluated to get the same result', function()
+  it('should produce a graph that can be evaluated '
+    .. 'to get the same result', function()
     local tracer = tracing.tracer
     local MyClass = class 'GraphTestClass4' {
       ['inc' | tracer] = function(self, x) return x + 1 end,

@@ -27,7 +27,8 @@ describe('Boolean', function()
   end)
 
   describe('__tostring', function()
-    it('should return a default table string since Boolean has no metatable', function()
+    it('should return a default table string since Boolean '
+      .. 'has no metatable', function()
       expect(tostring(Boolean)).to.start_with('table: ')
     end)
   end)
@@ -267,11 +268,15 @@ describe('Integer', function()
       expect(math.type(result)).to.be_equal_to('integer')
     end)
 
-    it('should error when converting a float because tointeger is not in the module environment', function()
+    it('should error when converting a float because '
+      .. 'tointeger is not in the module environment',
+      function()
       expect(function() Integer(3.0) end).to.throw()
     end)
 
-    it('should error when converting a numeric string because tointeger is not in the module environment', function()
+    it('should error when converting a numeric string '
+      .. 'because tointeger is not in the module environment',
+      function()
       expect(function() Integer('7') end).to.throw()
     end)
   end)
@@ -622,7 +627,9 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when value is not a multiple because SchemaConstraintFailureException is unavailable', function()
+      it('should error when value is not a multiple because '
+        .. 'SchemaConstraintFailureException is unavailable',
+        function()
         expect(function()
           Number.__validate(7, { multiple_of = 3 }, {}, 0, nil)
         end).to.throw()
@@ -645,7 +652,9 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when value is less than minimum because SchemaConstraintFailureException is unavailable', function()
+      it('should error when value is less than minimum '
+        .. 'because SchemaConstraintFailureException is '
+        .. 'unavailable', function()
         expect(function()
           Number.__validate(3, { minimum = 5 }, {}, 0, nil)
         end).to.throw()
@@ -658,13 +667,18 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when value equals exclusive_minimum because SchemaConstraintFailureException is unavailable', function()
+      it('should error when value equals exclusive_minimum '
+        .. 'because SchemaConstraintFailureException is '
+        .. 'unavailable', function()
         expect(function()
           Number.__validate(5, { exclusive_minimum = 5 }, {}, 0, nil)
         end).to.throw()
       end)
 
-      it('should error when value is less than exclusive_minimum because SchemaConstraintFailureException is unavailable', function()
+      it('should error when value is less than '
+        .. 'exclusive_minimum because '
+        .. 'SchemaConstraintFailureException is unavailable',
+        function()
         expect(function()
           Number.__validate(3, { exclusive_minimum = 5 }, {}, 0, nil)
         end).to.throw()
@@ -682,7 +696,9 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when value is greater than maximum because SchemaConstraintFailureException is unavailable', function()
+      it('should error when value is greater than maximum '
+        .. 'because SchemaConstraintFailureException is '
+        .. 'unavailable', function()
         expect(function()
           Number.__validate(10, { maximum = 5 }, {}, 0, nil)
         end).to.throw()
@@ -695,13 +711,18 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when value equals exclusive_maximum because SchemaConstraintFailureException is unavailable', function()
+      it('should error when value equals exclusive_maximum '
+        .. 'because SchemaConstraintFailureException is '
+        .. 'unavailable', function()
         expect(function()
           Number.__validate(5, { exclusive_maximum = 5 }, {}, 0, nil)
         end).to.throw()
       end)
 
-      it('should error when value is greater than exclusive_maximum because SchemaConstraintFailureException is unavailable', function()
+      it('should error when value is greater than '
+        .. 'exclusive_maximum because '
+        .. 'SchemaConstraintFailureException is unavailable',
+        function()
         expect(function()
           Number.__validate(10, { exclusive_maximum = 5 }, {}, 0, nil)
         end).to.throw()
@@ -718,7 +739,10 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when multiple_of constraint fails even if range is ok because SchemaConstraintFailureException is unavailable', function()
+      it('should error when multiple_of constraint fails '
+        .. 'even if range is ok because '
+        .. 'SchemaConstraintFailureException is unavailable',
+        function()
         expect(function()
           Number.__validate(5, {
             minimum = 0,
@@ -837,13 +861,19 @@ describe('String', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when string length is below min_length because SchemaConstraintFailureException is unavailable', function()
+      it('should error when string length is below '
+        .. 'min_length because '
+        .. 'SchemaConstraintFailureException is unavailable',
+        function()
         expect(function()
           String.__validate('ab', { min_length = 3 }, {}, 0, nil)
         end).to.throw()
       end)
 
-      it('should error for an empty string with min_length = 1 because SchemaConstraintFailureException is unavailable', function()
+      it('should error for an empty string with '
+        .. 'min_length = 1 because '
+        .. 'SchemaConstraintFailureException is unavailable',
+        function()
         expect(function()
           String.__validate('', { min_length = 1 }, {}, 0, nil)
         end).to.throw()
@@ -861,7 +891,10 @@ describe('String', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when string length exceeds max_length because SchemaConstraintFailureException is unavailable', function()
+      it('should error when string length exceeds '
+        .. 'max_length because '
+        .. 'SchemaConstraintFailureException is unavailable',
+        function()
         expect(function()
           String.__validate('hello world', { max_length = 5 }, {}, 0, nil)
         end).to.throw()
@@ -870,11 +903,15 @@ describe('String', function()
 
     describe('pattern', function()
       it('should pass when string matches the pattern', function()
-        local ok = String.__validate('hello123', { pattern = '%d+' }, {}, 0, nil)
+        local ok = String.__validate(
+          'hello123', { pattern = '%d+' }, {}, 0, nil)
         expect(ok).to.be_true()
       end)
 
-      it('should error when string does not match the pattern because SchemaConstraintFailureException is unavailable', function()
+      it('should error when string does not match the '
+        .. 'pattern because '
+        .. 'SchemaConstraintFailureException is unavailable',
+        function()
         expect(function()
           String.__validate('hello', { pattern = '^%d+$' }, {}, 0, nil)
         end).to.throw()
@@ -885,7 +922,10 @@ describe('String', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error for a pattern anchored at start that does not match because SchemaConstraintFailureException is unavailable', function()
+      it('should error for a pattern anchored at start '
+        .. 'that does not match because '
+        .. 'SchemaConstraintFailureException is unavailable',
+        function()
         expect(function()
           String.__validate('123abc', { pattern = '^abc' }, {}, 0, nil)
         end).to.throw()
@@ -902,7 +942,10 @@ describe('String', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when min_length fails even if pattern passes because SchemaConstraintFailureException is unavailable', function()
+      it('should error when min_length fails even if '
+        .. 'pattern passes because '
+        .. 'SchemaConstraintFailureException is unavailable',
+        function()
         expect(function()
           String.__validate('a1', {
             min_length = 5,
@@ -961,7 +1004,8 @@ describe('String', function()
       expect(String.startswith('hello world', 'hello')).to.be_true()
     end)
 
-    it('should return false when string does not start with the prefix', function()
+    it('should return false when string does not start '
+      .. 'with the prefix', function()
       expect(String.startswith('hello world', 'world')).to.be_false()
     end)
 
@@ -979,7 +1023,8 @@ describe('String', function()
       expect(String.endswith('hello world', 'world')).to.be_true()
     end)
 
-    it('should return false when string does not end with the suffix', function()
+    it('should return false when string does not end '
+      .. 'with the suffix', function()
       expect(String.endswith('hello world', 'hello')).to.be_false()
     end)
 
@@ -997,7 +1042,8 @@ describe('String', function()
       expect(-'hello').to.be_equal_to('olleh')
     end)
 
-    it('should return an empty string when reversing an empty string', function()
+    it('should return an empty string when reversing '
+      .. 'an empty string', function()
       expect(-'').to.be_equal_to('')
     end)
 

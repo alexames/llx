@@ -69,14 +69,17 @@ describe('functional', function()
 
   describe('map', function()
     it('should apply function to each element', function()
-      local result = llx.functional.map(function(x) return x * 2 end, llx.functional.range(5))
+      local result = llx.functional.map(
+        function(x) return x * 2 end,
+        llx.functional.range(5))
       expect(result).to.be_equal_to(llx.List{2, 4, 6, 8})
     end)
 
     it('should work with multiple sequences', function()
       local seq1 = llx.functional.range(4)
       local seq2 = llx.functional.range(4)
-      local result = llx.functional.map(function(a, b) return a + b end, seq1, seq2)
+      local result = llx.functional.map(
+        function(a, b) return a + b end, seq1, seq2)
       expect(result).to.be_equal_to(llx.List{2, 4, 6})
     end)
   end)
@@ -84,7 +87,9 @@ describe('functional', function()
   describe('filter', function()
     it('should filter elements based on predicate', function()
       local results = llx.List{}
-      for _, v in llx.functional.filter(function(x) return x > 3 end, llx.functional.range(10)) do
+      for _, v in llx.functional.filter(
+        function(x) return x > 3 end,
+        llx.functional.range(10)) do
         results:insert(v)
       end
       expect(results).to.be_equal_to(llx.List{4, 5, 6, 7, 8, 9})
@@ -169,17 +174,23 @@ describe('functional', function()
 
   describe('accumulate', function()
     it('should create running sum', function()
-      local result = llx.functional.accumulate(llx.functional.range(5), function(a, b) return a + b end)
+      local result = llx.functional.accumulate(
+        llx.functional.range(5),
+        function(a, b) return a + b end)
       expect(result).to.be_equal_to(llx.List{1, 3, 6, 10})
     end)
 
     it('should work with initial value', function()
-      local result = llx.functional.accumulate(llx.functional.range(4), function(a, b) return a + b end, 10)
+      local result = llx.functional.accumulate(
+        llx.functional.range(4),
+        function(a, b) return a + b end, 10)
       expect(result).to.be_equal_to(llx.List{10, 11, 13, 16})
     end)
 
     it('should work with multiplication', function()
-      local result = llx.functional.accumulate(llx.functional.range(2, 6), function(a, b) return a * b end)
+      local result = llx.functional.accumulate(
+        llx.functional.range(2, 6),
+        function(a, b) return a * b end)
       expect(result).to.be_equal_to(llx.List{2, 6, 24, 120})
     end)
   end)
@@ -197,7 +208,9 @@ describe('functional', function()
     end)
 
     it('should error when n is less than 1', function()
-      expect(function() llx.functional.batched(llx.functional.range(5), 0) end).to.throw()
+      expect(function()
+        llx.functional.batched(llx.functional.range(5), 0)
+      end).to.throw()
     end)
   end)
 
@@ -230,7 +243,8 @@ describe('functional', function()
   describe('drop_while', function()
     it('should drop elements while predicate is true', function()
       local seq = llx.List{1, 2, 3, 4, 5, 6}
-      local dropped = llx.functional.drop_while(function(x) return x < 4 end, seq)
+      local dropped = llx.functional.drop_while(
+        function(x) return x < 4 end, seq)
       local results = llx.List{}
       for _, v in dropped do
         results:insert(v)
@@ -242,7 +256,8 @@ describe('functional', function()
   describe('filterfalse', function()
     it('should filter out elements where predicate is true', function()
       local seq = llx.List{1, 2, 3, 4, 5, 6}
-      local filtered = llx.functional.filterfalse(function(x) return x % 2 == 0 end, seq)
+      local filtered = llx.functional.filterfalse(
+        function(x) return x % 2 == 0 end, seq)
       local results = llx.List{}
       for _, v in filtered do
         results:insert(v)
@@ -309,7 +324,8 @@ describe('functional', function()
     it('should apply function to unpacked arguments', function()
       local seq1 = llx.List{1, 2, 3}
       local seq2 = llx.List{4, 5, 6}
-      local mapped = llx.functional.star_map(function(a, b) return a + b end, seq1, seq2)
+      local mapped = llx.functional.star_map(
+        function(a, b) return a + b end, seq1, seq2)
       local results = llx.List{}
       for _ = 1, 3 do
         results:insert(mapped())
@@ -395,18 +411,23 @@ describe('functional', function()
 
   describe('reduce', function()
     it('should reduce sequence to single value', function()
-      local result = llx.functional.reduce(llx.functional.range(5), function(a, b) return a + b end)
+      local result = llx.functional.reduce(
+        llx.functional.range(5),
+        function(a, b) return a + b end)
       expect(result).to.be_equal_to(10)
     end)
 
     it('should work with initial value', function()
-      local result = llx.functional.reduce(llx.functional.range(5), function(a, b) return a + b end, 100)
+      local result = llx.functional.reduce(
+        llx.functional.range(5),
+        function(a, b) return a + b end, 100)
       expect(result).to.be_equal_to(110)
     end)
 
     it('should work with string concatenation', function()
       local seq = llx.List{'a', 'b', 'c'}
-      local result = llx.functional.reduce(seq, function(a, b) return a .. b end, '')
+      local result = llx.functional.reduce(
+        seq, function(a, b) return a .. b end, '')
       expect(result).to.be_equal_to('abc')
     end)
   end)
@@ -463,7 +484,9 @@ describe('functional', function()
     it('should zip iterators with custom result handler', function()
       local seq1 = llx.List{1, 2, 3}
       local seq2 = llx.List{4, 5, 6}
-      local zipped = llx.functional.zip_impl({seq1, seq2}, function(t) return t[1] + t[2] end)
+      local zipped = llx.functional.zip_impl(
+        {seq1, seq2},
+        function(t) return t[1] + t[2] end)
       local results = llx.List{}
       for _, v in zipped do
         results:insert(v)
@@ -549,7 +572,8 @@ describe('functional', function()
         end
       end
 
-      local result = llx.List(llx.functional.flatmap(duplicate, llx.functional.range(4)))
+      local result = llx.List(
+        llx.functional.flatmap(duplicate, llx.functional.range(4)))
       expect(result).to.be_equal_to(llx.List{1, 1, 2, 2, 3, 3})
     end)
   end)
@@ -557,7 +581,8 @@ describe('functional', function()
   describe('partition', function()
     it('should split sequence by predicate', function()
       local function is_even(x) return x % 2 == 0 end
-      local evens, odds = llx.functional.partition(is_even, llx.functional.range(7))
+      local evens, odds = llx.functional.partition(
+        is_even, llx.functional.range(7))
 
       expect(evens).to.be_equal_to(llx.List{2, 4, 6})
       expect(odds).to.be_equal_to(llx.List{1, 3, 5})
@@ -591,14 +616,16 @@ describe('functional', function()
   describe('find_index', function()
     it('should return index of first matching element', function()
       local function is_even(x) return x % 2 == 0 end
-      local result = llx.functional.find_index(is_even, llx.functional.range(10))
+      local result = llx.functional.find_index(
+        is_even, llx.functional.range(10))
 
       expect(result).to.be_equal_to(2)
     end)
 
     it('should return nil if not found', function()
       local function is_negative(x) return x < 0 end
-      local result = llx.functional.find_index(is_negative, llx.functional.range(10))
+      local result = llx.functional.find_index(
+        is_negative, llx.functional.range(10))
 
       expect(result).to.be_nil()
     end)
@@ -773,7 +800,8 @@ describe('functional', function()
         side_effects:insert(x)
       end
 
-      local result = llx.List(llx.functional.tap(record, llx.functional.range(4)))
+      local result = llx.List(
+        llx.functional.tap(record, llx.functional.range(4)))
 
       expect(result).to.be_equal_to(llx.List{1, 2, 3})
       expect(side_effects).to.be_equal_to(llx.List{1, 2, 3})

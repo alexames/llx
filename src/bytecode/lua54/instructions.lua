@@ -106,7 +106,8 @@ local function KPROTO(arg)
   }
 end
 
---- Create a composite opcode argument descriptor from a list of field descriptors.
+--- Create a composite opcode argument descriptor from a
+-- list of field descriptors.
 -- Combines multiple field descriptors into a single representation.
 -- @param args array of field descriptors (R, K, RK, UpValue, Value, KPROTO)
 -- @return a composite descriptor with repr and str methods
@@ -249,7 +250,8 @@ local opcode_args = {
 --- Extract a bitfield from a 32-bit instruction.
 -- @param start the starting bit position (0-indexed from LSB)
 -- @param size the number of bits to extract
--- @param signed if truthy, interpret the field as signed using excess-K encoding
+-- @param signed if truthy, interpret the field as signed
+--   using excess-K encoding
 -- @return a function that extracts the field from an instruction object
 local function extract_bits(start, size, signed)
   local bitmask = ~(~0 << size)
@@ -296,7 +298,10 @@ local instruction_metatable = {
     local args = opcode_args[op]
     local instruction_string = string.format(
       'Instruction{i=%s%s},', op.name, args:repr(self))
-    return string.format('%-50s\t--[[0x%08X%s]]', instruction_string, self._bytecode, args:str(self))
+    return string.format(
+      '%-50s\t--[[0x%08X%s]]',
+      instruction_string, self._bytecode,
+      args:str(self))
   end,
 }
 
@@ -307,7 +312,9 @@ instruction_metatable.__index = instruction_metatable
 -- @param proto the function prototype containing constants and upvalue names
 -- @return a new Instruction object with field accessor methods
 function Instruction(bytecode, proto)
-  return setmetatable({_bytecode = bytecode, _proto=proto}, instruction_metatable)
+  return setmetatable(
+    {_bytecode = bytecode, _proto=proto},
+    instruction_metatable)
 end
 
 return _M

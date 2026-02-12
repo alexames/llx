@@ -73,11 +73,13 @@ describe('Signature', function()
     it('should create a Function with the correct returns', function()
       local sig = Signature{params={}, returns={String}}
       local target = {}
-      local _, _, wrapped = sig:decorate(target, 'f', function() return 'hi' end)
+      local _, _, wrapped = sig:decorate(
+        target, 'f', function() return 'hi' end)
       expect(wrapped.returns[1]).to.be_equal_to(String)
     end)
 
-    it('should create a Function that holds the original function in func', function()
+    it('should create a Function that holds the original '
+      .. 'function in func', function()
       local original = function() return 42 end
       local sig = Signature{params={}, returns={Integer}}
       local _, _, wrapped = sig:decorate({}, 'f', original)
@@ -85,7 +87,8 @@ describe('Signature', function()
     end)
   end)
 
-  describe('Function __call (precondition and postcondition checking)', function()
+  describe('Function __call (precondition and postcondition '
+    .. 'checking)', function()
     it('should call the underlying function and return its result', function()
       local MyClass = class 'SigTestCallClass' {
         ['compute' | Signature{params={'SigTestCallClass', Integer, Integer},
@@ -101,8 +104,10 @@ describe('Signature', function()
 
     it('should pass when all argument types are correct', function()
       local MyClass = class 'SigTestPassClass' {
-        ['sum' | Signature{params={'SigTestPassClass', Integer, Integer, Integer},
-                            returns={Integer}}] =
+        ['sum' | Signature{
+            params={'SigTestPassClass',
+                    Integer, Integer, Integer},
+            returns={Integer}}] =
         function(self, a, b, c)
           return a + b + c
         end,
@@ -113,7 +118,8 @@ describe('Signature', function()
       expect(result).to.be_equal_to(6)
     end)
 
-    it('should error when an argument type is wrong (precondition fail)', function()
+    it('should error when an argument type is wrong '
+      .. '(precondition fail)', function()
       local MyClass = class 'SigTestPreClass' {
         ['add' | Signature{params={'SigTestPreClass', Integer, Integer},
                             returns={Integer}}] =
@@ -126,7 +132,8 @@ describe('Signature', function()
       expect(success).to.be_false()
     end)
 
-    it('should error when the return type is wrong (postcondition fail)', function()
+    it('should error when the return type is wrong '
+      .. '(postcondition fail)', function()
       local MyClass = class 'SigTestPostClass' {
         ['bad_return' | Signature{params={}, returns={Integer}}] =
         function(self)
@@ -233,7 +240,8 @@ describe('Signature', function()
       expect(tc).to_not.be_nil()
     end)
 
-    it('should have a testfunc on the tc instance that works correctly', function()
+    it('should have a testfunc on the tc instance that '
+      .. 'works correctly', function()
       local tc = signature_module.tc
       local result = tc:testfunc(1, 2, 3)
       expect(result).to.be_equal_to(6)

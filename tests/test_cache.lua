@@ -73,7 +73,8 @@ describe('Cache', function()
       expect(call_count).to.be_equal_to(2)
     end)
 
-    it('should cache results for multiple argument sets independently', function()
+    it('should cache results for multiple argument sets '
+      .. 'independently', function()
       local call_count = 0
       local fn = function(a, b)
         call_count = call_count + 1
@@ -165,7 +166,8 @@ describe('Cache', function()
       expect(call_count).to.be_equal_to(1)
     end)
 
-    it('should compute separately for different args in class methods', function()
+    it('should compute separately for different args '
+      .. 'in class methods', function()
       local call_count = 0
       local MyClass = class 'CachedClass2' {
         ['compute' | cache] = function(self, x)
@@ -191,7 +193,8 @@ describe('Cache', function()
       local obj2 = MyClass()
       -- The cache is per-function (shared across all instances via the class
       -- method). Since both instances are empty tables, they hash identically,
-      -- so the cache treats obj1:compute(5) and obj2:compute(5) as the same key.
+      -- so the cache treats obj1:compute(5) and
+      -- obj2:compute(5) as the same key.
       expect(obj1:compute(5)).to.be_equal_to(6)
       expect(obj2:compute(5)).to.be_equal_to(6)
       expect(obj1:compute(5)).to.be_equal_to(6)

@@ -77,7 +77,11 @@ describe('expect.extend', function()
     local ok = pcall(function()
       test_api.expect_extend(123, function()
         return function()
-          return {pass = true, actual = '', positive_message = '', negative_message = '', expected = ''}
+          return {
+            pass = true, actual = '',
+            positive_message = '',
+            negative_message = '', expected = ''
+          }
         end
       end)
     end)

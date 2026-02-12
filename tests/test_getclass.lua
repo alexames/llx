@@ -61,15 +61,18 @@ describe('getclass', function()
   end)
 
   describe('with plain table values', function()
-    it('should return types.Table for an empty table without metatable', function()
+    it('should return types.Table for an empty table '
+      .. 'without metatable', function()
       expect(getclass({})).to.be_equal_to(types.Table)
     end)
 
-    it('should return types.Table for a non-empty table without metatable', function()
+    it('should return types.Table for a non-empty table '
+      .. 'without metatable', function()
       expect(getclass({1, 2, 3})).to.be_equal_to(types.Table)
     end)
 
-    it('should return types.Table for a table with string keys and no metatable', function()
+    it('should return types.Table for a table with string '
+      .. 'keys and no metatable', function()
       expect(getclass({a = 1, b = 2})).to.be_equal_to(types.Table)
     end)
   end)
@@ -115,7 +118,8 @@ describe('getclass', function()
       expect(getclass(f)).to.be_equal_to(mt)
     end)
 
-    it('should return different metatables for instances of different classes', function()
+    it('should return different metatables for instances '
+      .. 'of different classes', function()
       local Foo = class 'Foo' {}
       local Bar = class 'Bar' {}
       local f = Foo()
@@ -123,14 +127,16 @@ describe('getclass', function()
       expect(getclass(f)).to_not.be_equal_to(getclass(b))
     end)
 
-    it('should return the derived class metatable for a derived instance', function()
+    it('should return the derived class metatable '
+      .. 'for a derived instance', function()
       local Base = class 'Base' {}
       local Derived = class 'Derived' : extends(Base) {}
       local d = Derived()
       expect(getclass(d)).to.be_equal_to(getmetatable(d))
     end)
 
-    it('should return different metatables for base and derived instances', function()
+    it('should return different metatables for base '
+      .. 'and derived instances', function()
       local Base = class 'Base' {}
       local Derived = class 'Derived' : extends(Base) {}
       local b = Base()

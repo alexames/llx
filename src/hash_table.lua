@@ -13,7 +13,8 @@ local class = class_module.class
 -- By hashing the keys, any type that has a __hash metamethod can be used as a
 -- key, which is useful for things like Tuples where you may have different
 -- Lua objects that contain the same values, and thus hash the same.
--- Keys that hash to the same value are treated as the same key (hash-as-identity).
+-- Keys that hash to the same value are treated as the
+-- same key (hash-as-identity).
 HashTable = class 'HashTable' {
   __init = function(self)
   end,

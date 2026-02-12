@@ -15,8 +15,10 @@ describe('Table', function()
 
       expect(copy).to.match_table(original)
       expect(copy).to_not.be_equal_to(original) -- Different objects
-      expect(copy.b).to_not.be_equal_to(original.b) -- Nested table is also copied
-      expect(copy.b.d).to_not.be_equal_to(original.b.d) -- Deeply nested table is copied
+      -- Nested table is also copied
+      expect(copy.b).to_not.be_equal_to(original.b)
+      -- Deeply nested table is copied
+      expect(copy.b.d).to_not.be_equal_to(original.b.d)
     end)
 
     it('should handle circular references', function()

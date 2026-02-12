@@ -92,12 +92,14 @@ end)
 
 describe('Union', function()
   describe('__isinstance', function()
-    it('should return true when value matches the first type in the list', function()
+    it('should return true when value matches the first '
+      .. 'type in the list', function()
       local StringOrNumber = Union{String, Number}
       expect(StringOrNumber:__isinstance('hello')).to.be_true()
     end)
 
-    it('should return true when value matches the second type in the list', function()
+    it('should return true when value matches the second '
+      .. 'type in the list', function()
       local StringOrNumber = Union{String, Number}
       expect(StringOrNumber:__isinstance(42)).to.be_true()
     end)
@@ -133,17 +135,20 @@ describe('Union', function()
   end)
 
   describe('isinstance integration', function()
-    it('should match a string via isinstance for Union{String, Number}', function()
+    it('should match a string via isinstance for '
+      .. 'Union{String, Number}', function()
       local StringOrNumber = Union{String, Number}
       expect(isinstance('hello', StringOrNumber)).to.be_true()
     end)
 
-    it('should match a number via isinstance for Union{String, Number}', function()
+    it('should match a number via isinstance for '
+      .. 'Union{String, Number}', function()
       local StringOrNumber = Union{String, Number}
       expect(isinstance(42, StringOrNumber)).to.be_true()
     end)
 
-    it('should not match a boolean via isinstance for Union{String, Number}', function()
+    it('should not match a boolean via isinstance for '
+      .. 'Union{String, Number}', function()
       local StringOrNumber = Union{String, Number}
       expect(isinstance(true, StringOrNumber)).to.be_false()
     end)
@@ -213,7 +218,8 @@ describe('Optional', function()
       expect(isinstance('hello', OptString)).to.be_true()
     end)
 
-    it('should not match a number via isinstance for Optional String', function()
+    it('should not match a number via isinstance for '
+      .. 'Optional String', function()
       local OptString = Optional{String}
       expect(isinstance(42, OptString)).to.be_false()
     end)

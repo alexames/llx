@@ -48,7 +48,9 @@ local function value_to_string(val, depth, max_depth, visited)
 
   if is_array_like(val) then
     for i = 1, #val do
-      table.insert(parts, value_to_string(val[i], depth + 1, max_depth, visited))
+      table.insert(parts,
+        value_to_string(
+          val[i], depth + 1, max_depth, visited))
     end
   else
     local keys = {}
@@ -63,7 +65,10 @@ local function value_to_string(val, depth, max_depth, visited)
     end)
     for _, k in ipairs(keys) do
       local key_str = type(k) == 'string' and k or '[' .. tostring(k) .. ']'
-      table.insert(parts, key_str .. ' = ' .. value_to_string(val[k], depth + 1, max_depth, visited))
+      table.insert(parts,
+        key_str .. ' = '
+        .. value_to_string(
+          val[k], depth + 1, max_depth, visited))
     end
   end
 
@@ -83,7 +88,10 @@ local function negate(predicate)
   return function(actual)
     local result = predicate(actual)
     if type(result) ~= 'table' or result.pass == nil then
-      error('Matcher must return a table with pass, actual, positive_message, negative_message, and expected fields', 2)
+      error('Matcher must return a table with '
+        .. 'pass, actual, positive_message, '
+        .. 'negative_message, and expected '
+        .. 'fields', 2)
     end
     return {
       pass = not result.pass,
@@ -212,7 +220,10 @@ local function listwise(predicate_generator, expected)
       local predicate = predicate_generator(expected[i])
       local local_result = predicate(actual[i])
       if type(local_result) ~= 'table' or local_result.pass == nil then
-        error('Matcher must return a table with pass, actual, positive_message, negative_message, and expected fields', 2)
+        error('Matcher must return a table with '
+        .. 'pass, actual, positive_message, '
+        .. 'negative_message, and expected '
+        .. 'fields', 2)
       end
       local pass = local_result.pass
       local act = local_result.actual
@@ -253,7 +264,10 @@ local function tablewise(predicate_generator, expected)
       local predicate = predicate_generator(expected[k])
       local local_result = predicate(actual[k])
       if type(local_result) ~= 'table' or local_result.pass == nil then
-        error('Matcher must return a table with pass, actual, positive_message, negative_message, and expected fields', 2)
+        error('Matcher must return a table with '
+        .. 'pass, actual, positive_message, '
+        .. 'negative_message, and expected '
+        .. 'fields', 2)
       end
       local pass = local_result.pass
       msg = local_result.positive_message
@@ -277,7 +291,9 @@ local function near(expected, epsilon)
       pass = diff <= epsilon,
       actual = tostring(actual),
       positive_message = string.format('be within %s of', tostring(epsilon)),
-      negative_message = string.format('not be within %s of', tostring(epsilon)),
+      negative_message = string.format(
+        'not be within %s of',
+        tostring(epsilon)),
       expected = tostring(expected)
     }
   end
@@ -329,8 +345,12 @@ local function is_between(min, max)
     return {
       pass = actual >= min and actual <= max,
       actual = tostring(actual),
-      positive_message = string.format('be between %s and %s', tostring(min), tostring(max)),
-      negative_message = string.format('not be between %s and %s', tostring(min), tostring(max)),
+      positive_message = string.format(
+        'be between %s and %s',
+        tostring(min), tostring(max)),
+      negative_message = string.format(
+        'not be between %s and %s',
+        tostring(min), tostring(max)),
       expected = string.format('[%s, %s]', tostring(min), tostring(max))
     }
   end
@@ -396,10 +416,15 @@ end
 local function has_length(n)
   return function(actual)
     local actual_type = type(actual)
-    local has_len = (actual_type == 'string' or actual_type == 'table') and #actual == n
+    local has_len = (actual_type == 'string'
+      or actual_type == 'table') and #actual == n
     return {
       pass = has_len,
-      actual = tostring(actual) .. ' (length: ' .. ((actual_type == 'string' or actual_type == 'table') and tostring(#actual) or 'N/A') .. ')',
+      actual = tostring(actual) .. ' (length: '
+        .. ((actual_type == 'string'
+          or actual_type == 'table')
+          and tostring(#actual) or 'N/A')
+        .. ')',
       positive_message = 'have length',
       negative_message = 'not have length',
       expected = tostring(n)
@@ -455,7 +480,10 @@ local function all_of(...)
     for _, matcher in ipairs(matchers) do
       local result = matcher(actual)
       if type(result) ~= 'table' or result.pass == nil then
-        error('Matcher must return a table with pass, actual, positive_message, negative_message, and expected fields', 2)
+        error('Matcher must return a table with '
+        .. 'pass, actual, positive_message, '
+        .. 'negative_message, and expected '
+        .. 'fields', 2)
       end
       if not result.pass then
         return {
@@ -484,7 +512,10 @@ local function any_of(...)
     for _, matcher in ipairs(matchers) do
       local result = matcher(actual)
       if type(result) ~= 'table' or result.pass == nil then
-        error('Matcher must return a table with pass, actual, positive_message, negative_message, and expected fields', 2)
+        error('Matcher must return a table with '
+        .. 'pass, actual, positive_message, '
+        .. 'negative_message, and expected '
+        .. 'fields', 2)
       end
       if result.pass then
         return {
@@ -513,7 +544,10 @@ local function none_of(...)
     for _, matcher in ipairs(matchers) do
       local result = matcher(actual)
       if type(result) ~= 'table' or result.pass == nil then
-        error('Matcher must return a table with pass, actual, positive_message, negative_message, and expected fields', 2)
+        error('Matcher must return a table with '
+        .. 'pass, actual, positive_message, '
+        .. 'negative_message, and expected '
+        .. 'fields', 2)
       end
       if result.pass then
         return {
@@ -553,7 +587,9 @@ local function is_instance_of(expected_class)
 
     -- Fallback: check metatable
     local mt = getmetatable(actual)
-    local is_instance = mt == expected_class or (mt and mt.__isinstance and mt:__isinstance(actual))
+    local is_instance = mt == expected_class
+      or (mt and mt.__isinstance
+        and mt:__isinstance(actual))
     return {
       pass = is_instance,
       actual = tostring(actual),
@@ -597,15 +633,23 @@ local function table_diff(actual, expected)
   -- Check for differing and extra keys in actual
   for k, v in pairs(actual) do
     if expected[k] == nil then
-      table.insert(diffs, '  extra key: ' .. tostring(k) .. ' = ' .. value_to_string(v))
+      table.insert(diffs,
+        '  extra key: ' .. tostring(k)
+        .. ' = ' .. value_to_string(v))
     elseif not deep_equals(v, expected[k]) then
-      table.insert(diffs, '  differs at key ' .. tostring(k) .. ': got ' .. value_to_string(v) .. ', expected ' .. value_to_string(expected[k]))
+      table.insert(diffs,
+        '  differs at key ' .. tostring(k)
+        .. ': got ' .. value_to_string(v)
+        .. ', expected '
+        .. value_to_string(expected[k]))
     end
   end
   -- Check for missing keys
   for k, v in pairs(expected) do
     if actual[k] == nil then
-      table.insert(diffs, '  missing key: ' .. tostring(k) .. ' = ' .. value_to_string(v))
+      table.insert(diffs,
+        '  missing key: ' .. tostring(k)
+        .. ' = ' .. value_to_string(v))
     end
   end
   return table.concat(diffs, '\n')
@@ -648,19 +692,29 @@ local function have_property(key, expected_value)
         actual = tostring(actual) .. ' (type: ' .. type(actual) .. ')',
         positive_message = 'have property',
         negative_message = 'not have property',
-        expected = string.format('%s = %s', tostring(key), tostring(expected_value))
+        expected = string.format('%s = %s',
+          tostring(key),
+          tostring(expected_value))
       }
     end
 
     local has_key = actual[key] ~= nil
-    local value_matches = expected_value == nil or actual[key] == expected_value
+    local value_matches = expected_value == nil
+      or actual[key] == expected_value
 
     return {
       pass = has_key and value_matches,
-      actual = has_key and string.format('%s = %s', tostring(key), tostring(actual[key])) or 'property not found',
+      actual = has_key
+        and string.format('%s = %s',
+          tostring(key), tostring(actual[key]))
+        or 'property not found',
       positive_message = 'have property',
       negative_message = 'not have property',
-      expected = expected_value and string.format('%s = %s', tostring(key), tostring(expected_value)) or tostring(key)
+      expected = expected_value
+        and string.format('%s = %s',
+          tostring(key),
+          tostring(expected_value))
+        or tostring(key)
     }
   end
 end
@@ -679,11 +733,17 @@ local function respond_to(method_name)
     end
 
     local method = actual[method_name]
-    local is_callable = type(method) == 'function' or (type(method) == 'table' and getmetatable(method) and getmetatable(method).__call)
+    local is_callable = type(method) == 'function'
+      or (type(method) == 'table'
+        and getmetatable(method)
+        and getmetatable(method).__call)
 
     return {
       pass = is_callable,
-      actual = method and string.format('has %s (%s)', tostring(method_name), type(method)) or 'method not found',
+      actual = method
+        and string.format('has %s (%s)',
+          tostring(method_name), type(method))
+        or 'method not found',
       positive_message = 'respond to',
       negative_message = 'not respond to',
       expected = 'callable method: ' .. tostring(method_name)
@@ -728,7 +788,10 @@ local function have_keys(...)
 
     return {
       pass = #missing_keys == 0,
-      actual = #missing_keys > 0 and 'missing: ' .. table.concat(missing_keys, ', ') or 'has all keys',
+      actual = #missing_keys > 0
+        and 'missing: '
+          .. table.concat(missing_keys, ', ')
+        or 'has all keys',
       positive_message = 'have keys',
       negative_message = 'not have keys',
       expected = table.concat(expected_keys, ', ')

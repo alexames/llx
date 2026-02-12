@@ -22,7 +22,9 @@ InvalidArgumentTypeException =
   __init = function(self, argument_index, expected_type, actual_type, level)
     local actual_type_name = actual_type.__name or tostring(actual_type)
     local failure_reason =
-        string.format('%s expected, got %s', expected_type.__name, actual_type_name)
+        string.format(
+          '%s expected, got %s',
+          expected_type.__name, actual_type_name)
     InvalidArgumentException.__init(
         self, argument_index, failure_reason, (level or 1) + 1)
   end,

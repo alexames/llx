@@ -162,7 +162,9 @@ StringFormatter = class 'StringFormatter' {
 
   table_key = function(self, key)
     local key_type = type(key)
-    local is_name = key_type == 'string' and key:match(NAME_PATTERN) and not rawget(KEYWORDS, '_values')[key]
+    local is_name = key_type == 'string'
+      and key:match(NAME_PATTERN)
+      and not rawget(KEYWORDS, '_values')[key]
     if is_name then
       self:insert(key)
     else
@@ -189,7 +191,9 @@ StringFormatter = class 'StringFormatter' {
     end
   end,
 
-  table_field = function(self, key, value, final_field, value_formatter, element_style)
+  table_field = function(
+    self, key, value, final_field,
+    value_formatter, element_style)
     if self._new_line_pending then
       self:actually_add_new_line()
     end
@@ -212,7 +216,9 @@ StringFormatter = class 'StringFormatter' {
       local key, value, value_style = table.unpack(field)
       local value_formatter = value_style and self:clone(value_style) or self
       local final_field = i == #fields
-      self:table_field(key, value, final_field, value_formatter, field.element_style)
+      self:table_field(
+        key, value, final_field,
+        value_formatter, field.element_style)
     end
     self:table_end()
   end,

@@ -81,7 +81,8 @@ describe('flatten_submodules', function()
       expect(result.count).to.be_equal_to(42)
     end)
 
-    it('should handle multiple named entries alongside array entries', function()
+    it('should handle multiple named entries alongside '
+      .. 'array entries', function()
       local result = flatten_submodules {
         {flattened_key = 100},
         named_a = 'value_a',
@@ -102,7 +103,8 @@ describe('flatten_submodules', function()
       expect(success).to.be_false()
     end)
 
-    it('should error when a named entry conflicts with a flattened key', function()
+    it('should error when a named entry conflicts with '
+      .. 'a flattened key', function()
       local success = pcall(flatten_submodules, {
         {alpha = 1},
         alpha = 2,

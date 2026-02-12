@@ -15,13 +15,15 @@ _ENV = unit.create_test_env(_ENV)
 
 describe('type_check_decorator', function()
   describe('pass-through with no expected types', function()
-    it('should return the original function when expected_types is nil', function()
+    it('should return the original function when '
+      .. 'expected_types is nil', function()
       local function my_func(x) return x + 1 end
       local result = type_check_decorator(my_func, nil)
       expect(result).to.be_equal_to(my_func)
     end)
 
-    it('should return the original function when expected_types is false', function()
+    it('should return the original function when '
+      .. 'expected_types is false', function()
       local function my_func(x) return x + 1 end
       local result = type_check_decorator(my_func, false)
       expect(result).to.be_equal_to(my_func)
@@ -82,7 +84,8 @@ describe('type_check_decorator', function()
       expect(result).to.be_equal_to(3)
     end)
 
-    it('should pass with no args specification but returns specified', function()
+    it('should pass with no args specification but '
+      .. 'returns specified', function()
       local function add(a, b) return a + b end
       local wrapped = type_check_decorator(add, {returns={Integer}})
       -- No argument checking, so any args are fine
@@ -110,7 +113,8 @@ describe('type_check_decorator', function()
 
     it('should check multiple return values', function()
       local function get_pair() return 1, 'hello' end
-      local wrapped = type_check_decorator(get_pair, {returns={Integer, String}})
+      local wrapped = type_check_decorator(
+        get_pair, {returns={Integer, String}})
       local success, r1, r2 = pcall(wrapped)
       expect(success).to.be_true()
       expect(r1).to.be_equal_to(1)
@@ -119,7 +123,8 @@ describe('type_check_decorator', function()
 
     it('should error on second return value type mismatch', function()
       local function get_pair() return 1, 2 end
-      local wrapped = type_check_decorator(get_pair, {returns={Integer, String}})
+      local wrapped = type_check_decorator(
+        get_pair, {returns={Integer, String}})
       local success = pcall(wrapped)
       expect(success).to.be_false()
     end)
@@ -137,7 +142,8 @@ describe('type_check_decorator', function()
       expect(result).to.be_equal_to(3)
     end)
 
-    it('should error on argument mismatch even if return would be valid', function()
+    it('should error on argument mismatch even if return '
+      .. 'would be valid', function()
       local function add(a, b) return a + b end
       local wrapped = type_check_decorator(add, {
         args={Integer, Integer},
@@ -159,7 +165,8 @@ describe('type_check_decorator', function()
   end)
 
   describe('wrapped function behavior', function()
-    it('should return a different function when expected_types is given', function()
+    it('should return a different function when '
+      .. 'expected_types is given', function()
       local function my_func() end
       local wrapped = type_check_decorator(my_func, {args={}, returns={}})
       expect(type(wrapped)).to.be_equal_to('function')
@@ -171,16 +178,22 @@ describe('type_check_decorator', function()
         captured_args = {...}
         return 1
       end
-      local wrapped = type_check_decorator(capture, {args={Integer, Integer, Integer}, returns={Integer}})
+      local wrapped = type_check_decorator(
+        capture,
+        {args={Integer, Integer, Integer},
+         returns={Integer}})
       wrapped(10, 20, 30)
       expect(captured_args[1]).to.be_equal_to(10)
       expect(captured_args[2]).to.be_equal_to(20)
       expect(captured_args[3]).to.be_equal_to(30)
     end)
 
-    it('should forward all return values from the underlying function', function()
+    it('should forward all return values from the '
+      .. 'underlying function', function()
       local function multi_return() return 1, 2, 3 end
-      local wrapped = type_check_decorator(multi_return, {returns={Integer, Integer, Integer}})
+      local wrapped = type_check_decorator(
+        multi_return,
+        {returns={Integer, Integer, Integer}})
       local a, b, c = wrapped()
       expect(a).to.be_equal_to(1)
       expect(b).to.be_equal_to(2)

@@ -6,7 +6,8 @@ local Exception = require 'llx.exceptions.exception' . Exception
 
 local _ENV, _M = environment.create_module_environment()
 
---- RuntimeError: Raised when an error is detected that doesn't fall in any of the other categories
+--- RuntimeError: Raised when an error is detected that
+-- doesn't fall in any of the other categories
 RuntimeError = class 'RuntimeError' : extends(Exception) {}
 
 return _M

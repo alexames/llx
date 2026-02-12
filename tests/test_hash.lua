@@ -59,7 +59,8 @@ describe('hash', function()
       expect(hash.hash(5)).to_not.be_equal_to(hash.hash(-5))
     end)
 
-    it('should produce different hashes for integer and float with same floor', function()
+    it('should produce different hashes for integer and float '
+      .. 'with same floor', function()
       expect(hash.hash(1)).to_not.be_equal_to(hash.hash(1.5))
     end)
 
@@ -85,7 +86,8 @@ describe('hash', function()
       expect(hash.hash('hello')).to_not.be_equal_to(hash.hash('world'))
     end)
 
-    it('should produce different hashes for empty and non-empty strings', function()
+    it('should produce different hashes for empty and '
+      .. 'non-empty strings', function()
       expect(hash.hash('')).to_not.be_equal_to(hash.hash('a'))
     end)
 
@@ -93,7 +95,8 @@ describe('hash', function()
       expect(hash.hash('')).to.be_equal_to(hash.hash(''))
     end)
 
-    it('should produce different hashes for strings that differ by one character', function()
+    it('should produce different hashes for strings that '
+      .. 'differ by one character', function()
       expect(hash.hash('abc')).to_not.be_equal_to(hash.hash('abd'))
     end)
   end)
@@ -113,13 +116,15 @@ describe('hash', function()
       expect(h1).to.be_equal_to(h2)
     end)
 
-    it('should produce different hashes for tables with different values', function()
+    it('should produce different hashes for tables with '
+      .. 'different values', function()
       local h1 = hash.hash({a = 1})
       local h2 = hash.hash({a = 2})
       expect(h1).to_not.be_equal_to(h2)
     end)
 
-    it('should produce different hashes for tables with different keys', function()
+    it('should produce different hashes for tables with '
+      .. 'different keys', function()
       local h1 = hash.hash({a = 1})
       local h2 = hash.hash({b = 1})
       expect(h1).to_not.be_equal_to(h2)
@@ -164,19 +169,23 @@ describe('hash', function()
   end)
 
   describe('hash across types', function()
-    it('should produce different hashes for number and string of same value', function()
+    it('should produce different hashes for number and '
+      .. 'string of same value', function()
       expect(hash.hash(1)).to_not.be_equal_to(hash.hash('1'))
     end)
 
-    it('should produce different hashes for number 1 and boolean true', function()
+    it('should produce different hashes for number 1 '
+      .. 'and boolean true', function()
       expect(hash.hash(1)).to_not.be_equal_to(hash.hash(true))
     end)
 
-    it('should produce different hashes for number 0 and boolean false', function()
+    it('should produce different hashes for number 0 '
+      .. 'and boolean false', function()
       expect(hash.hash(0)).to_not.be_equal_to(hash.hash(false))
     end)
 
-    it('should produce different hashes for empty string and empty table', function()
+    it('should produce different hashes for empty string '
+      .. 'and empty table', function()
       expect(hash.hash('')).to_not.be_equal_to(hash.hash({}))
     end)
   end)
@@ -193,7 +202,8 @@ describe('hash', function()
       expect(result).to.be_equal_to(custom_hash_value)
     end)
 
-    it('should produce different hashes when __hash returns different values', function()
+    it('should produce different hashes when __hash returns '
+      .. 'different values', function()
       local obj1 = setmetatable({}, {
         __hash = function(self, h) return 111 end,
       })
@@ -203,7 +213,8 @@ describe('hash', function()
       expect(hash.hash(obj1)).to_not.be_equal_to(hash.hash(obj2))
     end)
 
-    it('should fall back to table hashing when __hash is not a function', function()
+    it('should fall back to table hashing when __hash is '
+      .. 'not a function', function()
       local obj = setmetatable({a = 1}, {
         __hash = 'not a function',
       })
@@ -242,7 +253,8 @@ describe('hash', function()
 
     it('hash_number should delegate to hash_integer', function()
       local base = 99999
-      expect(hash.hash_number(42, base)).to.be_equal_to(hash.hash_integer(42, base))
+      expect(hash.hash_number(42, base)).to.be_equal_to(
+        hash.hash_integer(42, base))
     end)
 
     it('hash_string should hash each byte', function()

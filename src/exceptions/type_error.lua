@@ -6,7 +6,8 @@ local Exception = require 'llx.exceptions.exception' . Exception
 
 local _ENV, _M = environment.create_module_environment()
 
---- TypeError: Raised when an operation receives an argument of inappropriate type
+--- TypeError: Raised when an operation receives an
+-- argument of inappropriate type
 TypeError = class 'TypeError' : extends(Exception) {}
 
 return _M

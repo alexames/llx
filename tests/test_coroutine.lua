@@ -36,7 +36,8 @@ describe('coroutine', function()
       expect(wrap.decorate).to.be_a('function')
     end)
 
-    it('should return class_table, name, and wrapped function from decorate', function()
+    it('should return class_table, name, and wrapped '
+      .. 'function from decorate', function()
       local target = {}
       local fn = function() coroutine.yield(1) end
       local r_target, r_name, r_fn = wrap:decorate(target, 'gen', fn)
@@ -47,7 +48,8 @@ describe('coroutine', function()
   end)
 
   describe('wrap decorate behavior', function()
-    it('should return a coroutine iterator from the wrapped function', function()
+    it('should return a coroutine iterator from the '
+      .. 'wrapped function', function()
       local fn = function()
         coroutine.yield(1)
         coroutine.yield(2)
