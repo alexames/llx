@@ -181,7 +181,8 @@ describe('Cache', function()
       expect(call_count).to.be_equal_to(2)
     end)
 
-    it('should share cache across instances of the same class', function()
+    it('should cache per instance for class '
+      .. 'methods', function()
       local call_count = 0
       local MyClass = class 'CachedClass3' {
         ['compute' | cache] = function(self, x)
@@ -191,15 +192,15 @@ describe('Cache', function()
       }
       local obj1 = MyClass()
       local obj2 = MyClass()
-      -- The cache is per-function (shared across all instances via the class
-      -- method). Since both instances are empty tables, they hash identically,
-      -- so the cache treats obj1:compute(5) and
-      -- obj2:compute(5) as the same key.
+      -- Different instances are distinct cache keys,
+      -- so each computes independently.
       expect(obj1:compute(5)).to.be_equal_to(6)
       expect(obj2:compute(5)).to.be_equal_to(6)
+      expect(call_count).to.be_equal_to(2)
+      -- But repeated calls on same instance are cached.
       expect(obj1:compute(5)).to.be_equal_to(6)
       expect(obj2:compute(5)).to.be_equal_to(6)
-      expect(call_count).to.be_equal_to(1)
+      expect(call_count).to.be_equal_to(2)
     end)
 
     it('should be usable with the | operator', function()

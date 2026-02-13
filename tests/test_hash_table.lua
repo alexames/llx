@@ -257,6 +257,88 @@ describe('HashTable', function()
     end)
   end)
 
+  describe('collision handling', function()
+    it('should handle colliding keys by chaining', function()
+      local ht = HashTable()
+      -- Create two objects with the same __hash but
+      -- different equality
+      local mt = {
+        __hash = function(self, h) return 42 end,
+        __eq = function(a, b)
+          return a.id == b.id
+        end,
+        __name = 'CollisionObj',
+      }
+      local k1 = setmetatable({id = 1}, mt)
+      local k2 = setmetatable({id = 2}, mt)
+      ht[k1] = 'first'
+      ht[k2] = 'second'
+      expect(ht[k1]).to.be_equal_to('first')
+      expect(ht[k2]).to.be_equal_to('second')
+    end)
+
+    it('should delete correct entry from collision '
+      .. 'chain', function()
+      local ht = HashTable()
+      local mt = {
+        __hash = function(self, h) return 99 end,
+        __eq = function(a, b)
+          return a.id == b.id
+        end,
+        __name = 'CollisionObj',
+      }
+      local k1 = setmetatable({id = 1}, mt)
+      local k2 = setmetatable({id = 2}, mt)
+      ht[k1] = 'first'
+      ht[k2] = 'second'
+      ht[k1] = nil
+      expect(ht[k1]).to.be_nil()
+      expect(ht[k2]).to.be_equal_to('second')
+    end)
+
+    it('should iterate all entries in collision '
+      .. 'chains', function()
+      local ht = HashTable()
+      local mt = {
+        __hash = function(self, h) return 77 end,
+        __eq = function(a, b)
+          return a.id == b.id
+        end,
+        __name = 'CollisionObj',
+      }
+      local k1 = setmetatable({id = 1}, mt)
+      local k2 = setmetatable({id = 2}, mt)
+      ht[k1] = 'a'
+      ht[k2] = 'b'
+      local count = 0
+      local found = {}
+      for k, v in pairs(ht) do
+        count = count + 1
+        found[v] = true
+      end
+      expect(count).to.be_equal_to(2)
+      expect(found['a']).to.be_truthy()
+      expect(found['b']).to.be_truthy()
+    end)
+
+    it('should update value for colliding key '
+      .. 'that equals existing', function()
+      local ht = HashTable()
+      local mt = {
+        __hash = function(self, h) return 55 end,
+        __eq = function(a, b)
+          return a.id == b.id
+        end,
+        __name = 'CollisionObj',
+      }
+      local k1a = setmetatable({id = 1}, mt)
+      local k1b = setmetatable({id = 1}, mt)
+      ht[k1a] = 'original'
+      ht[k1b] = 'updated'
+      expect(ht[k1a]).to.be_equal_to('updated')
+    end)
+  end)
+
   describe('mixed key types', function()
     it('should store values with string, number, and '
       .. 'boolean keys simultaneously', function()
