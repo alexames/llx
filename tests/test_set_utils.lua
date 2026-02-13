@@ -225,6 +225,34 @@ describe('set utilities', function()
     end)
   end)
 
+  describe('__hash', function()
+    local hash = require 'llx.hash'
+
+    it('should produce equal hashes for equal sets', function()
+      local a = llx.Set{1, 2, 3}
+      local b = llx.Set{1, 2, 3}
+      expect(hash.hash(a)).to.be_equal_to(hash.hash(b))
+    end)
+
+    it('should produce equal hashes regardless of insertion order', function()
+      local a = llx.Set{1, 2, 3}
+      local b = llx.Set{3, 1, 2}
+      expect(hash.hash(a)).to.be_equal_to(hash.hash(b))
+    end)
+
+    it('should produce different hashes for different sets', function()
+      local a = llx.Set{1, 2, 3}
+      local b = llx.Set{4, 5, 6}
+      expect(hash.hash(a)).to_not.be_equal_to(hash.hash(b))
+    end)
+
+    it('should produce different hashes for different sizes', function()
+      local a = llx.Set{1, 2}
+      local b = llx.Set{1, 2, 3}
+      expect(hash.hash(a)).to_not.be_equal_to(hash.hash(b))
+    end)
+  end)
+
   describe('filter', function()
     it('should keep only elements matching the predicate', function()
       local s = llx.Set{1, 2, 3, 4, 5}

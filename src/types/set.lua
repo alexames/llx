@@ -211,6 +211,15 @@ Set = class 'Set' {
     return rawget(self, '_values')[key]
   end,
 
+  __hash = function(self, result)
+    local hash = require 'llx.hash'
+    local sum = 0
+    for k in pairs(rawget(self, '_values')) do
+      sum = (sum + hash.hash(k)) & 0xFFFFFFFF
+    end
+    return hash.hash_integer(sum, result)
+  end,
+
   __tostring = function(self)
     local values = {}
     for k, v in pairs(rawget(self, '_values')) do
