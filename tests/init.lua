@@ -54,15 +54,26 @@ require 'llx.tests.types.test_matchers'
 require 'llx.tests.types.test_string_view'
 require 'llx.tests.types.test_type_checkers'
 
--- bytecode/ tests
-require 'llx.tests.bytecode.lua54.test_bytestream'
+-- bytecode/ tests (version-specific)
+-- Tests that use string.dump or reference version-specific opcodes are
+-- loaded only for the matching Lua version. Tests for shared modules
+-- (enum, constants, typetags, instructions) always load from lua54 since
+-- those modules are version-independent.
 require 'llx.tests.bytecode.lua54.test_constants'
 require 'llx.tests.bytecode.lua54.test_enum'
 require 'llx.tests.bytecode.lua54.test_typetags'
-require 'llx.tests.bytecode.lua54.test_opcodes'
 require 'llx.tests.bytecode.lua54.test_instructions'
-require 'llx.tests.bytecode.lua54.test_bcode'
-require 'llx.tests.bytecode.lua54.test_util'
+
+if _VERSION == 'Lua 5.4' then
+  require 'llx.tests.bytecode.lua54.test_bytestream'
+  require 'llx.tests.bytecode.lua54.test_opcodes'
+  require 'llx.tests.bytecode.lua54.test_bcode'
+  require 'llx.tests.bytecode.lua54.test_util'
+elseif _VERSION == 'Lua 5.5' then
+  require 'llx.tests.bytecode.lua55.test_bytestream'
+  require 'llx.tests.bytecode.lua55.test_opcodes'
+  require 'llx.tests.bytecode.lua55.test_bcode'
+end
 
 -- unit/ tests
 require 'llx.tests.unit.test_mock'
