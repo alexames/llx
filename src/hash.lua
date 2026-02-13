@@ -65,7 +65,11 @@ local function get_ordered_keys(value)
   table.sort(boolean_keys)
   table.sort(number_keys)
   table.sort(string_keys)
-  table.sort(table_keys, function(a, b) return tostring(a) < tostring(b) end)
+  table.sort(table_keys, function(a, b)
+    local ha = hash_value(a, FNV_offset_basis)
+    local hb = hash_value(b, FNV_offset_basis)
+    return ha < hb
+  end)
 
   local result = boolean_keys
   extend_list(result, number_keys)
