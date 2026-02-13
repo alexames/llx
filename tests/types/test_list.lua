@@ -6,7 +6,8 @@ local List = llx.List
 _ENV = unit.create_test_env(_ENV)
 
 describe('ListTest', function()
-  it('should copy input table so modifying input does not affect List', function()
+  it('should copy input table so modifying input '
+    .. 'does not affect List', function()
     local input = {1, 2, 3}
     local list = List(input)
     input[1] = 99
@@ -15,7 +16,8 @@ describe('ListTest', function()
     expect(list[3]).to.be_equal_to(3)
   end)
 
-  it('should copy input table so modifying List does not affect input', function()
+  it('should copy input table so modifying List '
+    .. 'does not affect input', function()
     local input = {1, 2, 3}
     local list = List(input)
     list[1] = 99
@@ -24,7 +26,8 @@ describe('ListTest', function()
     expect(input[3]).to.be_equal_to(3)
   end)
 
-  it('should contain correct initial values after construction from table', function()
+  it('should contain correct initial values '
+    .. 'after construction from table', function()
     local input = {10, 20, 30}
     local list = List(input)
     expect(list).to.be_equal_to({10, 20, 30})

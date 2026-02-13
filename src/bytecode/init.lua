@@ -12,7 +12,9 @@ local version_modules = {
 }
 
 local current_module = version_modules[_VERSION]
-assert(current_module, 'unsupported Lua version for bytecode parsing: ' .. _VERSION)
+assert(current_module,
+  'unsupported Lua version for bytecode parsing: '
+  .. _VERSION)
 
 return require 'llx.flatten_submodules' {
   require(current_module),
