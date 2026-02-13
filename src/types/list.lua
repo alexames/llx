@@ -421,6 +421,7 @@ List = class 'List' : extends(Table) {
   end,
 
   -- Min: Find minimum element
+  -- Stable: returns the first minimum element among equivalent values.
   min = function(self, comparator)
     if #self == 0 then return nil end
 
@@ -441,17 +442,18 @@ List = class 'List' : extends(Table) {
   end,
 
   -- Max: Find maximum element
+  -- Stable: returns the last maximum element among equivalent values.
   max = function(self, comparator)
     if #self == 0 then return nil end
 
     local max_val = self[1]
     for i = 2, #self do
       if comparator then
-        if comparator(self[i], max_val) then
+        if not comparator(max_val, self[i]) then
           max_val = self[i]
         end
       else
-        if self[i] > max_val then
+        if not (max_val > self[i]) then
           max_val = self[i]
         end
       end

@@ -841,11 +841,11 @@ function min(sequence)
 end
 
 --- Returns the maximum element of a sequence.
--- Stable: returns the first maximum element among equivalent values.
+-- Stable: returns the last maximum element among equivalent values.
 -- @param sequence The input sequence
 -- @return The maximum value
 function max(sequence)
-  return reduce(sequence, function(a, b) return b > a and b or a end)
+  return reduce(sequence, function(a, b) return a > b and a or b end)
 end
 
 --- Returns the sum of all elements in a sequence.

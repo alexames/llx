@@ -94,8 +94,13 @@ describe('lesser', function()
     expect(core.lesser(10, 5)).to.be_equal_to(5)
   end)
 
-  it('should return second when equal', function()
-    expect(core.lesser(5, 5)).to.be_equal_to(5)
+  it('should be stable: return first argument when equal', function()
+    local a = {value = 5}
+    local b = {value = 5}
+    local mt = {__lt = function(x, y) return x.value < y.value end}
+    setmetatable(a, mt)
+    setmetatable(b, mt)
+    expect(rawequal(core.lesser(a, b), a)).to.be_truthy()
   end)
 
   it('should work with negative numbers', function()
@@ -116,8 +121,13 @@ describe('greater', function()
     expect(core.greater(2, 8)).to.be_equal_to(8)
   end)
 
-  it('should return second when equal', function()
-    expect(core.greater(5, 5)).to.be_equal_to(5)
+  it('should be stable: return second argument when equal', function()
+    local a = {value = 5}
+    local b = {value = 5}
+    local mt = {__lt = function(x, y) return x.value < y.value end}
+    setmetatable(a, mt)
+    setmetatable(b, mt)
+    expect(rawequal(core.greater(a, b), b)).to.be_truthy()
   end)
 
   it('should work with negative numbers', function()

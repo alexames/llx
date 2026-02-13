@@ -130,23 +130,23 @@ function cmp(a, b)
 end
 
 --- Returns the lesser of two values.
--- When equal, returns the second argument (b).
+-- Stable: when equal, returns the first argument (a).
 -- @param a First value (must support < comparison)
 -- @param b Second value (must support < comparison)
 -- @return The lesser of a and b
 -- @usage min_val = lesser(5, 10)  -- returns 5
 function lesser(a, b)
-  if a < b then return a else return b end
+  if b < a then return b else return a end
 end
 
 --- Returns the greater of two values.
--- When equal, returns the second argument (b).
--- @param a First value (must support > comparison)
--- @param b Second value (must support > comparison)
+-- Stable: when equal, returns the second argument (b).
+-- @param a First value (must support < comparison)
+-- @param b Second value (must support < comparison)
 -- @return The greater of a and b
 -- @usage max_val = greater(5, 10)  -- returns 10
 function greater(a, b)
-  if a > b then return a else return b end
+  if b < a then return a else return b end
 end
 
 --- Checks if a number is even.
