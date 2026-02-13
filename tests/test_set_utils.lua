@@ -120,6 +120,32 @@ describe('set utilities', function()
     end)
   end)
 
+  describe('__len', function()
+    it('should support # operator', function()
+      local s = llx.Set{1, 2, 3}
+      expect(#s).to.be_equal_to(3)
+    end)
+
+    it('should return 0 for empty set', function()
+      local s = llx.Set{}
+      expect(#s).to.be_equal_to(0)
+    end)
+
+    it('should agree with len() method', function()
+      local s = llx.Set{10, 20, 30, 40}
+      expect(#s).to.be_equal_to(s:len())
+    end)
+
+    it('should update after mutations', function()
+      local s = llx.Set{1, 2}
+      expect(#s).to.be_equal_to(2)
+      s:insert(3)
+      expect(#s).to.be_equal_to(3)
+      s:remove(1)
+      expect(#s).to.be_equal_to(2)
+    end)
+  end)
+
   describe('contains', function()
     it('should return true for present elements', function()
       local s = llx.Set{1, 2, 3}

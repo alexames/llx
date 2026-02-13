@@ -144,6 +144,14 @@ Set = class 'Set' {
     return n
   end,
 
+  __len = function(self)
+    local n = 0
+    for _ in pairs(rawget(self, '_values')) do
+      n = n + 1
+    end
+    return n
+  end,
+
   contains = function(self, key)
     return rawget(self, '_values')[key] == true
   end,
