@@ -319,6 +319,35 @@ describe('ListTest', function()
       expect(List{'b', 'a'} < List{'a', 'b'}).to.be_falsy()
     end)
   end)
+
+  describe('__hash', function()
+    local hash = require 'llx.hash'
+
+    it('should produce equal hashes for equal lists', function()
+      local a = List{1, 2, 3}
+      local b = List{1, 2, 3}
+      expect(hash.hash(a)).to.be_equal_to(hash.hash(b))
+    end)
+
+    it('should produce different hashes for different lists', function()
+      local a = List{1, 2, 3}
+      local b = List{4, 5, 6}
+      expect(hash.hash(a)).to_not.be_equal_to(hash.hash(b))
+    end)
+
+    it('should produce different hashes for different lengths', function()
+      local a = List{1, 2}
+      local b = List{1, 2, 3}
+      expect(hash.hash(a)).to_not.be_equal_to(hash.hash(b))
+    end)
+
+    it('should produce different hashes for same elements '
+      .. 'in different order', function()
+      local a = List{1, 2, 3}
+      local b = List{3, 2, 1}
+      expect(hash.hash(a)).to_not.be_equal_to(hash.hash(b))
+    end)
+  end)
 end)
 
 if llx.main_file() then

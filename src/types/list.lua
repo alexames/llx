@@ -83,6 +83,15 @@ List = class 'List' : extends(Table) {
     return true
   end,
 
+  __hash = function(self, result)
+    local hash = require 'llx.hash'
+    for i = 1, #self do
+      result = hash.hash_value(i, result)
+      result = hash.hash_value(self[i], result)
+    end
+    return result
+  end,
+
   __lt = function(self, other)
     local len = math.min(#self, #other)
     for i = 1, len do
