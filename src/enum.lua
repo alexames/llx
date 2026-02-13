@@ -16,6 +16,18 @@ local enum_metatable = {
   __tostringf = function(self, formatter)
     formatter:insert(tostring(self))
   end,
+
+  __eq = function(a, b)
+    return a.enum == b.enum and a.value == b.value
+  end,
+
+  __lt = function(a, b)
+    return a.value < b.value
+  end,
+
+  __le = function(a, b)
+    return a.value <= b.value
+  end,
 }
 
 function enum(name)

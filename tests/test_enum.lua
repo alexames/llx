@@ -243,6 +243,54 @@ describe('enum', function()
     end)
   end)
 
+  describe('__eq', function()
+    it('should compare equal for same enum value', function()
+      local Color = enum 'Color' {
+        [1] = 'Red', [2] = 'Green',
+      }
+      expect(Color[1] == Color.Red).to.be_truthy()
+    end)
+
+    it('should not compare equal across '
+      .. 'different enums', function()
+      local A = enum 'A' { [1] = 'X' }
+      local B = enum 'B' { [1] = 'X' }
+      expect(A[1] == B[1]).to.be_falsy()
+    end)
+  end)
+
+  describe('__lt and __le (ordering)', function()
+    it('should order by numeric value', function()
+      local Priority = enum 'Priority' {
+        [1] = 'Low', [2] = 'Medium', [3] = 'High',
+      }
+      expect(Priority.Low < Priority.Medium)
+        .to.be_truthy()
+      expect(Priority.High < Priority.Low)
+        .to.be_falsy()
+    end)
+
+    it('should support <= for equal values', function()
+      local Color = enum 'Color' {
+        [1] = 'Red', [2] = 'Green',
+      }
+      expect(Color.Red <= Color.Red).to.be_truthy()
+      expect(Color.Red <= Color.Green).to.be_truthy()
+      expect(Color.Green <= Color.Red).to.be_falsy()
+    end)
+
+    it('should allow sorting enum values', function()
+      local Size = enum 'Size' {
+        [3] = 'Large', [1] = 'Small', [2] = 'Medium',
+      }
+      local sorted = {Size.Large, Size.Small, Size.Medium}
+      table.sort(sorted)
+      expect(sorted[1]).to.be_equal_to(Size.Small)
+      expect(sorted[2]).to.be_equal_to(Size.Medium)
+      expect(sorted[3]).to.be_equal_to(Size.Large)
+    end)
+  end)
+
   describe('multiple enums are independent', function()
     it('should not share members between different enums', function()
       local Color = enum 'Color' {

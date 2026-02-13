@@ -45,8 +45,25 @@ StringView = class 'StringView' {
   end,
 
   __eq = function(a, b)
-    if tostring(a) == tostring(b) then return true end
-    return false
+    local a_is_sv = type(a) == 'table' and a._str
+    local b_is_sv = type(b) == 'table' and b._str
+    local a_len = a_is_sv and a._len or #tostring(a)
+    local b_len = b_is_sv and b._len or #tostring(b)
+    if a_len ~= b_len then return false end
+    if a_is_sv and b_is_sv then
+      if a._str == b._str
+          and a._start == b._start then
+        return true
+      end
+      for i = 0, a_len - 1 do
+        if a._str:byte(a._start + i)
+            ~= b._str:byte(b._start + i) then
+          return false
+        end
+      end
+      return true
+    end
+    return tostring(a) == tostring(b)
   end,
 
   --- Access byte by index (relative to the view, 1-based)
