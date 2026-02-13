@@ -430,6 +430,21 @@ describe('functional', function()
         seq, function(a, b) return a .. b end, '')
       expect(result).to.be_equal_to('abc')
     end)
+
+    it('should error on empty sequence without initial value', function()
+      expect(function()
+        llx.functional.reduce(
+          llx.functional.range(1),
+          function(a, b) return a + b end)
+      end).to.throw()
+    end)
+
+    it('should return initial value for empty sequence', function()
+      local result = llx.functional.reduce(
+        llx.functional.range(1),
+        function(a, b) return a + b end, 42)
+      expect(result).to.be_equal_to(42)
+    end)
   end)
 
   describe('min', function()

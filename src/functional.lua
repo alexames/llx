@@ -820,6 +820,9 @@ function reduce(sequence, lambda, initial_value)
     control, result = nil, initial_value
   else
     control, result = sequence()
+    if control == nil then
+      error('reduce of empty sequence with no initial value', 2)
+    end
   end
   for i, v in sequence, nil, control do
     result = lambda(result, v)
@@ -1797,6 +1800,9 @@ function reduce_right(sequence, f, init)
   local elements = List{}
   for _, v in sequence do
     elements:insert(v)
+  end
+  if init == nil and #elements == 0 then
+    error('reduce_right of empty sequence with no initial value', 2)
   end
   local acc = init
   for i = #elements, 1, -1 do

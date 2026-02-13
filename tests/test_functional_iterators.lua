@@ -467,6 +467,21 @@ describe('functional iterators', function()
       )
       expect(result).to.be_equal_to('cba')
     end)
+
+    it('should error on empty sequence without initial value', function()
+      expect(function()
+        llx.functional.reduce_right(
+          llx.List{},
+          function(acc, v) return acc + v end)
+      end).to.throw()
+    end)
+
+    it('should return initial value for empty sequence', function()
+      local result = llx.functional.reduce_right(
+        llx.List{},
+        function(acc, v) return acc + v end, 42)
+      expect(result).to.be_equal_to(42)
+    end)
   end)
 
   describe('zip_with', function()
