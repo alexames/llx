@@ -77,6 +77,24 @@ List = class 'List' : extends(Table) {
     return true
   end,
 
+  __lt = function(self, other)
+    local len = math.min(#self, #other)
+    for i = 1, len do
+      if self[i] < other[i] then return true end
+      if other[i] < self[i] then return false end
+    end
+    return #self < #other
+  end,
+
+  __le = function(self, other)
+    local len = math.min(#self, #other)
+    for i = 1, len do
+      if self[i] < other[i] then return true end
+      if other[i] < self[i] then return false end
+    end
+    return #self <= #other
+  end,
+
   __tostring = function(self)
     return 'List{' .. (', '):join(self) .. '}'
   end,

@@ -248,6 +248,59 @@ describe('ListTest', function()
     local list = List{'a', 'b', 'c', 'd', 'e'}
     expect(list << 4).to.be_equal_to(List{'e', 'a', 'b', 'c', 'd'})
   end)
+
+  describe('__lt and __le (lexicographic ordering)', function()
+    it('should order by first differing element', function()
+      expect(List{1, 2, 3} < List{1, 2, 4}).to.be_truthy()
+      expect(List{1, 2, 4} < List{1, 2, 3}).to.be_falsy()
+    end)
+
+    it('should order shorter list before longer '
+      .. 'when prefix matches', function()
+      expect(List{1, 2} < List{1, 2, 3}).to.be_truthy()
+      expect(List{1, 2, 3} < List{1, 2}).to.be_falsy()
+    end)
+
+    it('should not be less than an equal list', function()
+      expect(List{1, 2, 3} < List{1, 2, 3}).to.be_falsy()
+    end)
+
+    it('should handle empty lists', function()
+      expect(List{} < List{1}).to.be_truthy()
+      expect(List{1} < List{}).to.be_falsy()
+      expect(List{} < List{}).to.be_falsy()
+    end)
+
+    it('should support <= for equal lists', function()
+      expect(List{1, 2} <= List{1, 2}).to.be_truthy()
+    end)
+
+    it('should support <= for less-than lists', function()
+      expect(List{1, 2} <= List{1, 3}).to.be_truthy()
+    end)
+
+    it('should support <= returning false '
+      .. 'for greater lists', function()
+      expect(List{1, 3} <= List{1, 2}).to.be_falsy()
+    end)
+
+    it('should allow sorting a list of lists', function()
+      local lists = {
+        List{3, 1}, List{1, 3},
+        List{1, 2}, List{2, 1}
+      }
+      table.sort(lists)
+      expect(lists[1]).to.be_equal_to(List{1, 2})
+      expect(lists[2]).to.be_equal_to(List{1, 3})
+      expect(lists[3]).to.be_equal_to(List{2, 1})
+      expect(lists[4]).to.be_equal_to(List{3, 1})
+    end)
+
+    it('should work with string elements', function()
+      expect(List{'a', 'b'} < List{'a', 'c'}).to.be_truthy()
+      expect(List{'b', 'a'} < List{'a', 'b'}).to.be_falsy()
+    end)
+  end)
 end)
 
 if llx.main_file() then

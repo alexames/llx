@@ -208,6 +208,69 @@ describe('Tuple', function()
     end)
   end)
 
+  describe('__lt and __le (lexicographic ordering)', function()
+    it('should order by first differing element', function()
+      expect(Tuple{1, 2, 3} < Tuple{1, 2, 4}).to.be_truthy()
+      expect(Tuple{1, 2, 4} < Tuple{1, 2, 3}).to.be_falsy()
+    end)
+
+    it('should order shorter tuple before longer '
+      .. 'when prefix matches', function()
+      expect(Tuple{1, 2} < Tuple{1, 2, 3}).to.be_truthy()
+      expect(Tuple{1, 2, 3} < Tuple{1, 2}).to.be_falsy()
+    end)
+
+    it('should not be less than an equal tuple', function()
+      expect(Tuple{1, 2, 3} < Tuple{1, 2, 3}).to.be_falsy()
+    end)
+
+    it('should handle empty tuples', function()
+      expect(Tuple{} < Tuple{1}).to.be_truthy()
+      expect(Tuple{1} < Tuple{}).to.be_falsy()
+      expect(Tuple{} < Tuple{}).to.be_falsy()
+    end)
+
+    it('should support <= for equal tuples', function()
+      expect(Tuple{1, 2} <= Tuple{1, 2}).to.be_truthy()
+    end)
+
+    it('should support <= for less-than tuples', function()
+      expect(Tuple{1, 2} <= Tuple{1, 3}).to.be_truthy()
+    end)
+
+    it('should support <= returning false '
+      .. 'for greater tuples', function()
+      expect(Tuple{1, 3} <= Tuple{1, 2}).to.be_falsy()
+    end)
+
+    it('should support > via negation of <=', function()
+      expect(Tuple{2, 1} > Tuple{1, 2}).to.be_truthy()
+      expect(Tuple{1, 2} > Tuple{2, 1}).to.be_falsy()
+    end)
+
+    it('should support >= via negation of <', function()
+      expect(Tuple{1, 2} >= Tuple{1, 2}).to.be_truthy()
+      expect(Tuple{1, 3} >= Tuple{1, 2}).to.be_truthy()
+      expect(Tuple{1, 1} >= Tuple{1, 2}).to.be_falsy()
+    end)
+
+    it('should work with string elements', function()
+      expect(Tuple{'a', 'b'} < Tuple{'a', 'c'}).to.be_truthy()
+      expect(Tuple{'b', 'a'} < Tuple{'a', 'b'}).to.be_falsy()
+    end)
+
+    it('should allow sorting a list of tuples', function()
+      local tuples = {
+        Tuple{3, 1}, Tuple{1, 3}, Tuple{1, 2}, Tuple{2, 1}
+      }
+      table.sort(tuples)
+      expect(tuples[1]).to.be_equal_to(Tuple{1, 2})
+      expect(tuples[2]).to.be_equal_to(Tuple{1, 3})
+      expect(tuples[3]).to.be_equal_to(Tuple{2, 1})
+      expect(tuples[4]).to.be_equal_to(Tuple{3, 1})
+    end)
+  end)
+
   describe('isolation', function()
     it('should not be affected by changes to the original table', function()
       local input = {1, 2, 3}
