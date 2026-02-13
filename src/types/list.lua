@@ -21,7 +21,13 @@ List = class 'List' : extends(Table) {
       end
       return list
     end
-    return iterable or {}
+    local list = {}
+    if iterable then
+      for i, v in ipairs(iterable) do
+        list[i] = v
+      end
+    end
+    return list
   end,
 
   extend = function(self, other)

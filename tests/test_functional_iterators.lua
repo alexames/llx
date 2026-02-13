@@ -183,8 +183,18 @@ describe('functional iterators', function()
 
   describe('compact', function()
     it('should remove nil values from a sequence', function()
+      local values = {1, nil, 2, nil, 3}
+      local n = 5
+      local function iter()
+        local i = 0
+        return function()
+          i = i + 1
+          if i > n then return nil end
+          return i, values[i]
+        end
+      end
       local result = llx.List{}
-      for _, v in llx.functional.compact(llx.List{1, nil, 2, nil, 3}) do
+      for _, v in llx.functional.compact(iter()) do
         result:insert(v)
       end
       expect(result).to.be_equal_to(llx.List{1, 2, 3})

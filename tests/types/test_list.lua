@@ -6,10 +6,28 @@ local List = llx.List
 _ENV = unit.create_test_env(_ENV)
 
 describe('ListTest', function()
-  it('should return same table when List is called with table', function()
-    local list_table = {}
-    local list = List(list_table)
-    expect(list_table).to.be_equal_to(list)
+  it('should copy input table so modifying input does not affect List', function()
+    local input = {1, 2, 3}
+    local list = List(input)
+    input[1] = 99
+    expect(list[1]).to.be_equal_to(1)
+    expect(list[2]).to.be_equal_to(2)
+    expect(list[3]).to.be_equal_to(3)
+  end)
+
+  it('should copy input table so modifying List does not affect input', function()
+    local input = {1, 2, 3}
+    local list = List(input)
+    list[1] = 99
+    expect(input[1]).to.be_equal_to(1)
+    expect(input[2]).to.be_equal_to(2)
+    expect(input[3]).to.be_equal_to(3)
+  end)
+
+  it('should contain correct initial values after construction from table', function()
+    local input = {10, 20, 30}
+    local list = List(input)
+    expect(list).to.be_equal_to({10, 20, 30})
   end)
 
   it('should extend first list with second list', function()
