@@ -204,12 +204,11 @@ Set = class 'Set' {
   end,
 
   __index = function(self, key)
-    local result = rawget(self, '_values')[key]
-    if result ~= nil then
-      return result
-    else
-      return Set[key]
+    local method = Set[key]
+    if method ~= nil then
+      return method
     end
+    return rawget(self, '_values')[key]
   end,
 
   __tostring = function(self)

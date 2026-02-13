@@ -213,6 +213,18 @@ describe('set utilities', function()
     end)
   end)
 
+  describe('__index method priority', function()
+    it('should not shadow methods with set values', function()
+      local s = llx.Set{'contains', 'union', 'insert'}
+      -- Methods must still be callable even when the set contains
+      -- strings that match method names.
+      expect(s:contains('contains')).to.be_true()
+      expect(s:contains('missing')).to.be_false()
+      local result = s:union(llx.Set{'extra'})
+      expect(result:contains('extra')).to.be_true()
+    end)
+  end)
+
   describe('filter', function()
     it('should keep only elements matching the predicate', function()
       local s = llx.Set{1, 2, 3, 4, 5}
