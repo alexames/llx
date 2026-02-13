@@ -72,7 +72,11 @@ Tuple = class 'Tuple' {
   end,
 
   __tostring = function(self)
-    return 'Tuple{' .. table.concat(self, ',') .. '}'
+    local parts = {}
+    for i = 1, #self do
+      parts[i] = tostring(self[i])
+    end
+    return 'Tuple{' .. table.concat(parts, ',') .. '}'
   end,
 }
 

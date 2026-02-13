@@ -176,6 +176,16 @@ describe('Tuple', function()
       local t = Tuple{'a', 'b', 'c'}
       expect(tostring(t)).to.be_equal_to('Tuple{a,b,c}')
     end)
+
+    it('should handle boolean elements in tostring', function()
+      local t = Tuple{true, false, true}
+      expect(tostring(t)).to.be_equal_to('Tuple{true,false,true}')
+    end)
+
+    it('should handle mixed types in tostring', function()
+      local t = Tuple{1, 'two', true}
+      expect(tostring(t)).to.be_equal_to('Tuple{1,two,true}')
+    end)
   end)
 
   describe('unpack', function()
