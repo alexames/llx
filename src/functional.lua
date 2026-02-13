@@ -134,11 +134,6 @@ function map(lambda, ...)
   return result
 end
 
---- Checks if a number is even.
--- @param v The number to check
--- @return true if even, false otherwise
-function even(v) return v % 2 == 0 end
-
 --- Filters a sequence based on a predicate function.
 -- Returns an iterator that yields only elements for which the predicate
 -- returns true.
