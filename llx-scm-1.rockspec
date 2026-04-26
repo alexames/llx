@@ -53,6 +53,7 @@ build = {
       ["llx.decorator"] = "src/decorator.lua",
       ["llx.enum"] = "src/enum.lua",
       ["llx.environment"] = "src/environment.lua",
+      ["llx.export"] = "src/export.lua",
       ["llx.flatten_submodules"] = "src/flatten_submodules.lua",
       ["llx.functional"] = "src/functional.lua",
       ["llx.getclass"] = "src/getclass.lua",

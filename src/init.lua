@@ -23,6 +23,7 @@ return require 'llx.flatten_submodules' {
   decorator = require 'llx.decorator',
   environment = require 'llx.environment',
   exceptions = require 'llx.exceptions',
+  export = require 'llx.export',
   flow_control = require 'llx.flow_control',
   functional = require 'llx.functional',
   hash = require 'llx.hash',
