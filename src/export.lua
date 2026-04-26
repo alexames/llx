@@ -54,7 +54,8 @@ local function build_field(name, schema)
   }
 end
 
-local function notify(observers_by_field, global_observers, name, value, previous)
+local function notify(
+    observers_by_field, global_observers, name, value, previous)
   local list = observers_by_field[name]
   if list then
     for _, callback in ipairs(list) do
