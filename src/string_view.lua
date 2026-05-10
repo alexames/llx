@@ -66,6 +66,18 @@ StringView = class 'StringView' {
     return tostring(a) == tostring(b)
   end,
 
+  __hash = function(self, result)
+    -- Hash the byte sequence the view exposes. Consistent with
+    -- __eq, which compares byte-by-byte: two views over the same
+    -- content (regardless of underlying string identity) hash equal.
+    local hash = require 'llx.hash'
+    for i = 0, self._len - 1 do
+      result = hash.hash_integer(
+        self._str:byte(self._start + i), result)
+    end
+    return result
+  end,
+
   --- Access byte by index (relative to the view, 1-based)
   __index = function(self, key)
     -- Methods

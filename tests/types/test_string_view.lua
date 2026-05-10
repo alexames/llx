@@ -1,7 +1,11 @@
 local unit = require 'llx.unit'
 local llx = require 'llx'
 local string_view = require 'llx.string_view'
+local hash_module = require 'llx.hash'
+local hash_table_module = require 'llx.hash_table'
 local StringView = string_view.StringView
+local hash = hash_module.hash
+local HashTable = hash_table_module.HashTable
 
 _ENV = unit.create_test_env(_ENV)
 
@@ -131,6 +135,29 @@ describe('StringViewStringMethodTests', function()
     local v1 = StringView("abcdef", 1, 3) -- "abc"
     local v2 = StringView("abcdef", 2, 3) -- "bcd"
     expect(v1 == v2).to.be_false()
+  end)
+
+  it('should hash equal for views with the same content '
+    .. 'from different sources', function()
+    local v1 = StringView("abcdef", 2, 3) -- "bcd"
+    local v2 = StringView("xbcdy", 2, 3)  -- "bcd"
+    expect(hash(v1)).to.be_equal_to(hash(v2))
+  end)
+
+  it('should hash differently for views with different content', function()
+    local v1 = StringView("abcdef", 1, 3) -- "abc"
+    local v2 = StringView("abcdef", 2, 3) -- "bcd"
+    expect(hash(v1)).to_not.be_equal_to(hash(v2))
+  end)
+
+  it('should be usable as a HashTable key', function()
+    local ht = HashTable()
+    local v1 = StringView("abcdef", 2, 3) -- "bcd"
+    ht[v1] = 'first'
+    -- Lookup with a different StringView of the same content
+    -- must hit the same bucket and resolve via __eq.
+    local v2 = StringView("xbcdy", 2, 3)  -- "bcd"
+    expect(ht[v2]).to.be_equal_to('first')
   end)
 end)
 
