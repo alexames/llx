@@ -50,6 +50,7 @@ build = {
       ["llx.class"] = "src/class.lua",
       ["llx.collections"] = "src/collections/init.lua",
       ["llx.collections.counter"] = "src/collections/counter.lua",
+      ["llx.collections.default_dict"] = "src/collections/default_dict.lua",
       ["llx.collections.deque"] = "src/collections/deque.lua",
       ["llx.collections.ordered_dict"] = "src/collections/ordered_dict.lua",
       ["llx.core"] = "src/core.lua",
