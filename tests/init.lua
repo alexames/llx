@@ -52,6 +52,7 @@ require 'llx.tests.strict.test_strict'
 require 'llx.tests.collections.test_counter'
 require 'llx.tests.collections.test_default_dict'
 require 'llx.tests.collections.test_deque'
+require 'llx.tests.collections.test_heap'
 require 'llx.tests.collections.test_ordered_dict'
 
 -- types/ tests
