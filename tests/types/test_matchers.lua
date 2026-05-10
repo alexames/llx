@@ -160,7 +160,29 @@ end)
 -- ---------------------------------------------------------------------------
 
 describe('Optional', function()
-  describe('__isinstance', function()
+  describe('Optional(Type) natural form', function()
+    it('should return true for nil', function()
+      local OptString = Optional(String)
+      expect(OptString:__isinstance(nil)).to.be_true()
+    end)
+
+    it('should return true for a value matching the given type', function()
+      local OptString = Optional(String)
+      expect(OptString:__isinstance('hello')).to.be_true()
+    end)
+
+    it('should return false for a value of the wrong type', function()
+      local OptInt = Optional(Integer)
+      expect(OptInt:__isinstance('hello')).to.be_false()
+    end)
+
+    it('should accept matching integers when wrapping Integer', function()
+      local OptInt = Optional(Integer)
+      expect(OptInt:__isinstance(42)).to.be_true()
+    end)
+  end)
+
+  describe('__isinstance (list-wrapped form)', function()
     it('should return true for nil', function()
       local OptString = Optional{String}
       expect(OptString:__isinstance(nil)).to.be_true()

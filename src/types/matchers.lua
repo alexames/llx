@@ -62,8 +62,17 @@ local function union_type_check(type_list)
   })
 end
 
-local function optional_type_check(type_checker)
-  return union_type_check{Nil, type_checker[1]}
+local function optional_type_check(type_or_list)
+  -- Accept both Optional(Type) (natural form) and Optional{Type}
+  -- (list-wrapped form, consistent with Union's calling convention).
+  -- Distinguish by presence of __isinstance: a real type checker
+  -- always has it; a bare list wrapper does not.
+  local inner = type_or_list
+  if type(type_or_list) == 'table'
+      and type_or_list.__isinstance == nil then
+    inner = type_or_list[1]
+  end
+  return union_type_check{Nil, inner}
 end
 
 local function dict_type_check(type_checker)
