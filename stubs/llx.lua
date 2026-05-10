@@ -1,0 +1,86 @@
+---@meta
+-- llx public API surface for the sumneko/luals language server.
+-- This file is not loaded at runtime; it exists only to give your
+-- editor type-aware completion and hover docs for `local llx = require 'llx'`.
+
+---@class llx
+---@field class fun(name: string|table): llx.ClassDefiner
+---@field isinstance fun(value: any, type_checker: any): boolean
+---@field Schema fun(schema: table): llx.Schema
+---@field matches_schema fun(schema: llx.Schema, value: any, nothrow?: boolean): boolean, llx.Exception?
+---@field enum fun(name: string): fun(t: table): table
+---@field repr fun(value: any): string
+---@field tointeger fun(value: any): integer?
+---@field tostringf fun(formatter: any, ...: any): string
+---@field strict any
+---@field string_view fun(s: string, start?: integer, len?: integer): llx.StringView
+---@field check_arguments fun(...): nil
+---@field getclass fun(value: any): table?
+---@field StringView llx.StringView
+-- Type checkers
+---@field Boolean any
+---@field Float any
+---@field Integer any
+---@field Nil any
+---@field Number any
+---@field String any
+---@field Table any
+---@field Thread any
+---@field Userdata any
+---@field Function any
+---@field Any any
+---@field Union fun(types: table): any
+---@field Optional fun(t: any): any
+---@field Dict fun(key_type: any, value_type: any): any
+-- Collections (flattened from llx.collections)
+---@field Counter llx.Counter
+---@field DefaultDict llx.DefaultDict
+---@field Deque llx.Deque
+---@field Heap llx.Heap
+---@field OrderedDict llx.OrderedDict
+-- Types
+---@field List llx.List
+---@field Set llx.Set
+-- namedtuple + result
+---@field namedtuple fun(name: string, fields: string[]): llx.NamedTuple
+---@field Result llx.Result
+---@field Option llx.Option
+---@field Ok fun(value: any): llx.Result
+---@field Err fun(err: any): llx.Result
+---@field Some fun(value: any): llx.Option
+---@field None llx.Option
+-- Named submodules
+---@field bisect llx.bisect
+---@field coroutine llx.coroutine
+---@field debug llx.debug
+---@field decorator llx.decorator
+---@field environment llx.environment
+---@field exceptions llx.exceptions
+---@field export llx.export
+---@field flow_control any
+---@field functional llx.functional
+---@field hash llx.hash
+---@field mathx llx.mathx
+---@field method llx.method
+---@field operators llx.operators
+---@field property llx.property
+---@field proxy llx.proxy
+---@field truthy llx.truthy
+---@field type_check_decorator llx.type_check_decorator
+---@field bytecode llx.bytecode
+---@field main_file fun(): boolean
+local llx = {}
+
+---@class llx.ClassDefiner
+---@field extends fun(self: llx.ClassDefiner, ...: table): llx.ClassDefiner
+
+---@class llx.Schema
+---@field __name string
+
+---@class llx.Exception
+---@field what string
+
+---@class llx.StringView
+---@field length fun(self: llx.StringView): integer
+
+return llx
