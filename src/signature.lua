@@ -33,7 +33,6 @@ local Function = class 'Function' {
   end,
 
   __tostring = function(self)
-    print('test')
     local function_format_str = [=[Function{
   params={%s},
   returns={%s},
@@ -56,27 +55,4 @@ Signature = class 'Signature' : extends(Decorator) {
   end,
 }
 
--------------------------------------------------------------------------------
-
-local types = require 'llx.types'
-local Integer = types.Integer
-local Self = types.Any
-
-local TestClass = class 'TestClass' {
-  ['testfunc'
-  | Signature{params={'TestClass', Integer, Integer, Integer},
-              returns={Integer}}] =
-  function(self, a, b, c)
-    local sum = a + b + c
-    return sum
-  end
-}
-
-tc = TestClass()
-
-print(tc:testfunc(1, 2, 3))
-
-print(tc.testfunc.params)
-print(tc.testfunc.returns)
-print(tc.testfunc)
 return _M

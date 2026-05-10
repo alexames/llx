@@ -1,9 +1,6 @@
 local unit = require 'llx.unit'
 local llx = require 'llx'
 
--- NOTE: requiring llx.signature has side effects at module load time:
--- it creates a TestClass, instantiates it, and prints several values.
--- This output is expected and not a test failure.
 local signature_module = require 'llx.signature'
 local class_module = require 'llx.class'
 local decorator_module = require 'llx.decorator'
@@ -25,8 +22,17 @@ describe('Signature', function()
       expect(Signature).to_not.be_nil()
     end)
 
-    it('should export the test instance tc', function()
-      expect(signature_module.tc).to_not.be_nil()
+    it('should not pollute stdout on require', function()
+      -- Require llx.signature in a fresh subprocess and check that
+      -- it produces no output. Regression for top-level test code
+      -- that previously ran on every import.
+      local cmd = 'lua5.4 -e "require \'llx.signature\'" 2>&1'
+      local handle = io.popen(cmd)
+      if handle then
+        local output = handle:read('*a')
+        handle:close()
+        expect(output).to.be_equal_to('')
+      end
     end)
   end)
 
@@ -234,29 +240,6 @@ describe('Signature', function()
     end)
   end)
 
-  describe('module-level side effects', function()
-    it('should have created a TestClass instance stored as tc', function()
-      local tc = signature_module.tc
-      expect(tc).to_not.be_nil()
-    end)
-
-    it('should have a testfunc on the tc instance that '
-      .. 'works correctly', function()
-      local tc = signature_module.tc
-      local result = tc:testfunc(1, 2, 3)
-      expect(result).to.be_equal_to(6)
-    end)
-
-    it('should have testfunc with params metadata', function()
-      local tc = signature_module.tc
-      expect(type(tc.testfunc.params)).to.be_equal_to('table')
-    end)
-
-    it('should have testfunc with returns metadata', function()
-      local tc = signature_module.tc
-      expect(type(tc.testfunc.returns)).to.be_equal_to('table')
-    end)
-  end)
 end)
 
 if llx.main_file() then
