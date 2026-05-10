@@ -253,6 +253,19 @@ describe('Tuple', function()
       expect(Tuple{1, 3} <= Tuple{1, 2}).to.be_falsy()
     end)
 
+    it('should support <= for prefix-length tiebreak', function()
+      -- Shorter tuple with equal prefix should be <= longer.
+      expect(Tuple{1, 2} <= Tuple{1, 2, 3}).to.be_truthy()
+      -- Longer tuple with equal prefix should NOT be <= shorter.
+      expect(Tuple{1, 2, 3} <= Tuple{1, 2}).to.be_falsy()
+    end)
+
+    it('should support <= for empty tuples', function()
+      expect(Tuple{} <= Tuple{}).to.be_truthy()
+      expect(Tuple{} <= Tuple{1}).to.be_truthy()
+      expect(Tuple{1} <= Tuple{}).to.be_falsy()
+    end)
+
     it('should support > via negation of <=', function()
       expect(Tuple{2, 1} > Tuple{1, 2}).to.be_truthy()
       expect(Tuple{1, 2} > Tuple{2, 1}).to.be_falsy()

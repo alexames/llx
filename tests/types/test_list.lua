@@ -305,6 +305,19 @@ describe('ListTest', function()
       expect(List{1, 3} <= List{1, 2}).to.be_falsy()
     end)
 
+    it('should support <= for prefix-length tiebreak', function()
+      -- Shorter list with equal prefix should be <= longer.
+      expect(List{1, 2} <= List{1, 2, 3}).to.be_truthy()
+      -- Longer list with equal prefix should NOT be <= shorter.
+      expect(List{1, 2, 3} <= List{1, 2}).to.be_falsy()
+    end)
+
+    it('should support <= for empty lists', function()
+      expect(List{} <= List{}).to.be_truthy()
+      expect(List{} <= List{1}).to.be_truthy()
+      expect(List{1} <= List{}).to.be_falsy()
+    end)
+
     it('should allow sorting a list of lists', function()
       local lists = {
         List{3, 1}, List{1, 3},
