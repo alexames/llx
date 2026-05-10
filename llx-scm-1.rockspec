@@ -74,6 +74,7 @@ build = {
       ["llx.property"] = "src/property.lua",
       ["llx.proxy"] = "src/proxy.lua",
       ["llx.repr"] = "src/repr.lua",
+      ["llx.result"] = "src/result.lua",
       ["llx.schema"] = "src/schema.lua",
       ["llx.signature"] = "src/signature.lua",
       ["llx.string_view"] = "src/string_view.lua",
