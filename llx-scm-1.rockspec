@@ -45,6 +45,7 @@ build = {
       ["llx"] = "src/init.lua",
 
       -- Core modules
+      ["llx.bisect"] = "src/bisect.lua",
       ["llx.cache"] = "src/cache.lua",
       ["llx.check_arguments"] = "src/check_arguments.lua",
       ["llx.class"] = "src/class.lua",

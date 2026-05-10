@@ -19,6 +19,7 @@ return require 'llx.flatten_submodules' {
   require 'llx.tointeger',
   require 'llx.tostringf',
   require 'llx.types',
+  bisect = require 'llx.bisect',
   coroutine = require 'llx.coroutine',
   debug = require 'llx.debug',
   decorator = require 'llx.decorator',
