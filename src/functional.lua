@@ -4,6 +4,22 @@
 -- Provides iterator-based operations for mapping, filtering, reducing,
 -- and combining sequences. Many functions are inspired by Python's
 -- itertools module.
+--
+-- Most functions are lazy and return iterators that pull from the
+-- input on demand. Some materialize their input into a List before
+-- producing output. Inherently-eager functions (whose semantics
+-- depend on the full input) include group_by, distinct, sorted,
+-- shuffle, sample, partition, cycle, combinations, permutations,
+-- combinations_with_replacement, unzip, reduce_right, flatten_deep,
+-- and compact. A second set is eager today and may become lazy in
+-- a future release: accumulate, sliding_window, interleave,
+-- peekable, split_when, unique_justseen, take_nth, scan, zip_with.
+-- These all carry an inline "Eager." note where relevant. See the
+-- "Eager vs lazy iteration" section in README.md for the rationale.
+--
+-- Eager functions are unsafe to feed with infinite iterators
+-- (count, cycle, iterate, repeat_elem with no times) unless the
+-- input is first bounded via slice or take_while.
 -- @module llx.functional
 
 local core = require 'llx.core'
@@ -226,6 +242,8 @@ end
 
 --- Creates a running accumulation of values.
 -- Like reduce, but returns all intermediate results.
+-- @note Eager: materializes input. For a lazy variant, see scan
+-- (also currently eager but expected to become lazy).
 -- @param sequence The input sequence
 -- @param lambda Accumulator function (accumulator, value) -> new_accumulator
 -- @param initial_value Optional initial value
@@ -1474,6 +1492,7 @@ end
 
 --- Returns overlapping windows of a given width over a sequence.
 -- Generalizes pairwise to arbitrary window sizes.
+-- @note Eager: materializes input.
 -- @param sequence Input iterator
 -- @param n Window width
 -- @return Iterator yielding (index, values...) for each window
@@ -1504,6 +1523,7 @@ end
 
 --- Alternates elements from multiple sequences.
 -- Stops when the shortest sequence is exhausted.
+-- @note Eager: materializes all inputs.
 -- @param ... Input iterators
 -- @return Iterator yielding (index, value) pairs
 function interleave(...)
@@ -1694,6 +1714,7 @@ function unfold(f, seed)
 end
 
 --- Wraps an iterator so that the next value can be peeked without consuming it.
+-- @note Eager: materializes input on construction.
 -- @param sequence Input iterator
 -- @return A callable table with a :peek() method
 function peekable(sequence)
@@ -1720,6 +1741,7 @@ end
 --- Splits a sequence into sublists each time the predicate changes truth value.
 -- A new group starts whenever pred(element) changes from false to true
 -- or from true to false.
+-- @note Eager: materializes input.
 -- @param sequence Input iterator
 -- @param pred Predicate function
 -- @return A List of Lists
@@ -1750,6 +1772,7 @@ end
 
 --- Removes consecutive duplicate elements from a sequence.
 -- Only adjacent duplicates are removed (unlike distinct which is global).
+-- @note Eager: materializes input. May become lazy in a future release.
 -- @param sequence Input iterator
 -- @param key_func Optional function to compute comparison key
 -- @return A List with consecutive duplicates removed
@@ -1773,6 +1796,7 @@ function unique_justseen(sequence, key_func)
 end
 
 --- Yields every nth element from a sequence (starting with the first).
+-- @note Eager: materializes input. May become lazy in a future release.
 -- @param sequence Input iterator
 -- @param n Step size
 -- @return Iterator yielding (index, value) pairs
@@ -1812,6 +1836,7 @@ function reduce_right(sequence, f, init)
 end
 
 --- Zips sequences together and applies a combining function.
+-- @note Eager: materializes all inputs to determine the shortest length.
 -- @param f Combining function
 -- @param ... Input sequences
 -- @return A List of combined values
@@ -1839,8 +1864,11 @@ function zip_with(f, ...)
   return result
 end
 
---- Lazy running accumulation (lazy version of accumulate).
--- Yields intermediate results as an iterator.
+--- Running accumulation, yielded incrementally.
+-- Like accumulate, but returns an iterator instead of a List.
+-- @note Eager today: materializes input before yielding. Despite
+-- the iterator-shaped return, it is not safe with infinite inputs.
+-- May become lazy in a future release.
 -- @param sequence Input iterator
 -- @param f Binary function (accumulator, value) -> new accumulator
 -- @param init Optional initial accumulator value
