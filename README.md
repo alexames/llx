@@ -223,6 +223,66 @@ llx
 └── bytecode/         -- Bytecode manipulation
 ```
 
+## API Conventions
+
+### Callback signatures
+
+`List` methods and `llx.functional` functions both accept callbacks, but
+they call them with different argument shapes. Code that targets one
+will not always work transparently against the other.
+
+| Source                          | Callback receives        |
+|---------------------------------|--------------------------|
+| `list:map(f)`, `list:filter(f)` | `f(value, index)`        |
+| `list:reduce(f, init)`          | `f(accumulator, value, index)` |
+| `functional.map(f, seq)`        | `f(value)` per sequence (or `f(unpack(values))` for multiple sequences) |
+| `functional.filter(f, seq)`     | `f(value)`               |
+| `functional.reduce(seq, f, i)`  | `f(accumulator, value)`  |
+
+If a callback works with `list:map`, it generally also works with
+`functional.map` because Lua silently drops the extra `index` argument
+the method form would have passed. The reverse is not always true: if a
+`functional`-shaped callback expects only `value`, it still works when
+called by `list:map` (Lua ignores the extra index).
+
+### Argument order in `llx.functional`
+
+Two patterns coexist by intent:
+
+- **Operations** that transform a sequence put the *function first*,
+  the sequence second:
+  `map(f, seq)`, `filter(pred, seq)`, `take_while(pred, seq)`,
+  `drop_while(pred, seq)`, `find(pred, seq)`, `find_index(pred, seq)`,
+  `partition(pred, seq)`, `flatmap(f, seq)`.
+
+- **Reductions and aggregations** that consume a sequence put the
+  *sequence first*, the function (if any) second:
+  `reduce(seq, f, init)`, `accumulate(seq, f, init)`,
+  `min_by(seq, key)`, `max_by(seq, key)`, `sort_by(seq, key)`,
+  `group_by(seq, key)`, `distinct(seq, key)`, `scan(seq, f, init)`,
+  `reduce_right(seq, f, init)`, `unique_justseen(seq, key)`.
+
+The split is deliberate: in operations, the function is the most
+variant argument and sequences thread through unchanged; in reductions,
+the sequence is the subject and the function describes *how* to fold
+over it.
+
+### Eager vs lazy iteration
+
+Most `llx.functional` functions are lazy: they return an iterator that
+pulls from the input on demand. Some materialize the input into a
+`List` before producing any output. Functions whose semantics require
+the full input (`group_by`, `distinct`, `shuffle`, `sample`, `sorted`,
+`combinations`, `permutations`, `cycle`, `unzip`, `partition`,
+`reduce_right`) are inherently eager. Other functions
+(`accumulate`, `sliding_window`, `interleave`, `peekable`,
+`split_when`, `unique_justseen`, `take_nth`, `scan`, `zip_with`) are
+implemented eagerly today and may become lazy in a future release.
+
+Eager functions are unsafe to use with infinite iterators
+(e.g. `count`, `cycle`, `iterate`, `repeat_elem`) without first
+bounding the input via `slice` or `take_while`.
+
 ## Running Tests
 
 ```sh
