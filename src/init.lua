@@ -7,6 +7,7 @@ local lock <close> = strict.lock_global_table()
 return require 'llx.flatten_submodules' {
   require 'llx.check_arguments',
   require 'llx.class',
+  require 'llx.collections',
   require 'llx.core',
   require 'llx.enum',
   require 'llx.getclass',
