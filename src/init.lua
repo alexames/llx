@@ -12,6 +12,7 @@ return require 'llx.flatten_submodules' {
   require 'llx.enum',
   require 'llx.getclass',
   require 'llx.isinstance',
+  require 'llx.namedtuple',
   require 'llx.repr',
   require 'llx.schema',
   require 'llx.strict',

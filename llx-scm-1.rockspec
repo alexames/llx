@@ -69,6 +69,7 @@ build = {
       ["llx.isinstance"] = "src/isinstance.lua",
       ["llx.mathx"] = "src/mathx.lua",
       ["llx.method"] = "src/method.lua",
+      ["llx.namedtuple"] = "src/namedtuple.lua",
       ["llx.operators"] = "src/operators.lua",
       ["llx.property"] = "src/property.lua",
       ["llx.proxy"] = "src/proxy.lua",
