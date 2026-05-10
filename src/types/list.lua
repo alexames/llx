@@ -3,8 +3,6 @@
 local class = require 'llx.class' . class
 local environment = require 'llx.environment'
 local is_callable = require 'llx.core' . is_callable
-local isinstance = require 'llx.isinstance' . isinstance
-local Number = require 'llx.types.number' . Number
 local String = require 'llx.types.string' . String
 local Table = require 'llx.types.table' . Table
 
@@ -110,12 +108,18 @@ List = class 'List' : extends(Table) {
   end,
 
   __index = function(self, index)
-    if isinstance(index, Number) then
+    -- Fast paths via primitive type(): the previous implementation
+    -- called isinstance() on every read, which walked the class
+    -- hierarchy and turned O(1) indexing into O(class-depth).
+    -- Lua numbers and plain tables are the only cases that ever
+    -- reach this branch in practice.
+    local index_type = type(index)
+    if index_type == 'number' then
       if index < 0 then
         index = #self + index + 1
       end
       return rawget(self, index)
-    elseif isinstance(index, Table) then
+    elseif index_type == 'table' then
       local results = List{}
       for i, v in ipairs(index) do
         results[i] = self[v]
