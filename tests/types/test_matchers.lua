@@ -5,6 +5,7 @@ local matchers = require 'llx.types.matchers'
 local Any = matchers.Any
 local Union = matchers.Union
 local Optional = matchers.Optional
+local Dict = matchers.Dict
 
 local Integer = llx.Integer
 local Number = llx.Number
@@ -244,6 +245,58 @@ describe('Optional', function()
       .. 'Optional String', function()
       local OptString = Optional{String}
       expect(isinstance(42, OptString)).to.be_false()
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Dict
+-- ---------------------------------------------------------------------------
+
+describe('Dict', function()
+  describe('__isinstance', function()
+    it('should accept a table with matching key and value types', function()
+      local D = Dict(String, Integer)
+      expect(D:__isinstance({a = 1, b = 2})).to.be_true()
+    end)
+
+    it('should accept an empty table', function()
+      local D = Dict(String, Integer)
+      expect(D:__isinstance({})).to.be_true()
+    end)
+
+    it('should reject a value with a wrong-typed key', function()
+      local D = Dict(String, Integer)
+      expect(D:__isinstance({[1] = 1})).to.be_false()
+    end)
+
+    it('should reject a value with a wrong-typed value', function()
+      local D = Dict(String, Integer)
+      expect(D:__isinstance({a = 'x'})).to.be_false()
+    end)
+
+    it('should reject a non-table value', function()
+      local D = Dict(String, Integer)
+      expect(D:__isinstance(42)).to.be_false()
+      expect(D:__isinstance('x')).to.be_false()
+      expect(D:__isinstance(nil)).to.be_false()
+    end)
+  end)
+
+  describe('isinstance integration', function()
+    it('should match via isinstance', function()
+      local D = Dict(String, Number)
+      expect(isinstance({a = 1.5, b = 2}, D)).to.be_true()
+      expect(isinstance({a = 'x'}, D)).to.be_false()
+    end)
+  end)
+
+  describe('__name', function()
+    it('should expose a Dict<K, V> name', function()
+      local D = Dict(String, Integer)
+      expect(D.__name:find('Dict')).to_not.be_nil()
+      expect(D.__name:find('String')).to_not.be_nil()
+      expect(D.__name:find('Integer')).to_not.be_nil()
     end)
   end)
 end)

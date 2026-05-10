@@ -75,7 +75,29 @@ local function optional_type_check(type_or_list)
   return union_type_check{Nil, inner}
 end
 
-local function dict_type_check(type_checker)
+local function dict_type_check(key_type, value_type)
+  local function name_of(t)
+    return t and (t.__name or tostring(t)) or 'nil'
+  end
+  local typename = 'Dict<' .. name_of(key_type) ..
+                   ', ' .. name_of(value_type) .. '>'
+  return setmetatable({
+    __name = typename,
+
+    key_type = key_type,
+    value_type = value_type,
+
+    __isinstance = function(self, value)
+      if type(value) ~= 'table' then return false end
+      for k, v in pairs(value) do
+        if not isinstance(k, key_type) then return false end
+        if not isinstance(v, value_type) then return false end
+      end
+      return true
+    end,
+  }, {
+    __tostring = function(self) return self.__name end,
+  })
 end
 
 Any=any_type_check()
