@@ -28,12 +28,3 @@ method = class 'method' {
 }
 
 return _M
-
--- TODO:
--- Improve lists so they are intrinsically typed
--- Add a dict type checker
--- Add a tuple type checker, both intrinsically typed and not
--- refactor error message to just return a string,
--- and allow them to compose better
--- Add examples of other things that can be checked for, like even numbers
--- better handling of metatable/userdata types
