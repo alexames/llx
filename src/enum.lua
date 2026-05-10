@@ -28,6 +28,17 @@ local enum_metatable = {
   __le = function(a, b)
     return a.value <= b.value
   end,
+
+  __hash = function(self, result)
+    -- Combine the enum's name with the numeric value. Equal enum
+    -- values (same enum table, same value) always hash the same;
+    -- different enums with the same name can collide, which __eq
+    -- resolves correctly by comparing enum table identity.
+    local hash = require 'llx.hash'
+    result = hash.hash_value(self.enum.__name, result)
+    result = hash.hash_value(self.value, result)
+    return result
+  end,
 }
 
 function enum(name)

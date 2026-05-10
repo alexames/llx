@@ -2,6 +2,8 @@ local unit = require 'llx.unit'
 local llx = require 'llx'
 
 local enum = require 'llx.enum' . enum
+local hash = require 'llx.hash' . hash
+local HashTable = require 'llx.hash_table' . HashTable
 
 _ENV = unit.create_test_env(_ENV)
 
@@ -302,6 +304,34 @@ describe('enum', function()
       expect(Color[1].name).to.be_equal_to('Red')
       expect(Fruit[1].name).to.be_equal_to('Apple')
       expect(Color[1]).to_not.be_equal_to(Fruit[1])
+    end)
+  end)
+
+  describe('__hash', function()
+    it('should hash equal for same enum value', function()
+      local Color = enum 'Color' {
+        [1] = 'Red', [2] = 'Green', [3] = 'Blue',
+      }
+      expect(hash(Color.Red)).to.be_equal_to(hash(Color[1]))
+    end)
+
+    it('should hash differently for different values '
+      .. 'of the same enum', function()
+      local Color = enum 'Color' {
+        [1] = 'Red', [2] = 'Green', [3] = 'Blue',
+      }
+      expect(hash(Color.Red)).to_not.be_equal_to(hash(Color.Green))
+    end)
+
+    it('should be usable as a HashTable key', function()
+      local Color = enum 'Color' {
+        [1] = 'Red', [2] = 'Green',
+      }
+      local ht = HashTable()
+      ht[Color.Red] = 'rouge'
+      ht[Color.Green] = 'vert'
+      expect(ht[Color.Red]).to.be_equal_to('rouge')
+      expect(ht[Color.Green]).to.be_equal_to('vert')
     end)
   end)
 end)
