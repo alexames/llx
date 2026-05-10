@@ -49,6 +49,7 @@ require 'llx.tests.flow_control.test_trycatch'
 require 'llx.tests.strict.test_strict'
 
 -- collections/ tests
+require 'llx.tests.collections.test_counter'
 require 'llx.tests.collections.test_deque'
 
 -- types/ tests

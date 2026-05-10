@@ -49,6 +49,7 @@ build = {
       ["llx.check_arguments"] = "src/check_arguments.lua",
       ["llx.class"] = "src/class.lua",
       ["llx.collections"] = "src/collections/init.lua",
+      ["llx.collections.counter"] = "src/collections/counter.lua",
       ["llx.collections.deque"] = "src/collections/deque.lua",
       ["llx.core"] = "src/core.lua",
       ["llx.coroutine"] = "src/coroutine.lua",
