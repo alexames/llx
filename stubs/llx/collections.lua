@@ -6,6 +6,7 @@
 
 ---@class llx.Deque
 ---@operator len: integer
+---@overload fun(iterable?: table|fun()): llx.Deque
 local Deque = {}
 
 ---@param iterable? table|fun()
@@ -49,6 +50,7 @@ function Deque:at(index) end
 ---@operator len: integer
 ---@operator add(llx.Counter): llx.Counter
 ---@operator sub(llx.Counter): llx.Counter
+---@overload fun(source?: table|fun()): llx.Counter
 local Counter = {}
 
 ---@param key any
@@ -88,6 +90,7 @@ function Counter:keys() end
 
 ---@class llx.OrderedDict
 ---@operator len: integer
+---@overload fun(source?: table[]|fun()): llx.OrderedDict
 local OrderedDict = {}
 
 ---@param key any
@@ -121,6 +124,7 @@ function OrderedDict:move_to_end(key) end
 
 ---@class llx.DefaultDict
 ---@operator len: integer
+---@overload fun(factory: fun(key: any): any): llx.DefaultDict
 local DefaultDict = {}
 
 ---@param key any
@@ -152,6 +156,7 @@ function DefaultDict:clear() end
 
 ---@class llx.Heap
 ---@operator len: integer
+---@overload fun(opts?: table): llx.Heap
 local Heap = {}
 
 ---@param value any

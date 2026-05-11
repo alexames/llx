@@ -1,7 +1,11 @@
 ---@meta
 -- llx public API surface for the sumneko/luals language server.
 -- This file is not loaded at runtime; it exists only to give your
--- editor type-aware completion and hover docs for `local llx = require 'llx'`.
+-- editor type-aware completion and hover docs for
+-- `local llx = require 'llx'`.
+--
+-- Class definitions live in stubs/llx/*.lua — luals merges them
+-- across the workspace.library entries.
 
 ---@class llx
 ---@field class fun(name: string|table): llx.ClassDefiner
@@ -16,8 +20,8 @@
 ---@field string_view fun(s: string, start?: integer, len?: integer): llx.StringView
 ---@field check_arguments fun(...): nil
 ---@field getclass fun(value: any): table?
----@field StringView llx.StringView
--- Type checkers
+---@field main_file fun(): boolean
+-- Type checkers (flattened from llx.types)
 ---@field Boolean any
 ---@field Float any
 ---@field Integer any
@@ -32,16 +36,17 @@
 ---@field Union fun(types: table): any
 ---@field Optional fun(t: any): any
 ---@field Dict fun(key_type: any, value_type: any): any
+-- Value-type classes (flattened from llx.types and llx.string_view)
+---@field List llx.List
+---@field Set llx.Set
+---@field StringView llx.StringView
 -- Collections (flattened from llx.collections)
 ---@field Counter llx.Counter
 ---@field DefaultDict llx.DefaultDict
 ---@field Deque llx.Deque
 ---@field Heap llx.Heap
 ---@field OrderedDict llx.OrderedDict
--- Types
----@field List llx.List
----@field Set llx.Set
--- namedtuple + result
+-- Top-level factories and sum types
 ---@field namedtuple fun(name: string, fields: string[]): llx.NamedTuple
 ---@field Result llx.Result
 ---@field Option llx.Option
@@ -51,36 +56,53 @@
 ---@field None llx.Option
 -- Named submodules
 ---@field bisect llx.bisect
----@field coroutine llx.coroutine
----@field debug llx.debug
----@field decorator llx.decorator
----@field environment llx.environment
+---@field coroutine any
+---@field debug any
+---@field decorator any
+---@field environment any
 ---@field exceptions llx.exceptions
----@field export llx.export
+---@field export any
 ---@field flow_control any
 ---@field functional llx.functional
----@field hash llx.hash
+---@field hash any
 ---@field mathx llx.mathx
----@field method llx.method
----@field operators llx.operators
----@field property llx.property
----@field proxy llx.proxy
----@field truthy llx.truthy
----@field type_check_decorator llx.type_check_decorator
----@field bytecode llx.bytecode
----@field main_file fun(): boolean
+---@field method any
+---@field operators any
+---@field property any
+---@field proxy any
+---@field truthy any
+---@field type_check_decorator any
+---@field bytecode any
 local llx = {}
+
+-- Class-system helper types declared here because they don't have
+-- a dedicated submodule stub.
 
 ---@class llx.ClassDefiner
 ---@field extends fun(self: llx.ClassDefiner, ...: table): llx.ClassDefiner
+---@overload fun(definition: table): table
 
 ---@class llx.Schema
 ---@field __name string
+---@field type any
 
----@class llx.Exception
----@field what string
+-- Base "namedtuple class" type. Concrete classes returned by
+-- namedtuple() inherit this shape; users typically declare their
+-- own subclass to capture the specific fields.
+--
+-- Pattern:
+--     ---@class Point : llx.NamedTuple
+--     ---@field x number
+--     ---@field y number
+--     local Point = llx.namedtuple('Point', {'x', 'y'})
+---@class llx.NamedTuple
+---@operator len: integer
+local NamedTuple = {}
 
----@class llx.StringView
----@field length fun(self: llx.StringView): integer
+---@return string[]
+function NamedTuple:fields() end
+
+---@return table<string, any>
+function NamedTuple:as_table() end
 
 return llx
