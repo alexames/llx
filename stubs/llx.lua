@@ -36,6 +36,7 @@
 ---@field Union fun(types: table): any
 ---@field Optional fun(t: any): any
 ---@field Dict fun(key_type: any, value_type: any): any
+---@field Protocol fun(fields: table<string, any>): any
 -- Value-type classes (flattened from llx.types, llx.string_view,
 -- llx.seq, llx.tuple, llx.hash_table)
 ---@field List llx.List

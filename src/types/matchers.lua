@@ -75,6 +75,37 @@ local function optional_type_check(type_or_list)
   return union_type_check{Nil, inner}
 end
 
+local function protocol_type_check(fields)
+  if type(fields) ~= 'table' then
+    error('Protocol: expected a table of {name = type}', 3)
+  end
+  -- Capture field names for the type name; sort for stability.
+  local field_names = {}
+  for k in pairs(fields) do field_names[#field_names + 1] = k end
+  table.sort(field_names, function(a, b)
+    return tostring(a) < tostring(b)
+  end)
+  local typename = 'Protocol{' .. table.concat(field_names, ', ') .. '}'
+  return setmetatable({
+    __name = typename,
+
+    -- Expose the shape so callers can introspect.
+    fields = fields,
+
+    __isinstance = function(self, value)
+      if type(value) ~= 'table' then return false end
+      for field_name, expected_type in pairs(fields) do
+        if not isinstance(value[field_name], expected_type) then
+          return false
+        end
+      end
+      return true
+    end,
+  }, {
+    __tostring = function(self) return self.__name end,
+  })
+end
+
 local function dict_type_check(key_type, value_type)
   local function name_of(t)
     return t and (t.__name or tostring(t)) or 'nil'
@@ -104,6 +135,7 @@ Any=any_type_check()
 Union=union_type_check
 Optional=optional_type_check
 Dict=dict_type_check
+Protocol=protocol_type_check
 -- Tuple=tuple_type_check
 
 return _M

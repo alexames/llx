@@ -6,6 +6,7 @@ local Any = matchers.Any
 local Union = matchers.Union
 local Optional = matchers.Optional
 local Dict = matchers.Dict
+local Protocol = matchers.Protocol
 
 local Integer = llx.Integer
 local Number = llx.Number
@@ -297,6 +298,89 @@ describe('Dict', function()
       expect(D.__name:find('Dict')).to_not.be_nil()
       expect(D.__name:find('String')).to_not.be_nil()
       expect(D.__name:find('Integer')).to_not.be_nil()
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Protocol
+-- ---------------------------------------------------------------------------
+
+describe('Protocol', function()
+  describe('__isinstance', function()
+    it('should accept a table with all required fields of right type', function()
+      local UserShape = Protocol{name = String, age = Integer}
+      expect(UserShape:__isinstance({name = 'Alice', age = 30}))
+        .to.be_true()
+    end)
+
+    it('should reject a table missing a required field', function()
+      local UserShape = Protocol{name = String, age = Integer}
+      expect(UserShape:__isinstance({name = 'Bob'})).to.be_false()
+    end)
+
+    it('should reject a table with a wrong-typed field', function()
+      local UserShape = Protocol{name = String, age = Integer}
+      expect(UserShape:__isinstance({name = 42, age = 30}))
+        .to.be_false()
+    end)
+
+    it('should accept extra fields (structural typing is permissive)', function()
+      local UserShape = Protocol{name = String}
+      expect(UserShape:__isinstance({name = 'X', extra = 'fine'}))
+        .to.be_true()
+    end)
+
+    it('should reject non-table values', function()
+      local Shape = Protocol{x = Integer}
+      expect(Shape:__isinstance(42)).to.be_false()
+      expect(Shape:__isinstance('x')).to.be_false()
+      expect(Shape:__isinstance(nil)).to.be_false()
+    end)
+
+    it('should accept an empty protocol against any table', function()
+      local Empty = Protocol{}
+      expect(Empty:__isinstance({})).to.be_true()
+      expect(Empty:__isinstance({a = 1})).to.be_true()
+    end)
+  end)
+
+  describe('nested protocols', function()
+    it('should compose with another Protocol as a field type', function()
+      local Inner = Protocol{value = Integer}
+      local Outer = Protocol{label = String, inner = Inner}
+      expect(Outer:__isinstance({
+        label = 'x',
+        inner = {value = 1},
+      })).to.be_true()
+      expect(Outer:__isinstance({
+        label = 'x',
+        inner = {value = 'wrong'},
+      })).to.be_false()
+    end)
+  end)
+
+  describe('isinstance integration', function()
+    it('should work as an isinstance target', function()
+      local Shape = Protocol{x = Integer, y = Integer}
+      expect(isinstance({x = 1, y = 2}, Shape)).to.be_true()
+      expect(isinstance({x = 1, y = 'two'}, Shape)).to.be_false()
+    end)
+  end)
+
+  describe('__name', function()
+    it('should expose a Protocol{...} name listing fields', function()
+      local Shape = Protocol{a = Integer, b = String}
+      expect(Shape.__name:find('Protocol')).to_not.be_nil()
+      expect(Shape.__name:find('a')).to_not.be_nil()
+      expect(Shape.__name:find('b')).to_not.be_nil()
+    end)
+  end)
+
+  describe('fields field', function()
+    it('should expose the underlying shape table', function()
+      local Shape = Protocol{a = Integer}
+      expect(Shape.fields.a).to.be_equal_to(Integer)
     end)
   end)
 end)
