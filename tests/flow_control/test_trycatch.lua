@@ -168,6 +168,26 @@ describe('try', function()
   end)
 end)
 
+describe('llx.flow_control aggregator', function()
+  it('should expose try and catch directly', function()
+    expect(type(llx.flow_control.try)).to.be_equal_to('function')
+    expect(type(llx.flow_control.catch)).to.be_equal_to('function')
+  end)
+
+  it('should let callers use try/catch without per-file requires', function()
+    local exceptions = llx.exceptions
+    local caught = nil
+    llx.flow_control.try {
+      function() error(exceptions.ValueException('aggregator works')) end;
+      llx.flow_control.catch(exceptions.ValueException, function(e)
+        caught = e
+      end);
+    }
+    expect(caught).to_not.be_nil()
+    expect(caught.what).to.be_equal_to('aggregator works')
+  end)
+end)
+
 if llx.main_file() then
   unit.run_unit_tests()
 end

@@ -3,8 +3,8 @@
 
 local llx = require 'llx'
 local exceptions = llx.exceptions
-local try = require 'llx.flow_control.trycatch'.try
-local catch = require 'llx.flow_control.catch'.catch
+local try = llx.flow_control.try
+local catch = llx.flow_control.catch
 
 -- Built-in exception types. The codebase uses ValueException
 -- (not ValueError); other names are spelled as you'd expect.
