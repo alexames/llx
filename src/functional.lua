@@ -1910,6 +1910,131 @@ function scan(sequence, f, init)
   end
 end
 
+--- Inserts a separator value between consecutive elements.
+-- The first and last elements of the input are emitted unchanged;
+-- every gap between adjacent input elements gets one sep emitted
+-- in its place.
+-- @param sep The separator value to interpose
+-- @param sequence Input sequence
+-- @return Iterator yielding (index, value), separators included
+-- @usage
+-- for _, v in interpose(',', range(1, 4)) do io.write(tostring(v)) end
+-- -- prints: 1,2,3
+function interpose(sep, sequence)
+  local pending = nil
+  local has_pending = false
+  local first = true
+  local i = 0
+  return function()
+    if has_pending then
+      has_pending = false
+      i = i + 1
+      return i, pending
+    end
+    local ctrl, v = sequence()
+    if ctrl == nil then return nil end
+    if first then
+      first = false
+      i = i + 1
+      return i, v
+    end
+    pending = v
+    has_pending = true
+    i = i + 1
+    return i, sep
+  end
+end
+
+--- Builds a map from key function output to value. Last value
+-- wins on key collision.
+-- @note Eager: materializes input.
+-- @param sequence Input sequence
+-- @param key_fn function(value) -> key
+-- @return A plain table {key = value}
+-- @usage
+-- index_by(users, function(u) return u.id end)  -- {[id]=user, ...}
+function index_by(sequence, key_fn)
+  local result = {}
+  for _, v in sequence do
+    result[key_fn(v)] = v
+  end
+  return result
+end
+
+--- Groups consecutive elements that share a key. A new group
+-- starts whenever key_fn(value) changes from the previous element.
+-- Unlike group_by, the grouping is purely positional.
+-- @note Eager: materializes input.
+-- @param sequence Input sequence
+-- @param key_fn function(value) -> key
+-- @return A List of Lists
+-- @usage
+-- chunk_by({1,1,2,2,2,3,1}, identity)
+-- -- returns List{List{1,1}, List{2,2,2}, List{3}, List{1}}
+function chunk_by(sequence, key_fn)
+  local result = List{}
+  local current = nil
+  local last_key = nil
+  for _, v in sequence do
+    local key = key_fn(v)
+    if current == nil or key ~= last_key then
+      current = List{}
+      result:insert(current)
+      last_key = key
+    end
+    current:insert(v)
+  end
+  return result
+end
+
+--- Returns the last n elements as a List.
+-- Uses a fixed-size ring buffer so memory is O(n) regardless of
+-- the input length, which matters for long iterators.
+-- @note Eager: consumes the entire input.
+-- @param sequence Input sequence
+-- @param n Number of trailing elements to keep
+-- @return A List of up to n elements in original order
+-- @usage take_last(range(1, 100), 3)  -- returns List{97, 98, 99}
+function take_last(sequence, n)
+  if n <= 0 then return List{} end
+  local buffer = {}
+  local pos = 0
+  local total = 0
+  for _, v in sequence do
+    pos = (pos % n) + 1
+    buffer[pos] = v
+    total = total + 1
+  end
+  local result = List{}
+  if total < n then
+    for i = 1, total do result:insert(buffer[i]) end
+  else
+    for i = 1, n do
+      local idx = (pos + i - 1) % n + 1
+      result:insert(buffer[idx])
+    end
+  end
+  return result
+end
+
+--- Returns all elements except the last n.
+-- @note Eager: materializes input.
+-- @param sequence Input sequence
+-- @param n Number of trailing elements to drop
+-- @return A List of leading elements (may be empty)
+-- @usage drop_last(range(1, 6), 2)  -- returns List{1, 2, 3, 4}
+function drop_last(sequence, n)
+  local elements = List{}
+  for _, v in sequence do elements:insert(v) end
+  if n <= 0 then return elements end
+  local keep = math.max(0, #elements - n)
+  local result = List{}
+  for i = 1, keep do
+    result:insert(elements[i])
+  end
+  return result
+end
+
 --- Calls a function with each element for side effects, passing values through.
 -- Useful for debugging or logging within a pipeline.
 -- @param func Function to call with each element

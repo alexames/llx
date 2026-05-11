@@ -150,4 +150,29 @@ function functional.constant(value) end
 ---@return function
 function functional.memoize(func, key_func) end
 
+---@param sep any
+---@param sequence any
+---@return fun(): integer?, any
+function functional.interpose(sep, sequence) end
+
+---@param sequence any
+---@param key_fn fun(value: any): any
+---@return table<any, any>
+function functional.index_by(sequence, key_fn) end
+
+---@param sequence any
+---@param key_fn fun(value: any): any
+---@return llx.List
+function functional.chunk_by(sequence, key_fn) end
+
+---@param sequence any
+---@param n integer
+---@return llx.List
+function functional.take_last(sequence, n) end
+
+---@param sequence any
+---@param n integer
+---@return llx.List
+function functional.drop_last(sequence, n) end
+
 return functional

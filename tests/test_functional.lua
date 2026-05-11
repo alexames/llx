@@ -822,6 +822,118 @@ describe('functional', function()
       expect(side_effects).to.be_equal_to(llx.List{1, 2, 3})
     end)
   end)
+
+  describe('interpose', function()
+    it('should insert a separator between elements', function()
+      local out = llx.List(
+        llx.functional.interpose(',', llx.functional.range(1, 4)))
+      expect(out).to.be_equal_to(llx.List{1, ',', 2, ',', 3})
+    end)
+
+    it('should pass through a single element unchanged', function()
+      local out = llx.List(
+        llx.functional.interpose('-', llx.functional.range(1, 2)))
+      expect(out).to.be_equal_to(llx.List{1})
+    end)
+
+    it('should emit nothing for an empty sequence', function()
+      local function empty() return nil end
+      local out = llx.List(llx.functional.interpose('x', empty))
+      expect(out).to.be_equal_to(llx.List{})
+    end)
+  end)
+
+  describe('index_by', function()
+    it('should build a key->value map', function()
+      local users = {
+        {id = 1, name = 'Alice'},
+        {id = 2, name = 'Bob'},
+        {id = 3, name = 'Cat'},
+      }
+      local List = llx.List
+      local seq = List(users)
+      local indexed = llx.functional.index_by(seq, function(u) return u.id end)
+      expect(indexed[1].name).to.be_equal_to('Alice')
+      expect(indexed[2].name).to.be_equal_to('Bob')
+      expect(indexed[3].name).to.be_equal_to('Cat')
+    end)
+
+    it('should last-wins on key collision', function()
+      local items = {{k = 'x', v = 1}, {k = 'x', v = 2}}
+      local seq = llx.List(items)
+      local out = llx.functional.index_by(seq, function(i) return i.k end)
+      expect(out.x.v).to.be_equal_to(2)
+    end)
+  end)
+
+  describe('chunk_by', function()
+    it('should split into groups when key changes', function()
+      local data = llx.List{1, 1, 2, 2, 2, 3, 1}
+      local groups = llx.functional.chunk_by(data, function(v) return v end)
+      expect(#groups).to.be_equal_to(4)
+      expect(groups[1]).to.be_equal_to(llx.List{1, 1})
+      expect(groups[2]).to.be_equal_to(llx.List{2, 2, 2})
+      expect(groups[3]).to.be_equal_to(llx.List{3})
+      expect(groups[4]).to.be_equal_to(llx.List{1})
+    end)
+
+    it('should treat consecutive different keys as singleton groups', function()
+      local data = llx.List{'a', 'b', 'c'}
+      local groups = llx.functional.chunk_by(data, function(v) return v end)
+      expect(#groups).to.be_equal_to(3)
+    end)
+
+    it('should return empty for empty input', function()
+      local function empty() return nil end
+      local groups = llx.functional.chunk_by(empty, function(v) return v end)
+      expect(#groups).to.be_equal_to(0)
+    end)
+  end)
+
+  describe('take_last', function()
+    it('should return the last n elements in order', function()
+      local out = llx.functional.take_last(llx.functional.range(1, 11), 3)
+      expect(out).to.be_equal_to(llx.List{8, 9, 10})
+    end)
+
+    it('should return all elements when n exceeds length', function()
+      local out = llx.functional.take_last(llx.functional.range(1, 4), 100)
+      expect(out).to.be_equal_to(llx.List{1, 2, 3})
+    end)
+
+    it('should return empty for n <= 0', function()
+      local out = llx.functional.take_last(llx.functional.range(1, 5), 0)
+      expect(out).to.be_equal_to(llx.List{})
+    end)
+
+    it('should return empty for empty input', function()
+      local function empty() return nil end
+      local out = llx.functional.take_last(empty, 3)
+      expect(out).to.be_equal_to(llx.List{})
+    end)
+  end)
+
+  describe('drop_last', function()
+    it('should return all but the last n elements', function()
+      local out = llx.functional.drop_last(llx.functional.range(1, 6), 2)
+      expect(out).to.be_equal_to(llx.List{1, 2, 3})
+    end)
+
+    it('should return empty when n equals length', function()
+      local out = llx.functional.drop_last(llx.functional.range(1, 4), 3)
+      expect(out).to.be_equal_to(llx.List{})
+    end)
+
+    it('should return empty when n exceeds length', function()
+      local out = llx.functional.drop_last(llx.functional.range(1, 3), 100)
+      expect(out).to.be_equal_to(llx.List{})
+    end)
+
+    it('should return all elements for n <= 0', function()
+      local out = llx.functional.drop_last(llx.functional.range(1, 4), 0)
+      expect(out).to.be_equal_to(llx.List{1, 2, 3})
+    end)
+  end)
 end)
 
 if llx.main_file() then
