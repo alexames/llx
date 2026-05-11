@@ -9,6 +9,7 @@ return require 'llx.flatten_submodules' {
   require 'llx.class',
   require 'llx.collections',
   require 'llx.core',
+  require 'llx.dataclass',
   require 'llx.enum',
   require 'llx.getclass',
   require 'llx.hash_table',

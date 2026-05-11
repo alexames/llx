@@ -57,6 +57,7 @@ build = {
       ["llx.collections.ordered_dict"] = "src/collections/ordered_dict.lua",
       ["llx.core"] = "src/core.lua",
       ["llx.coroutine"] = "src/coroutine.lua",
+      ["llx.dataclass"] = "src/dataclass.lua",
       ["llx.decorator"] = "src/decorator.lua",
       ["llx.enum"] = "src/enum.lua",
       ["llx.environment"] = "src/environment.lua",

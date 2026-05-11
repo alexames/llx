@@ -52,6 +52,7 @@
 ---@field OrderedDict llx.OrderedDict
 -- Top-level factories and sum types
 ---@field namedtuple fun(name: string, fields: string[]): llx.NamedTuple
+---@field dataclass fun(name: string, fields: llx.dataclass.field[], opts?: llx.dataclass.opts): llx.DataclassClass
 ---@field Result llx.Result
 ---@field Option llx.Option
 ---@field Ok fun(value: any): llx.Result
