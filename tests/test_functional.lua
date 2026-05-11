@@ -913,6 +913,63 @@ describe('functional', function()
     end)
   end)
 
+  describe('running_min', function()
+    it('should yield the cumulative minimum', function()
+      local out = llx.List(
+        llx.functional.running_min(llx.List{3, 1, 4, 1, 5}))
+      expect(out).to.be_equal_to(llx.List{3, 1, 1, 1, 1})
+    end)
+
+    it('should be lazy (work with infinite-ish input)', function()
+      local i = 0
+      local function source() i = i + 1; return i, 100 - i end
+      local rm = llx.functional.running_min(source)
+      local _, v1 = rm(nil, nil)
+      local _, v2 = rm(nil, nil)
+      local _, v3 = rm(nil, nil)
+      expect(v1).to.be_equal_to(99)
+      expect(v2).to.be_equal_to(98)
+      expect(v3).to.be_equal_to(97)
+    end)
+  end)
+
+  describe('running_max', function()
+    it('should yield the cumulative maximum', function()
+      local out = llx.List(
+        llx.functional.running_max(llx.List{3, 1, 4, 1, 5}))
+      expect(out).to.be_equal_to(llx.List{3, 3, 4, 4, 5})
+    end)
+  end)
+
+  describe('running_sum', function()
+    it('should yield the cumulative sum', function()
+      local out = llx.List(
+        llx.functional.running_sum(llx.List{1, 2, 3, 4}))
+      expect(out).to.be_equal_to(llx.List{1, 3, 6, 10})
+    end)
+
+    it('should handle negative values', function()
+      local out = llx.List(
+        llx.functional.running_sum(llx.List{5, -3, 2, -1}))
+      expect(out).to.be_equal_to(llx.List{5, 2, 4, 3})
+    end)
+  end)
+
+  describe('running_average', function()
+    it('should yield the cumulative mean', function()
+      local out = llx.List(
+        llx.functional.running_average(llx.List{2, 4, 6}))
+      expect(out).to.be_equal_to(llx.List{2, 3, 4})
+    end)
+
+    it('should produce fractional means', function()
+      local out = llx.List(
+        llx.functional.running_average(llx.List{1, 2}))
+      expect(out[1]).to.be_equal_to(1)
+      expect(out[2]).to.be_equal_to(1.5)
+    end)
+  end)
+
   describe('drop_last', function()
     it('should return all but the last n elements', function()
       local out = llx.functional.drop_last(llx.functional.range(1, 6), 2)

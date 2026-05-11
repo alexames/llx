@@ -175,4 +175,20 @@ function functional.take_last(sequence, n) end
 ---@return llx.List
 function functional.drop_last(sequence, n) end
 
+---@param sequence any
+---@return fun(state: any, control: any): any, number
+function functional.running_min(sequence) end
+
+---@param sequence any
+---@return fun(state: any, control: any): any, number
+function functional.running_max(sequence) end
+
+---@param sequence any
+---@return fun(state: any, control: any): any, number
+function functional.running_sum(sequence) end
+
+---@param sequence any
+---@return fun(state: any, control: any): any, number
+function functional.running_average(sequence) end
+
 return functional

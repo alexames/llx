@@ -1925,14 +1925,16 @@ function interpose(sep, sequence)
   local has_pending = false
   local first = true
   local i = 0
+  local control = nil
   return function()
     if has_pending then
       has_pending = false
       i = i + 1
       return i, pending
     end
-    local ctrl, v = sequence()
-    if ctrl == nil then return nil end
+    local v
+    control, v = sequence(nil, control)
+    if control == nil then return nil end
     if first then
       first = false
       i = i + 1
@@ -2015,6 +2017,75 @@ function take_last(sequence, n)
     end
   end
   return result
+end
+
+--- Yields the running minimum after each element.
+-- Lazy: produces values incrementally without materializing input.
+-- @param sequence Input sequence
+-- @return Iterator yielding (control, running_min)
+-- @usage running_min({3, 1, 4, 1, 5})  -- yields 3, 1, 1, 1, 1
+function running_min(sequence)
+  local best = nil
+  return function(state, control)
+    local v
+    control, v = sequence(state, control)
+    if control == nil then return nil end
+    if best == nil or v < best then best = v end
+    return control, best
+  end
+end
+
+--- Yields the running maximum after each element.
+-- Lazy.
+-- @param sequence Input sequence
+-- @return Iterator yielding (control, running_max)
+-- @usage running_max({3, 1, 4, 1, 5})  -- yields 3, 3, 4, 4, 5
+function running_max(sequence)
+  local best = nil
+  return function(state, control)
+    local v
+    control, v = sequence(state, control)
+    if control == nil then return nil end
+    if best == nil or v > best then best = v end
+    return control, best
+  end
+end
+
+--- Yields the running (cumulative) sum after each element.
+-- Lazy. Use this when you want every intermediate total; the
+-- non-running version is `sum(sequence)`.
+-- @param sequence Input sequence
+-- @return Iterator yielding (control, running_sum)
+-- @usage running_sum({1, 2, 3, 4})  -- yields 1, 3, 6, 10
+function running_sum(sequence)
+  local total = 0
+  return function(state, control)
+    local v
+    control, v = sequence(state, control)
+    if control == nil then return nil end
+    total = total + v
+    return control, total
+  end
+end
+
+--- Yields the running arithmetic mean after each element.
+-- Lazy. Numerically simple, not the most stable formulation for
+-- very long sequences with widely-varying values; switch to
+-- Welford's algorithm if you need it.
+-- @param sequence Input sequence
+-- @return Iterator yielding (control, running_average)
+-- @usage running_average({2, 4, 6})  -- yields 2, 3, 4
+function running_average(sequence)
+  local total = 0
+  local count = 0
+  return function(state, control)
+    local v
+    control, v = sequence(state, control)
+    if control == nil then return nil end
+    total = total + v
+    count = count + 1
+    return control, total / count
+  end
 end
 
 --- Returns all elements except the last n.
