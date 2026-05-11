@@ -5,8 +5,10 @@ local matches_schema = llx.matches_schema
 local Schema = llx.Schema
 local Number = llx.Number
 local String = llx.String
+local Integer = llx.Integer
 local Boolean = llx.Boolean
 local Table = llx.Table
+local List = llx.List
 
 _ENV = unit.create_test_env(_ENV)
 
@@ -143,6 +145,80 @@ describe('matches_schema', function()
       local schema = Schema { type = Number }
       expect(llx.isinstance('hello', schema)).to.be_false()
     end)
+  end)
+end)
+
+describe('one_of constraint', function()
+  it('should accept a value that is in the list', function()
+    local schema = Schema { type = String, one_of = {'red', 'green', 'blue'} }
+    expect(matches_schema(schema, 'red')).to.be_true()
+  end)
+
+  it('should reject a value that is not in the list', function()
+    expect(function()
+      matches_schema(
+        Schema { type = String, one_of = {'red', 'green', 'blue'} },
+        'yellow')
+    end).to.throw()
+  end)
+
+  it('should work with numeric values', function()
+    local schema = Schema { type = Integer, one_of = {1, 2, 3} }
+    expect(matches_schema(schema, 2)).to.be_true()
+    expect(function() matches_schema(schema, 4) end).to.throw()
+  end)
+
+  it('should include the allowed list in the error message', function()
+    local schema = Schema { type = String, one_of = {'a', 'b'} }
+    local ok, err = matches_schema(schema, 'c', true)
+    expect(ok).to.be_false()
+    expect(err.what).to.contain('a')
+    expect(err.what).to.contain('b')
+  end)
+end)
+
+describe('predicate constraint', function()
+  it('should accept when predicate returns truthy', function()
+    local schema = Schema {
+      type = Integer,
+      predicate = function(v) return v % 2 == 0 end,
+    }
+    expect(matches_schema(schema, 4)).to.be_true()
+  end)
+
+  it('should reject when predicate returns false', function()
+    expect(function()
+      matches_schema(
+        Schema {
+          type = Integer,
+          predicate = function(v) return v % 2 == 0 end,
+        },
+        5)
+    end).to.throw()
+  end)
+
+  it('should use the predicate-supplied error message', function()
+    local schema = Schema {
+      type = Integer,
+      predicate = function(v)
+        if v < 0 then return false, 'must be non-negative' end
+        return true
+      end,
+    }
+    local ok, err = matches_schema(schema, -1, true)
+    expect(ok).to.be_false()
+    expect(err.what).to.contain('must be non-negative')
+  end)
+
+  it('should fall back to a default message when predicate '
+    .. 'returns only false', function()
+    local schema = Schema {
+      type = Integer,
+      predicate = function() return false end,
+    }
+    local ok, err = matches_schema(schema, 42, true)
+    expect(ok).to.be_false()
+    expect(err.what).to.contain('failed predicate')
   end)
 end)
 
