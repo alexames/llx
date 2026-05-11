@@ -41,6 +41,22 @@ describe('Schema', function()
       local schema = Schema { type = Number }
       expect(type(schema.__isinstance)).to.be_equal_to('function')
     end)
+
+    it('should not mutate the input definition table', function()
+      local definition = { type = Number, title = 'Age' }
+      Schema(definition)
+      expect(definition.__isinstance).to.be_nil()
+      expect(definition.__name).to.be_nil()
+      expect(getmetatable(definition)).to.be_nil()
+    end)
+
+    it('should produce independent wrappers from the same input', function()
+      local definition = { type = Number }
+      local a = Schema(definition)
+      local b = Schema(definition)
+      a.extra = 'a-only'
+      expect(b.extra).to.be_nil()
+    end)
   end)
 end)
 

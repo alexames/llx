@@ -58,17 +58,32 @@ function matches_schema(schema, value, nothrow)
 end
 
 --- Creates a schema object for type validation.
--- @param schema The schema definition table
+-- The returned schema is a new table; the input is not mutated.
+-- Passing the same definition to Schema twice produces two
+-- independent wrappers.
+-- @param definition The schema definition table (type, title,
+--   constraints, etc.)
 -- @return The schema object with isinstance support
-function Schema(schema)
-  function schema:__isinstance(value)
-    return matches_schema(schema, value, true)
+function Schema(definition)
+  -- Shallow-copy so we don't pollute the caller's table with
+  -- __isinstance, __name, or a metatable. Constraint tables and
+  -- nested Schemas are shared by reference, which is fine because
+  -- those are themselves immutable wrappers or value-typed.
+  local wrapper = {}
+  for k, v in pairs(definition) do
+    wrapper[k] = v
   end
 
-  schema.__name = schema.__name or schema.title or 'Schema'
-  setmetatable(schema, {__tostring=function(self) return self.__name end})
+  function wrapper:__isinstance(value)
+    return matches_schema(wrapper, value, true)
+  end
 
-  return schema
+  wrapper.__name = wrapper.__name or wrapper.title or 'Schema'
+  setmetatable(wrapper, {
+    __tostring = function(self) return self.__name end,
+  })
+
+  return wrapper
 end
 
 return _M
