@@ -190,6 +190,92 @@ describe('environment', function()
     end)
   end)
 
+  describe('proxy __tostring', function()
+    it('should return module<empty> for an empty module', function()
+      local _, proxy = environment.create_module_environment()
+      expect(tostring(proxy)).to.be_equal_to('module<empty>')
+    end)
+
+    it('should list fields when small', function()
+      local env, proxy = environment.create_module_environment()
+      env.a = 1
+      env.b = 2
+      local s = tostring(proxy)
+      expect(s).to.contain('a')
+      expect(s).to.contain('b')
+    end)
+
+    it('should truncate and show a count when many fields', function()
+      local env, proxy = environment.create_module_environment()
+      env.a = 1; env.b = 2; env.c = 3; env.d = 4; env.e = 5
+      env.f = 6; env.g = 7
+      local s = tostring(proxy)
+      expect(s).to.contain('total')
+    end)
+
+    it('should hide internal __ fields', function()
+      local env, proxy = environment.create_module_environment()
+      env.__internal = 'hidden'
+      env.visible = 'shown'
+      local s = tostring(proxy)
+      expect(s).to.contain('visible')
+      expect(s).to_not.contain('__internal')
+    end)
+  end)
+
+  describe('environment.has', function()
+    it('should return true for defined fields', function()
+      local env, proxy = environment.create_module_environment()
+      env.foo = 42
+      expect(environment.has(proxy, 'foo')).to.be_true()
+    end)
+
+    it('should return false for undefined fields without raising', function()
+      local _, proxy = environment.create_module_environment()
+      expect(environment.has(proxy, 'never_defined')).to.be_false()
+    end)
+
+    it('should return false for non-module tables', function()
+      expect(environment.has({a = 1}, 'a')).to.be_false()
+    end)
+  end)
+
+  describe('environment.deprecated', function()
+    it('should call the wrapped function with the original args', function()
+      local fn = environment.deprecated('old', function(a, b) return a + b end)
+      expect(fn(2, 3)).to.be_equal_to(5)
+    end)
+
+    it('should print a warning on first call only', function()
+      -- io.stderr is a FILE userdata; substitute a fake stream
+      -- table that records writes. Restore after.
+      local writes = {}
+      local original_stderr = io.stderr
+      io.stderr = {
+        write = function(self, s) writes[#writes + 1] = s end,
+      }
+      local ok, err = pcall(function()
+        local fn = environment.deprecated('old_fn', function() return 1 end,
+                                          'use new_fn')
+        fn(); fn(); fn()
+      end)
+      io.stderr = original_stderr
+      if not ok then error(err) end
+      expect(#writes).to.be_equal_to(1)
+      expect(writes[1]).to.contain('old_fn')
+      expect(writes[1]).to.contain('use new_fn')
+    end)
+
+    it('should pass through return values unchanged', function()
+      local fn = environment.deprecated('old', function(x) return x * 2 end)
+      local original_stderr = io.stderr
+      io.stderr = {write = function() end}  -- suppress
+      local result = fn(21)
+      io.stderr = original_stderr
+      expect(result).to.be_equal_to(42)
+    end)
+  end)
+
   describe('proxy __pairs iteration', function()
     it('should iterate over all module fields', function()
       local env, proxy = environment.create_module_environment()

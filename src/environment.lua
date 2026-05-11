@@ -83,6 +83,32 @@ local function make_module_metatable(module)
     __pairs = function(self)
       return next, module, nil
     end,
+
+    __tostring = function(self)
+      -- Summarize the public surface so `print(my_module)` shows
+      -- something more useful than `table: 0x...`. Internal __X
+      -- fields are filtered out.
+      local fields = {}
+      for k in pairs(module) do
+        if type(k) == 'string'
+            and not (k:sub(1, 2) == '__') then
+          fields[#fields + 1] = k
+        end
+      end
+      table.sort(fields)
+      if #fields == 0 then return 'module<empty>' end
+      if #fields > 5 then
+        return string.format(
+          'module<%s, ... (%d total)>',
+          table.concat({fields[1], fields[2], fields[3]}, ', '),
+          #fields)
+      end
+      return 'module<' .. table.concat(fields, ', ') .. '>'
+    end,
+
+    -- Internal reference: callers like environment.has can reach
+    -- the underlying module table without going through __index.
+    __module = module,
   }
 end
 
@@ -138,7 +164,41 @@ local function create_module_environment(using_modules)
   return environment, module_proxy
 end
 
+--- Checks whether a module proxy exposes a field, without raising.
+-- The proxy's __index raises an error for missing fields (strict
+-- mode); has provides the safe alternative.
+-- @param module A module proxy produced by create_module_environment
+-- @param name The field name to look up
+-- @return true iff the field is defined (and non-nil) on the module
+local function has(module, name)
+  local mt = getmetatable(module)
+  if mt == nil or mt.__module == nil then return false end
+  return rawget(mt.__module, name) ~= nil
+end
+
+--- Wraps a function so the first call prints a one-time deprecation
+-- warning to stderr. Subsequent calls pass through silently.
+-- @param name The function or symbol name being deprecated
+-- @param fn The function to wrap (or any callable)
+-- @param message Optional human-readable replacement guidance
+-- @return A wrapped function with the same signature as fn
+local function deprecated(name, fn, message)
+  local warned = false
+  return function(...)
+    if not warned then
+      warned = true
+      io.stderr:write(string.format(
+        '[DEPRECATED] %s: %s\n',
+        tostring(name),
+        message or 'this is deprecated and will be removed'))
+    end
+    return fn(...)
+  end
+end
+
 return {
   create_module_environment=create_module_environment,
   make_module_metatable=make_module_metatable,
+  has=has,
+  deprecated=deprecated,
 }
