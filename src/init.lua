@@ -36,6 +36,7 @@ return require 'llx.flatten_submodules' {
   hash = require 'llx.hash',
   mathx = require 'llx.mathx',
   path = require 'llx.path',
+  pretty = require 'llx.pretty',
   method = require 'llx.method',
   operators = require 'llx.operators',
   property = require 'llx.property',

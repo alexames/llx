@@ -73,6 +73,7 @@
 ---@field method any
 ---@field operators any
 ---@field path llx.path
+---@field pretty llx.pretty
 ---@field property any
 ---@field proxy any
 ---@field truthy any
