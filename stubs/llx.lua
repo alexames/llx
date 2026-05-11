@@ -36,9 +36,11 @@
 ---@field Union fun(types: table): any
 ---@field Optional fun(t: any): any
 ---@field Dict fun(key_type: any, value_type: any): any
--- Value-type classes (flattened from llx.types and llx.string_view)
+-- Value-type classes (flattened from llx.types, llx.string_view,
+-- llx.seq)
 ---@field List llx.List
 ---@field Set llx.Set
+---@field Seq llx.Seq
 ---@field StringView llx.StringView
 -- Collections (flattened from llx.collections)
 ---@field Counter llx.Counter

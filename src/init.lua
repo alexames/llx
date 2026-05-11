@@ -15,6 +15,7 @@ return require 'llx.flatten_submodules' {
   require 'llx.namedtuple',
   require 'llx.repr',
   require 'llx.result',
+  require 'llx.seq',
   require 'llx.schema',
   require 'llx.strict',
   require 'llx.string_view',

@@ -76,6 +76,7 @@ build = {
       ["llx.repr"] = "src/repr.lua",
       ["llx.result"] = "src/result.lua",
       ["llx.schema"] = "src/schema.lua",
+      ["llx.seq"] = "src/seq.lua",
       ["llx.signature"] = "src/signature.lua",
       ["llx.string_view"] = "src/string_view.lua",
       ["llx.tointeger"] = "src/tointeger.lua",
