@@ -193,6 +193,25 @@ describe('flatten_submodules', function()
       expect(result.alpha).to.be_equal_to(1)
       expect(result.named).to.be_equal_to('value')
     end)
+
+    it('should silently drop non-table numeric entries', function()
+      -- Regression for Lua's `require` returning (module, file_path)
+      -- when used as the last positional entry. The file_path string
+      -- previously polluted the result with [N] = string entries
+      -- that leaked all the way up to llx top-level. Now non-table
+      -- numeric entries are skipped without raising.
+      local result = flatten_submodules {
+        {alpha = 1},
+        '/path/to/some/file.lua',  -- simulated require-second-return
+      }
+      expect(result.alpha).to.be_equal_to(1)
+      -- The string should not appear under any numeric key.
+      local has_numeric = false
+      for k in pairs(result) do
+        if type(k) == 'number' then has_numeric = true; break end
+      end
+      expect(has_numeric).to.be_false()
+    end)
   end)
 end)
 

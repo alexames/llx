@@ -10,15 +10,19 @@ end
 
 local function submodule_flattener(submodules)
   local module = {}
-  local len = #submodules
   for name_or_index, submodule in pairs(submodules) do
-    if type(name_or_index) == 'number'
-       and type(submodule) == 'table'
-       and name_or_index >= 1
-       and name_or_index <= len then
-      for key, value in pairs(submodule) do
-        copy_into(module, key, value)
+    if type(name_or_index) == 'number' then
+      if type(submodule) == 'table' then
+        -- Positional submodule: flatten its public surface into
+        -- the parent.
+        for key, value in pairs(submodule) do
+          copy_into(module, key, value)
+        end
       end
+      -- Non-table at a numeric index is silently ignored. The
+      -- common cause is `require`'s second return value (the
+      -- source file path) leaking into the table constructor
+      -- when the last positional entry is a `require` call.
     else
       copy_into(module, name_or_index, submodule)
     end
