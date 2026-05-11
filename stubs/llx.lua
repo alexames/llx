@@ -72,6 +72,7 @@
 ---@field mathx llx.mathx
 ---@field method any
 ---@field operators any
+---@field path llx.path
 ---@field property any
 ---@field proxy any
 ---@field truthy any

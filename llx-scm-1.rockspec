@@ -71,6 +71,7 @@ build = {
       ["llx.method"] = "src/method.lua",
       ["llx.namedtuple"] = "src/namedtuple.lua",
       ["llx.operators"] = "src/operators.lua",
+      ["llx.path"] = "src/path.lua",
       ["llx.property"] = "src/property.lua",
       ["llx.proxy"] = "src/proxy.lua",
       ["llx.repr"] = "src/repr.lua",
