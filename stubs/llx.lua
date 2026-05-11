@@ -37,11 +37,13 @@
 ---@field Optional fun(t: any): any
 ---@field Dict fun(key_type: any, value_type: any): any
 -- Value-type classes (flattened from llx.types, llx.string_view,
--- llx.seq)
+-- llx.seq, llx.tuple, llx.hash_table)
 ---@field List llx.List
 ---@field Set llx.Set
 ---@field Seq llx.Seq
 ---@field StringView llx.StringView
+---@field Tuple llx.Tuple
+---@field HashTable llx.HashTable
 -- Collections (flattened from llx.collections)
 ---@field Counter llx.Counter
 ---@field DefaultDict llx.DefaultDict
