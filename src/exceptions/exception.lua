@@ -11,6 +11,14 @@ Exception = class 'Exception' {
     self.traceback = debug.traceback('', (level or 1) + 1)
   end,
 
+  --- Returns the short form: "ClassName: what" with no traceback.
+  -- Useful for log lines or user-facing error reporting where the
+  -- traceback would just be noise. The full tostring() form (with
+  -- traceback) remains the default for raw printing.
+  message = function(self)
+    return self.__name .. ': ' .. self.what
+  end,
+
   __tostring = function(self)
     return self.__name .. ':' .. self.what .. self.traceback
   end,

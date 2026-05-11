@@ -58,6 +58,23 @@ describe('Exception', function()
     expect(s).to.contain('specific message')
   end)
 
+  it('message() should return ClassName: what without a traceback', function()
+    local e = Exception('hello')
+    local m = e:message()
+    expect(m).to.contain('Exception')
+    expect(m).to.contain('hello')
+    expect(m).to_not.contain('stack traceback')
+  end)
+
+  it('message() should reflect the runtime class name on subclasses', function()
+    -- The Exception base prepends self.__name, so a derived class
+    -- inherits the method and gets its own name.
+    local TypeError = llx.exceptions.TypeError
+    local e = TypeError('bad')
+    expect(e:message()).to.contain('TypeError')
+    expect(e:message()).to_not.contain('stack traceback')
+  end)
+
   it('should include the traceback in tostring output', function()
     local e = Exception('msg')
     local s = tostring(e)

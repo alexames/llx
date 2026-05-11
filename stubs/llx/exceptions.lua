@@ -27,6 +27,11 @@
 ---@field what string
 ---@field traceback string
 ---@field __name string
+local Exception = {}
+
+--- Returns the short form: "ClassName: what" without a traceback.
+---@return string
+function Exception:message() end
 
 ---@class llx.ExceptionGroup : llx.Exception
 ---@field exception_list llx.Exception[]
