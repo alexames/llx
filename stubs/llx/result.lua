@@ -7,6 +7,11 @@
 ---@class llx.Result
 local Result = {}
 
+---@param fn fun(...): any
+---@param ... any
+---@return llx.Result
+function Result.try(fn, ...) end
+
 ---@return boolean
 function Result:is_ok() end
 ---@return boolean
@@ -37,6 +42,10 @@ function Result:or_else(fn) end
 
 ---@class llx.Option
 local Option = {}
+
+---@param value any
+---@return llx.Option
+function Option.from_nilable(value) end
 
 ---@return boolean
 function Option:is_some() end

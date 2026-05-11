@@ -109,6 +109,38 @@ describe('Result', function()
     end)
   end)
 
+  describe('Result.try', function()
+    it('should wrap a normal return as Ok', function()
+      local r = Result.try(function() return 42 end)
+      expect(r:is_ok()).to.be_true()
+      expect(r:unwrap()).to.be_equal_to(42)
+    end)
+
+    it('should wrap an error as Err', function()
+      local r = Result.try(function() error('boom') end)
+      expect(r:is_err()).to.be_true()
+      -- Lua's error() prepends "file:line: " to plain strings; just
+      -- check the message contains the original text.
+      expect(r:unwrap_err()).to.contain('boom')
+    end)
+
+    it('should forward arguments to fn', function()
+      local r = Result.try(function(a, b) return a + b end, 3, 4)
+      expect(r:unwrap()).to.be_equal_to(7)
+    end)
+
+    it('should capture an Exception raised via error()', function()
+      local exceptions = llx.exceptions
+      local r = Result.try(function()
+        error(exceptions.ValueException('bad input'))
+      end)
+      expect(r:is_err()).to.be_true()
+      -- The Err wraps the raised exception object.
+      local err = r:unwrap_err()
+      expect(err.what).to.contain('bad input')
+    end)
+  end)
+
   describe('__eq, __hash, __tostring', function()
     it('Ok values should compare equal by inner value', function()
       expect(Ok(42) == Ok(42)).to.be_true()
@@ -201,6 +233,29 @@ describe('Option', function()
       local r = Some(1):or_else(function() called = true end)
       expect(called).to.be_false()
       expect(r:unwrap()).to.be_equal_to(1)
+    end)
+  end)
+
+  describe('Option.from_nilable', function()
+    it('should return None for nil', function()
+      expect(Option.from_nilable(nil):is_none()).to.be_true()
+    end)
+
+    it('should return Some for any non-nil value', function()
+      expect(Option.from_nilable(42):unwrap()).to.be_equal_to(42)
+      expect(Option.from_nilable('hi'):unwrap()).to.be_equal_to('hi')
+      expect(Option.from_nilable({}):is_some()).to.be_true()
+    end)
+
+    it('should treat false as a value, not absence', function()
+      local o = Option.from_nilable(false)
+      expect(o:is_some()).to.be_true()
+      expect(o:unwrap()).to.be_equal_to(false)
+    end)
+
+    it('should treat zero and empty string as values', function()
+      expect(Option.from_nilable(0):unwrap()).to.be_equal_to(0)
+      expect(Option.from_nilable(''):unwrap()).to.be_equal_to('')
     end)
   end)
 

@@ -98,6 +98,22 @@ Result = class 'Result' {
 function Ok(value) return Result('ok', value) end
 function Err(value) return Result('err', value) end
 
+--- Calls fn(...) inside pcall and wraps the outcome.
+-- Returns Ok(first_return_value) if fn returned normally, or
+-- Err(error_value) if fn raised. The structured-error
+-- complement to pcall: instead of `local ok, v = pcall(fn)`
+-- followed by branching, write
+-- `Result.try(fn):and_then(...):or_else(...)`.
+-- Only the first return value of fn is captured.
+-- @param fn The function to call
+-- @param ... Arguments forwarded to fn
+-- @return Result wrapping the outcome
+Result.try = function(fn, ...)
+  local ok, value = pcall(fn, ...)
+  if ok then return Ok(value) end
+  return Err(value)
+end
+
 -- ---------------------------------------------------------------------------
 -- Option: Some(value) or None.
 -- ---------------------------------------------------------------------------
@@ -176,5 +192,15 @@ function Some(value) return Option('some', value) end
 -- module loads is not guaranteed to use object identity, but
 -- __eq compares by kind so it still works correctly.
 None = Option('none', nil)
+
+--- Converts a nilable value into an Option.
+-- nil becomes None; any other value (including false, 0, and the
+-- empty string) becomes Some(value).
+-- @param value The value to wrap
+-- @return Some(value) or None
+Option.from_nilable = function(value)
+  if value == nil then return None end
+  return Some(value)
+end
 
 return _M
