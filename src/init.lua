@@ -26,6 +26,7 @@ return require 'llx.flatten_submodules' {
   require 'llx.tuple',
   require 'llx.types',
   bisect = require 'llx.bisect',
+  contextlib = require 'llx.contextlib',
   coroutine = require 'llx.coroutine',
   debug = require 'llx.debug',
   decorator = require 'llx.decorator',

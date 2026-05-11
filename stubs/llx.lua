@@ -62,6 +62,7 @@
 ---@field None llx.Option
 -- Named submodules
 ---@field bisect llx.bisect
+---@field contextlib llx.contextlib
 ---@field coroutine any
 ---@field debug any
 ---@field decorator any

@@ -55,6 +55,7 @@ build = {
       ["llx.collections.deque"] = "src/collections/deque.lua",
       ["llx.collections.heap"] = "src/collections/heap.lua",
       ["llx.collections.ordered_dict"] = "src/collections/ordered_dict.lua",
+      ["llx.contextlib"] = "src/contextlib.lua",
       ["llx.core"] = "src/core.lua",
       ["llx.coroutine"] = "src/coroutine.lua",
       ["llx.dataclass"] = "src/dataclass.lua",
