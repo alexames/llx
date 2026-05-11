@@ -264,6 +264,29 @@ describe('hash', function()
       expect(h1).to_not.be_equal_to(h2)
     end)
   end)
+
+  describe('unsupported value types', function()
+    local TypeError = llx.exceptions.TypeError
+    local isinstance = llx.isinstance
+
+    it('should raise TypeError for a function value', function()
+      local ok, err = pcall(hash.hash, function() end)
+      expect(ok).to.be_false()
+      expect(isinstance(err, TypeError)).to.be_true()
+    end)
+
+    it('should raise TypeError for a thread value', function()
+      local ok, err = pcall(hash.hash, coroutine.create(function() end))
+      expect(ok).to.be_false()
+      expect(isinstance(err, TypeError)).to.be_true()
+    end)
+
+    it('should raise TypeError for a table with a function key', function()
+      local ok, err = pcall(hash.hash, {[function() end] = 1})
+      expect(ok).to.be_false()
+      expect(isinstance(err, TypeError)).to.be_true()
+    end)
+  end)
 end)
 
 if llx.main_file() then

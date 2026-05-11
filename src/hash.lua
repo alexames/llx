@@ -2,6 +2,7 @@
 
 local core = require 'llx.core'
 local environment = require 'llx.environment'
+local TypeError = require 'llx.exceptions.type_error'.TypeError
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -59,7 +60,8 @@ local function get_ordered_keys(value)
     elseif key_type =='table' then
       table.insert(table_keys, k)
     else
-      error(string.format('type %s not supported', key_type))
+      error(TypeError(string.format(
+          'cannot hash table with %s key', key_type)))
     end
   end
   table.sort(boolean_keys)
@@ -88,8 +90,8 @@ function hash_table(value, hash)
 end
 
 local function hash_error(value, hash)
-  -- TODO: error with Exception
-  error(string.format('type %s not supported', type(value)))
+  error(TypeError(string.format(
+      'cannot hash value of type %s', type(value))))
 end
 
 local hash_functions = {
