@@ -502,6 +502,34 @@ describe('SchemaFieldTypeMismatchException', function()
     expect(s).to.contain('SchemaFieldTypeMismatchException')
   end)
 
+  it('should include the offending value when provided', function()
+    local e = SchemaFieldTypeMismatchException(
+        {'age'}, fake_type('Integer'), fake_type('String'), 'not_a_number')
+    expect(e.what).to.contain('Integer expected, got String')
+    expect(e.what).to.contain('not_a_number')
+  end)
+
+  it('should store the actual_value, expected_type, and actual_type '
+    .. 'as fields', function()
+    local expected = fake_type('Integer')
+    local actual = fake_type('String')
+    local e = SchemaFieldTypeMismatchException(
+        {'x'}, expected, actual, 'bad')
+    expect(e.actual_value).to.be_equal_to('bad')
+    expect(e.expected_type).to.be_equal_to(expected)
+    expect(e.actual_type).to.be_equal_to(actual)
+  end)
+
+  it('should truncate a long value in the message', function()
+    local long_value = string.rep('x', 100)
+    local e = SchemaFieldTypeMismatchException(
+        {'x'}, fake_type('Integer'), fake_type('String'), long_value)
+    -- The message should contain a truncated form with an ellipsis,
+    -- not the full 100-char string.
+    expect(e.what:find('...', 1, true)).to_not.be_nil()
+    expect(#e.what < 200).to.be_true()
+  end)
+
   it('should be an instance of SchemaFieldTypeMismatchException', function()
     local e = SchemaFieldTypeMismatchException(
         {'x'}, fake_type('A'), fake_type('B'))

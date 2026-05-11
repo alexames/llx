@@ -22,7 +22,7 @@ local function check_field(schema, value, path, level)
   -- Validate that the value is of the correct type.
   if not isinstance(value, schema_type) then
     return false, exceptions.SchemaFieldTypeMismatchException(
-        path, schema_type, getclass(value), level + 1)
+        path, schema_type, getclass(value), value, level + 1)
   end
 
   -- Validate that the per-type schema check passes.
