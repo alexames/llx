@@ -397,6 +397,87 @@ function Table.get_in(t, path)
   return current
 end
 
+--- Sets a value at a nested path, creating intermediate tables
+-- as needed. Mutates t.
+-- @param t The root table
+-- @param path A non-empty list of keys forming the path
+-- @param value The value to set at the path
+-- @return t (for chaining)
+function Table.set_in(t, path, value)
+  assert(#path > 0, 'set_in: path must be non-empty')
+  local current = t
+  for i = 1, #path - 1 do
+    local key = path[i]
+    if type(current[key]) ~= 'table' then
+      current[key] = {}
+    end
+    current = current[key]
+  end
+  current[path[#path]] = value
+  return t
+end
+
+--- Applies a function to the value at a nested path, replacing
+-- it with the result. Intermediate tables are created if missing.
+-- Mutates t.
+-- @param t The root table
+-- @param path A non-empty list of keys forming the path
+-- @param fn function(current_value) -> new_value
+-- @return t (for chaining)
+function Table.update_in(t, path, fn)
+  assert(#path > 0, 'update_in: path must be non-empty')
+  local current = t
+  for i = 1, #path - 1 do
+    local key = path[i]
+    if type(current[key]) ~= 'table' then
+      current[key] = {}
+    end
+    current = current[key]
+  end
+  local last_key = path[#path]
+  current[last_key] = fn(current[last_key])
+  return t
+end
+
+--- Mutating shallow merge: copies all keys from source tables
+-- into target, in order. Later sources overwrite earlier ones
+-- for duplicate keys. Mutates target.
+-- @param target The table to update
+-- @param ... Source tables
+-- @return target (for chaining)
+function Table.update(target, ...)
+  for i = 1, select('#', ...) do
+    local source = select(i, ...)
+    for k, v in pairs(source) do
+      target[k] = v
+    end
+  end
+  return target
+end
+
+--- Deep-merges multiple tables into a new table. Nested tables
+-- are merged recursively; later sources overwrite earlier ones
+-- for non-table values. Returns a new table; does not modify
+-- inputs.
+-- @param ... Tables to merge
+-- @return A new merged table
+function Table.deep_merge(...)
+  local result = {}
+  for i = 1, select('#', ...) do
+    local source = select(i, ...)
+    if type(source) == 'table' then
+      for k, v in pairs(source) do
+        if type(v) == 'table' and type(result[k]) == 'table' then
+          result[k] = Table.deep_merge(result[k], v)
+        else
+          result[k] = v
+        end
+      end
+    end
+  end
+  return result
+end
+
 function Table:concat(sep, i, j)
   sep = sep or ''
   i = i or 1

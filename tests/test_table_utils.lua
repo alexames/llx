@@ -289,6 +289,123 @@ describe('table utilities', function()
       expect(llx.Table.get_in(t, {2, 1})).to.be_equal_to(30)
     end)
   end)
+
+  describe('Table.set_in', function()
+    it('should set a value at a nested path', function()
+      local t = {a = {b = {c = 1}}}
+      llx.Table.set_in(t, {'a', 'b', 'c'}, 99)
+      expect(t.a.b.c).to.be_equal_to(99)
+    end)
+
+    it('should create intermediate tables as needed', function()
+      local t = {}
+      llx.Table.set_in(t, {'a', 'b', 'c'}, 42)
+      expect(t.a.b.c).to.be_equal_to(42)
+    end)
+
+    it('should overwrite a non-table intermediate', function()
+      local t = {a = 'scalar'}
+      llx.Table.set_in(t, {'a', 'b'}, 1)
+      expect(t.a.b).to.be_equal_to(1)
+    end)
+
+    it('should return t for chaining', function()
+      local t = {}
+      expect(llx.Table.set_in(t, {'x'}, 1)).to.be_equal_to(t)
+    end)
+
+    it('should reject an empty path', function()
+      expect(function() llx.Table.set_in({}, {}, 1) end).to.throw()
+    end)
+  end)
+
+  describe('Table.update_in', function()
+    it('should apply the function to the existing value', function()
+      local t = {count = 5}
+      llx.Table.update_in(t, {'count'}, function(v) return v + 1 end)
+      expect(t.count).to.be_equal_to(6)
+    end)
+
+    it('should work at a nested path', function()
+      local t = {stats = {hits = 10}}
+      llx.Table.update_in(t, {'stats', 'hits'},
+                          function(v) return v * 2 end)
+      expect(t.stats.hits).to.be_equal_to(20)
+    end)
+
+    it('should pass nil to the function when key is missing', function()
+      local t = {}
+      llx.Table.update_in(t, {'count'},
+                          function(v) return (v or 0) + 1 end)
+      expect(t.count).to.be_equal_to(1)
+    end)
+
+    it('should create intermediate tables', function()
+      local t = {}
+      llx.Table.update_in(t, {'a', 'b'}, function(_) return 'set' end)
+      expect(t.a.b).to.be_equal_to('set')
+    end)
+  end)
+
+  describe('Table.update', function()
+    it('should copy all keys from source into target', function()
+      local target = {a = 1}
+      local source = {b = 2, c = 3}
+      llx.Table.update(target, source)
+      expect(target.a).to.be_equal_to(1)
+      expect(target.b).to.be_equal_to(2)
+      expect(target.c).to.be_equal_to(3)
+    end)
+
+    it('should overwrite existing keys', function()
+      local target = {a = 1}
+      llx.Table.update(target, {a = 2})
+      expect(target.a).to.be_equal_to(2)
+    end)
+
+    it('should mutate target (unlike Table.merge)', function()
+      local target = {}
+      local result = llx.Table.update(target, {a = 1})
+      expect(result).to.be_equal_to(target)
+    end)
+
+    it('should accept multiple source tables', function()
+      local target = {}
+      llx.Table.update(target, {a = 1}, {b = 2}, {a = 99})
+      expect(target.a).to.be_equal_to(99)
+      expect(target.b).to.be_equal_to(2)
+    end)
+  end)
+
+  describe('Table.deep_merge', function()
+    it('should merge nested tables recursively', function()
+      local a = {x = {y = 1, z = 2}}
+      local b = {x = {z = 99, w = 3}}
+      local merged = llx.Table.deep_merge(a, b)
+      expect(merged.x.y).to.be_equal_to(1)
+      expect(merged.x.z).to.be_equal_to(99)
+      expect(merged.x.w).to.be_equal_to(3)
+    end)
+
+    it('should not modify inputs', function()
+      local a = {x = {y = 1}}
+      local b = {x = {z = 2}}
+      llx.Table.deep_merge(a, b)
+      expect(a.x.z).to.be_nil()
+      expect(b.x.y).to.be_nil()
+    end)
+
+    it('should overwrite scalars without recursion', function()
+      local merged = llx.Table.deep_merge({a = 1}, {a = 'two'})
+      expect(merged.a).to.be_equal_to('two')
+    end)
+
+    it('should overwrite when one side has a table and the other '
+      .. 'has a scalar', function()
+      local merged = llx.Table.deep_merge({a = {b = 1}}, {a = 'scalar'})
+      expect(merged.a).to.be_equal_to('scalar')
+    end)
+  end)
 end)
 
 if llx.main_file() then
