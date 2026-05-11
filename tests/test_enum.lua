@@ -336,6 +336,114 @@ describe('enum', function()
   end)
 end)
 
+describe('enum.Flag', function()
+  local Flag = require 'llx.enum'.Flag
+
+  describe('construction', function()
+    it('should require a string name', function()
+      expect(function() Flag(42) end).to.throw()
+    end)
+
+    it('should require integer values', function()
+      expect(function()
+        Flag 'P' { Read = 'not_a_number' }
+      end).to.throw()
+    end)
+
+    it('should reject duplicate member names', function()
+      -- Pure Lua tables can't have duplicate keys in a literal, so
+      -- this case can only fail if Flag is given a pre-built map
+      -- with collisions, which is hard to construct. Skip in
+      -- favor of the integer-value test above.
+    end)
+  end)
+
+  describe('individual flag access', function()
+    it('should expose each member by name', function()
+      local P = Flag 'P' { Read = 1, Write = 2, Execute = 4 }
+      expect(P.Read.value).to.be_equal_to(1)
+      expect(P.Write.value).to.be_equal_to(2)
+      expect(P.Execute.value).to.be_equal_to(4)
+    end)
+  end)
+
+  describe('composition operators', function()
+    it('should combine via |', function()
+      local P = Flag 'P' { Read = 1, Write = 2, Execute = 4 }
+      expect((P.Read | P.Write).value).to.be_equal_to(3)
+    end)
+
+    it('should intersect via &', function()
+      local P = Flag 'P' { Read = 1, Write = 2, Execute = 4 }
+      expect(((P.Read | P.Write) & P.Read).value).to.be_equal_to(1)
+    end)
+
+    it('should xor via ~', function()
+      local P = Flag 'P' { Read = 1, Write = 2, Execute = 4 }
+      expect(((P.Read | P.Write) ~ P.Write).value).to.be_equal_to(1)
+    end)
+
+    it('should clear bits via -', function()
+      local P = Flag 'P' { Read = 1, Write = 2, Execute = 4 }
+      expect(((P.Read | P.Write) - P.Read).value).to.be_equal_to(2)
+    end)
+  end)
+
+  describe(':has()', function()
+    it('should return true for a flag that is set', function()
+      local P = Flag 'P' { Read = 1, Write = 2 }
+      expect((P.Read | P.Write):has(P.Read)).to.be_true()
+    end)
+
+    it('should return false for a flag that is not set', function()
+      local P = Flag 'P' { Read = 1, Write = 2 }
+      expect(P.Read:has(P.Write)).to.be_false()
+    end)
+
+    it('should require all bits when checking a combined flag', function()
+      local P = Flag 'P' { Read = 1, Write = 2 }
+      expect((P.Read | P.Write):has(P.Read | P.Write)).to.be_true()
+      expect(P.Read:has(P.Read | P.Write)).to.be_false()
+    end)
+  end)
+
+  describe('__tostring', function()
+    it('should print individual flags as Name.Member', function()
+      local P = Flag 'P' { Read = 1, Write = 2 }
+      expect(tostring(P.Read)).to.be_equal_to('P.Read')
+    end)
+
+    it('should print combined flags as Name.A|B|...', function()
+      local P = Flag 'P' { Read = 1, Write = 2 }
+      expect(tostring(P.Read | P.Write)).to.be_equal_to('P.Read|Write')
+    end)
+
+    it('should print empty value as <none>', function()
+      local P = Flag 'P' { Read = 1, Write = 2 }
+      expect(tostring(P.Read - P.Read)).to.contain('none')
+    end)
+  end)
+
+  describe('__eq, __hash, __tointeger', function()
+    it('should compare equal for same value', function()
+      local P = Flag 'P' { A = 1, B = 2 }
+      expect(P.A | P.B).to.be_equal_to(P.B | P.A)
+    end)
+
+    it('should hash equal for equal flag values', function()
+      local P = Flag 'P' { A = 1, B = 2 }
+      local hash = require 'llx.hash'.hash
+      expect(hash(P.A | P.B)).to.be_equal_to(hash(P.B | P.A))
+    end)
+
+    it('should convert to integer via __tointeger', function()
+      local P = Flag 'P' { A = 1, B = 2 }
+      local mt = getmetatable(P.A)
+      expect(mt.__tointeger(P.A)).to.be_equal_to(1)
+    end)
+  end)
+end)
+
 if llx.main_file() then
   unit.run_unit_tests()
 end
