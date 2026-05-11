@@ -1,6 +1,9 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local environment = require 'llx.environment'
+local SchemaConstraintFailureException =
+    require 'llx.exceptions.schema_exception'
+      .SchemaConstraintFailureException
 
 local _ENV, _M = environment.create_module_environment()
 

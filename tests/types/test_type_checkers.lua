@@ -627,12 +627,9 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when value is not a multiple because '
-        .. 'SchemaConstraintFailureException is unavailable',
-        function()
-        expect(function()
-          Number.__validate(7, { multiple_of = 3 }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when value is not a multiple', function()
+        local ok = Number.__validate(7, { multiple_of = 3 }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
 
       it('should pass when value is zero and multiple_of is nonzero', function()
@@ -652,12 +649,9 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when value is less than minimum '
-        .. 'because SchemaConstraintFailureException is '
-        .. 'unavailable', function()
-        expect(function()
-          Number.__validate(3, { minimum = 5 }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when value is less than minimum', function()
+        local ok = Number.__validate(3, { minimum = 5 }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
     end)
 
@@ -667,21 +661,15 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when value equals exclusive_minimum '
-        .. 'because SchemaConstraintFailureException is '
-        .. 'unavailable', function()
-        expect(function()
-          Number.__validate(5, { exclusive_minimum = 5 }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when value equals exclusive_minimum', function()
+        local ok = Number.__validate(5, { exclusive_minimum = 5 }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
 
-      it('should error when value is less than '
-        .. 'exclusive_minimum because '
-        .. 'SchemaConstraintFailureException is unavailable',
-        function()
-        expect(function()
-          Number.__validate(3, { exclusive_minimum = 5 }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when value is less than '
+        .. 'exclusive_minimum', function()
+        local ok = Number.__validate(3, { exclusive_minimum = 5 }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
     end)
 
@@ -696,12 +684,9 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when value is greater than maximum '
-        .. 'because SchemaConstraintFailureException is '
-        .. 'unavailable', function()
-        expect(function()
-          Number.__validate(10, { maximum = 5 }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when value is greater than maximum', function()
+        local ok = Number.__validate(10, { maximum = 5 }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
     end)
 
@@ -711,21 +696,15 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when value equals exclusive_maximum '
-        .. 'because SchemaConstraintFailureException is '
-        .. 'unavailable', function()
-        expect(function()
-          Number.__validate(5, { exclusive_maximum = 5 }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when value equals exclusive_maximum', function()
+        local ok = Number.__validate(5, { exclusive_maximum = 5 }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
 
-      it('should error when value is greater than '
-        .. 'exclusive_maximum because '
-        .. 'SchemaConstraintFailureException is unavailable',
-        function()
-        expect(function()
-          Number.__validate(10, { exclusive_maximum = 5 }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when value is greater than '
+        .. 'exclusive_maximum', function()
+        local ok = Number.__validate(10, { exclusive_maximum = 5 }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
     end)
 
@@ -739,17 +718,14 @@ describe('Number', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when multiple_of constraint fails '
-        .. 'even if range is ok because '
-        .. 'SchemaConstraintFailureException is unavailable',
-        function()
-        expect(function()
-          Number.__validate(5, {
-            minimum = 0,
-            maximum = 10,
-            multiple_of = 3,
-          }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when multiple_of fails '
+        .. 'even if range is ok', function()
+        local ok = Number.__validate(5, {
+          minimum = 0,
+          maximum = 10,
+          multiple_of = 3,
+        }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
     end)
 
@@ -861,22 +837,14 @@ describe('String', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when string length is below '
-        .. 'min_length because '
-        .. 'SchemaConstraintFailureException is unavailable',
-        function()
-        expect(function()
-          String.__validate('ab', { min_length = 3 }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when length is below min_length', function()
+        local ok = String.__validate('ab', { min_length = 3 }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
 
-      it('should error for an empty string with '
-        .. 'min_length = 1 because '
-        .. 'SchemaConstraintFailureException is unavailable',
-        function()
-        expect(function()
-          String.__validate('', { min_length = 1 }, {}, 0, nil)
-        end).to.throw()
+      it('should return false for an empty string with min_length = 1', function()
+        local ok = String.__validate('', { min_length = 1 }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
     end)
 
@@ -891,13 +859,10 @@ describe('String', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when string length exceeds '
-        .. 'max_length because '
-        .. 'SchemaConstraintFailureException is unavailable',
-        function()
-        expect(function()
-          String.__validate('hello world', { max_length = 5 }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when length exceeds max_length', function()
+        local ok = String.__validate(
+          'hello world', { max_length = 5 }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
     end)
 
@@ -908,13 +873,9 @@ describe('String', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when string does not match the '
-        .. 'pattern because '
-        .. 'SchemaConstraintFailureException is unavailable',
-        function()
-        expect(function()
-          String.__validate('hello', { pattern = '^%d+$' }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when string does not match pattern', function()
+        local ok = String.__validate('hello', { pattern = '^%d+$' }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
 
       it('should pass for a pattern anchored at start', function()
@@ -922,13 +883,10 @@ describe('String', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error for a pattern anchored at start '
-        .. 'that does not match because '
-        .. 'SchemaConstraintFailureException is unavailable',
-        function()
-        expect(function()
-          String.__validate('123abc', { pattern = '^abc' }, {}, 0, nil)
-        end).to.throw()
+      it('should return false for an anchored pattern that '
+        .. 'does not match', function()
+        local ok = String.__validate('123abc', { pattern = '^abc' }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
     end)
 
@@ -942,16 +900,13 @@ describe('String', function()
         expect(ok).to.be_true()
       end)
 
-      it('should error when min_length fails even if '
-        .. 'pattern passes because '
-        .. 'SchemaConstraintFailureException is unavailable',
-        function()
-        expect(function()
-          String.__validate('a1', {
-            min_length = 5,
-            pattern = '%d',
-          }, {}, 0, nil)
-        end).to.throw()
+      it('should return false when min_length fails '
+        .. 'even if pattern passes', function()
+        local ok = String.__validate('a1', {
+          min_length = 5,
+          pattern = '%d',
+        }, {}, 0, nil)
+        expect(ok).to.be_false()
       end)
     end)
 

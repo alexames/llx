@@ -257,6 +257,21 @@ describe('Number __validate', function()
         matches_schema(Schema { type = Number, minimum = 5 }, 3)
       end).to.throw()
     end)
+
+    it('should produce a SchemaConstraintFailureException', function()
+      -- Regression: the exception class was previously referenced
+      -- as a bare global in number.lua and string.lua, which
+      -- worked by accident (any thrown error satisfied .throw())
+      -- but produced a "module does not contain field" Lua error
+      -- in nothrow mode instead of the real exception.
+      local SchemaConstraintFailureException =
+        llx.exceptions.SchemaConstraintFailureException
+      local ok, err = matches_schema(
+        Schema { type = Number, minimum = 5 }, 3, true)
+      expect(ok).to.be_false()
+      expect(llx.isinstance(err, SchemaConstraintFailureException))
+        .to.be_true()
+    end)
   end)
 
   describe('maximum', function()
@@ -294,6 +309,16 @@ describe('String __validate', function()
       expect(function()
         matches_schema(Schema { type = String, min_length = 3 }, 'ab')
       end).to.throw()
+    end)
+
+    it('should produce a SchemaConstraintFailureException', function()
+      local SchemaConstraintFailureException =
+        llx.exceptions.SchemaConstraintFailureException
+      local ok, err = matches_schema(
+        Schema { type = String, min_length = 3 }, 'ab', true)
+      expect(ok).to.be_false()
+      expect(llx.isinstance(err, SchemaConstraintFailureException))
+        .to.be_true()
     end)
   end)
 
