@@ -1,12 +1,17 @@
 # llx — Lua Extension Library
 
-A comprehensive utility library for Lua 5.4+. Brings object-oriented
+[![CI](https://github.com/alexames/llx/actions/workflows/ci.yml/badge.svg)](https://github.com/alexames/llx/actions/workflows/ci.yml)
+[![Docs](https://github.com/alexames/llx/actions/workflows/docs.yml/badge.svg)](https://github.com/alexames/llx/actions/workflows/docs.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Lua](https://img.shields.io/badge/Lua-5.3%20%7C%205.4%20%7C%205.5-blue.svg)](https://www.lua.org/)
+
+A comprehensive utility library for Lua 5.3+. Brings object-oriented
 programming, functional programming, runtime type checking, schema
 validation, structured exceptions, sum types, ergonomic collections,
 path manipulation, pretty-printing, context managers, unit testing,
 and a bytecode reader to Lua development.
 
-Zero external runtime dependencies. Just Lua 5.4.
+Zero external runtime dependencies. Just Lua 5.3+.
 
 ## Installation
 
@@ -247,8 +252,8 @@ try {
 }
 ```
 
-Built-in classes: `Exception`, `ExceptionGroup`, `IndexError`,
-`InvalidArgumentException`, `InvalidArgumentTypeException`,
+Built-in classes: `Exception`, `AttributeError`, `ExceptionGroup`,
+`IndexError`, `InvalidArgumentException`, `InvalidArgumentTypeException`,
 `NotImplementedException`, `RuntimeError`, `SchemaException` (+
 field-mismatch, constraint-failure, missing-field variants),
 `TypeError`, `ValueException`. Define your own by extending `Exception`.
@@ -549,7 +554,7 @@ existing LuaRocks packages and llx does not duplicate them.
 | Testing (when llx.unit isn't enough) | [`busted`](https://lunarmodules.github.io/busted/) by lunarmodules |
 
 Install whichever ones you need alongside llx; nothing here is
-required, and llx itself only depends on Lua 5.4.
+required, and llx itself only depends on Lua 5.3.
 
 ## Not included (and why)
 
@@ -623,8 +628,24 @@ eval "$(luarocks-5.4 path)" && lua5.4 test.lua
 
 ## Requirements
 
-- Lua 5.4 or later
+- Lua 5.3 or later
 - No external runtime dependencies
+
+Tested on Lua 5.3, 5.4, and 5.5. Three version notes:
+
+- The `<close>`-based helpers in `llx.contextlib` (and to-be-closed usage
+  generally) require Lua 5.4+; on 5.3 use `with(...)` for scoped cleanup.
+- `llx.bytecode` readers are *format*-specific, not interpreter-specific: the
+  `lua54` reader parses any Lua 5.4-format chunk regardless of the interpreter
+  running it (verified on 5.3, 5.4, and 5.5). But there is no reader for the
+  Lua 5.3 chunk format, so on 5.3 you can read externally-supplied 5.4/5.5
+  chunks but not the running interpreter's own `string.dump` output.
+- `llx.bytecode.lua55` was written against a pre-release Lua 5.5 chunk format
+  and does not yet parse chunks emitted by the final Lua 5.5.0 release. In
+  practice this means the "dump a function and inspect it" workflow is fully
+  supported only on Lua 5.4.
+
+Every non-bytecode module works across all supported versions.
 
 ## License
 

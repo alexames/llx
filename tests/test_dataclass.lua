@@ -105,7 +105,10 @@ describe('dataclass', function()
         {{name='x'}, {name='y'}},
         {immutable=true})
       local p = Point(1, 2)
-      expect(function() p.x = 99 end).to.throw()
+      -- Python's frozen dataclass raises AttributeError on field assignment.
+      local ok, err = pcall(function() p.x = 99 end)
+      expect(ok).to.be_false()
+      expect(tostring(err)).to.contain('AttributeError')
     end)
 
     it('should still read fields correctly', function()

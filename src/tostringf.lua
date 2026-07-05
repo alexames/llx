@@ -15,7 +15,7 @@ local Table = table_module.Table
 local Set = set_module.Set
 local enum = enum_module.enum
 
-local KEYWORDS <const> = Set{
+local KEYWORDS = Set{
   'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function',
   'goto', 'if', 'in', 'local', 'nil', 'not', 'or', 'repeat', 'return', 'then',
   'true', 'until', 'while'

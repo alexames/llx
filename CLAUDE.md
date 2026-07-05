@@ -1,6 +1,6 @@
 # llx - Lua Extension Library
 
-A comprehensive utility library for Lua 5.4+ providing OOP, functional programming,
+A comprehensive utility library for Lua 5.3+ providing OOP, functional programming,
 type checking, exception handling, unit testing, and more.
 
 ## Project Structure
@@ -28,7 +28,7 @@ llx-scm-1.rockspec   LuaRocks package spec (defines module-to-file mapping)
 
 ## Install
 
-Requires Lua 5.4+ and LuaRocks.
+Requires Lua 5.3+ and LuaRocks.
 
 ```sh
 luarocks make --local

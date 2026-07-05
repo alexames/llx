@@ -53,8 +53,9 @@ describe('bytecode reader', function()
     local bytes = string.dump(function() end)
     local proto, meta = bcode.read_bytes(bytes)
     expect(meta.version).to.be_a('table')
-    expect(meta.version.major).to.be_a('number')
-    expect(meta.version.minor).to.be_a('number')
+    -- These tests run under Lua 5.4, so a 5.4-format chunk must report 5.4.
+    expect(meta.version.major).to.be_equal_to(5)
+    expect(meta.version.minor).to.be_equal_to(4)
   end)
 
   it('proto.code is a non-empty table of instructions', function()

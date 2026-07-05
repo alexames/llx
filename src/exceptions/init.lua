@@ -1,6 +1,7 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 return require 'llx.flatten_submodules' {
+  require 'llx.exceptions.attribute_error',
   require 'llx.exceptions.exception',
   require 'llx.exceptions.exception_group',
   require 'llx.exceptions.index_error',

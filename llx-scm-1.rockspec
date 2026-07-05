@@ -3,7 +3,7 @@ package = "llx"
 version = "scm-1"
 
 source = {
-   url = "git://github.com/alexames/llx.git",
+   url = "git+https://github.com/alexames/llx.git",
    branch = "main",
 }
 
@@ -30,7 +30,7 @@ schema validation, exception handling, unit testing, and more.
 }
 
 dependencies = {
-   "lua >= 5.4",
+   "lua >= 5.3",
 }
 
 test = {
@@ -99,6 +99,7 @@ build = {
 
       -- exceptions submodule
       ["llx.exceptions"] = "src/exceptions/init.lua",
+      ["llx.exceptions.attribute_error"] = "src/exceptions/attribute_error.lua",
       ["llx.exceptions.exception"] = "src/exceptions/exception.lua",
       ["llx.exceptions.exception_group"] = "src/exceptions/exception_group.lua",
       ["llx.exceptions.index_error"] = "src/exceptions/index_error.lua",

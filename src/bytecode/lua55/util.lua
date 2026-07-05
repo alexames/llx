@@ -58,10 +58,9 @@ end
 -- @param chunk a binary string from string.dump
 function dump_file(filename, chunk)
   local chunk_bytes = bcode.read_bytes(chunk)
-  do
-    local file <close> = assert(io.open(filename .. '.txt', 'w'))
-    write_recursive(file, chunk_bytes)
-  end
+  local file = assert(io.open(filename .. '.txt', 'w'))
+  write_recursive(file, chunk_bytes)
+  file:close()
 end
 
 --- Compare the bytecode of two functions by dumping each to a text file.

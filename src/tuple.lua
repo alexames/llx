@@ -63,7 +63,14 @@ Tuple = class 'Tuple' {
   end,
 
   __newindex = function(self, k, v)
-    error(exceptions.NotImplementedError())
+    -- Mirror Python: subscript assignment on an immutable sequence is a
+    -- TypeError; setting an attribute that doesn't exist is an AttributeError.
+    if type(k) == 'number' then
+      error(exceptions.TypeError(
+        "'Tuple' object does not support item assignment"))
+    end
+    error(exceptions.AttributeError(
+      "'Tuple' object has no attribute '" .. tostring(k) .. "'"))
   end,
 
   __tostring = function(self)

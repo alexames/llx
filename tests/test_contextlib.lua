@@ -123,11 +123,18 @@ end)
 
 describe('closing', function()
   it('wraps a :close-able value for use as <close>', function()
+    -- <close> is a Lua 5.4+ feature. Compile the body at runtime so this file
+    -- still parses on Lua 5.3; skip the assertion where <close> is absent.
     local r = make_resource()
-    do
-      local wrapped <close> = contextlib.closing(r)
-    end  -- scope exit triggers __close
-    expect(r.closed).to.be_equal_to(1)
+    local body = load([[
+      local contextlib, expect, r = ...
+      do
+        local wrapped <close> = contextlib.closing(r)
+      end  -- scope exit triggers __close
+      expect(r.closed).to.be_equal_to(1)
+    ]])
+    if not body then return end  -- Lua < 5.4: <close> unsupported
+    body(contextlib, expect, r)
   end)
 
   it('proxies field reads to the inner resource via __index', function()

@@ -219,19 +219,19 @@ end
 -- @param filename path to the file to read
 -- @return a ByteStream containing the bytecode
 function to_bytestream(filename)
-  do
-    local file <close> = assert(io.open(filename, 'rb'))
-    local stream = ByteStream(assert(file:read(4)))
+  local file = assert(io.open(filename, 'rb'))
+  local stream = ByteStream(assert(file:read(4)))
 
-    -- Starting with the Lua signature escape code indicates this is a Lua
-    -- bytecode file, so read the whole file into memory so it can be processed.
-    local signature = stream:read_literal(#LUA_SIGNATURE)
-    if signature == LUA_SIGNATURE then
-      file:seek('set', 0)
-      local contents = assert(file:read('a'))
-      return ByteStream(contents)
-    end
+  -- Starting with the Lua signature escape code indicates this is a Lua
+  -- bytecode file, so read the whole file into memory so it can be processed.
+  local signature = stream:read_literal(#LUA_SIGNATURE)
+  if signature == LUA_SIGNATURE then
+    file:seek('set', 0)
+    local contents = assert(file:read('a'))
+    file:close()
+    return ByteStream(contents)
   end
+  file:close()
   -- This is a Lua source code file, so load and compile the file and dump the
   -- raw bytes so that it can be processed.
   local chunk = assert(loadfile(filename))

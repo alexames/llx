@@ -9,6 +9,7 @@
 
 local class_module = require 'llx.class'
 local environment = require 'llx.environment'
+local exceptions = require 'llx.exceptions'
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -74,8 +75,15 @@ function namedtuple(name, fields)
       return cls.__defaultindex(self, key)
     end,
 
-    __newindex = function()
-      error(name .. ' is immutable', 2)
+    __newindex = function(self, k)
+      -- Mirror Python's namedtuple: positional assignment is a TypeError,
+      -- named-field assignment is an AttributeError.
+      if type(k) == 'number' then
+        error(exceptions.TypeError(
+          "'" .. name .. "' object does not support item assignment"))
+      end
+      error(exceptions.AttributeError(
+        "cannot set attribute '" .. tostring(k) .. "' of '" .. name .. "'"))
     end,
 
     __len = function() return n_fields end,

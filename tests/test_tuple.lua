@@ -134,25 +134,32 @@ describe('Tuple', function()
   end)
 
   describe('__newindex (immutability)', function()
-    it('should error when trying to set a value', function()
+    -- Assert on the error *type and message*, not just that something throws:
+    -- a broken __newindex (e.g. calling a nonexistent exception) also throws,
+    -- so `.to.throw()` alone would pass while hiding the real failure. Mirrors
+    -- Python: subscript assignment -> TypeError, attribute -> AttributeError.
+    it('should raise TypeError when setting an index', function()
       local t = Tuple{1, 2, 3}
-      expect(function()
-        t[1] = 99
-      end).to.throw()
+      local ok, err = pcall(function() t[1] = 99 end)
+      expect(ok).to.be_false()
+      expect(tostring(err)).to.contain('TypeError')
+      expect(tostring(err)).to.contain('does not support item assignment')
     end)
 
-    it('should error when trying to add a new element', function()
+    it('should raise TypeError when adding a new index', function()
       local t = Tuple{1, 2}
-      expect(function()
-        t[3] = 'new'
-      end).to.throw()
+      local ok, err = pcall(function() t[3] = 'new' end)
+      expect(ok).to.be_false()
+      expect(tostring(err)).to.contain('TypeError')
+      expect(tostring(err)).to.contain('does not support item assignment')
     end)
 
-    it('should error when trying to set a string key', function()
+    it('should raise AttributeError when setting a string key', function()
       local t = Tuple{1}
-      expect(function()
-        t['key'] = 'value'
-      end).to.throw()
+      local ok, err = pcall(function() t['key'] = 'value' end)
+      expect(ok).to.be_false()
+      expect(tostring(err)).to.contain('AttributeError')
+      expect(tostring(err)).to.contain('has no attribute')
     end)
   end)
 

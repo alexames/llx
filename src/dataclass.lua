@@ -25,6 +25,7 @@
 
 local class_module = require 'llx.class'
 local environment = require 'llx.environment'
+local exceptions = require 'llx.exceptions'
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -133,8 +134,16 @@ function dataclass(name, fields, opts)
       return cls.__defaultindex(self, k)
     end,
 
-    __newindex = immutable and function()
-      error(name .. ' is immutable', 2)
+    __newindex = immutable and function(self, k)
+      -- Mirror Python's frozen dataclass: assigning to a field of a frozen
+      -- instance raises AttributeError; subscript assignment is a TypeError.
+      if type(k) == 'number' then
+        error(exceptions.TypeError(
+          "'" .. name .. "' object does not support item assignment"))
+      end
+      error(exceptions.AttributeError(
+        "cannot assign to field '" .. tostring(k) .. "' of frozen '"
+          .. name .. "'"))
     end or nil,
 
     __eq = function(self, other)

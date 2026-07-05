@@ -84,20 +84,27 @@ describe('lock_global_table', function()
   end)
 
   it('should work with the <close> attribute in a do-end block', function()
-    -- After the do-end block, the lock should be automatically released
-    do
-      local lock <close> = strict.lock_global_table()
-      local success, err = pcall(function()
-        _G['__test_strict_close_attr'] = 'locked'
+    -- <close> is a Lua 5.4+ feature. Compile the body at runtime so this file
+    -- still parses on Lua 5.3; skip the assertion where <close> is absent.
+    local body = load([[
+      local strict, expect = ...
+      -- After the do-end block, the lock should be automatically released
+      do
+        local lock <close> = strict.lock_global_table()
+        local success = pcall(function()
+          _G['__test_strict_close_attr'] = 'locked'
+        end)
+        expect(success).to.be_false()
+      end
+      -- Now the lock should be released
+      local success = pcall(function()
+        _G['__test_strict_close_attr'] = 'unlocked'
       end)
-      expect(success).to.be_false()
-    end
-    -- Now the lock should be released
-    local success, err = pcall(function()
-      _G['__test_strict_close_attr'] = 'unlocked'
-    end)
-    _G['__test_strict_close_attr'] = nil
-    expect(success).to.be_true()
+      _G['__test_strict_close_attr'] = nil
+      expect(success).to.be_true()
+    ]])
+    if not body then return end  -- Lua < 5.4: <close> unsupported
+    body(strict, expect)
   end)
 
   it('should allow rawset to bypass the lock', function()
