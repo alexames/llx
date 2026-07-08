@@ -310,7 +310,7 @@ end)
 
 describe('Protocol', function()
   describe('__isinstance', function()
-    it('should accept a table with all required fields of right type', function()
+    it('should accept a table with all required fields', function()
       local UserShape = Protocol{name = String, age = Integer}
       expect(UserShape:__isinstance({name = 'Alice', age = 30}))
         .to.be_true()
@@ -327,7 +327,7 @@ describe('Protocol', function()
         .to.be_false()
     end)
 
-    it('should accept extra fields (structural typing is permissive)', function()
+    it('should accept extra fields (structural typing)', function()
       local UserShape = Protocol{name = String}
       expect(UserShape:__isinstance({name = 'X', extra = 'fine'}))
         .to.be_true()

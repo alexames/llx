@@ -69,7 +69,8 @@ describe('namedtuple', function()
     it('should be immutable', function()
       local Point = namedtuple('Point', {'x', 'y'})
       local p = Point(1, 2)
-      -- Python: named-field assignment -> AttributeError, positional -> TypeError.
+      -- Python: named-field assignment -> AttributeError,
+      -- positional -> TypeError.
       local ok_attr, err_attr = pcall(function() p.x = 99 end)
       expect(ok_attr).to.be_false()
       expect(tostring(err_attr)).to.contain('AttributeError')

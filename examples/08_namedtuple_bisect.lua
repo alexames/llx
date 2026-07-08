@@ -45,4 +45,4 @@ local people = {
 }
 local key = function(p) return p.x end
 local i = bisect.bisect_left(people, Point(25, 0), nil, nil, key)
-print(i)                                     --> 3 (insert between x=20 and x=30)
+print(i)                            --> 3 (insert between x=20 and x=30)

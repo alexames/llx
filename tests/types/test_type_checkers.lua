@@ -842,7 +842,7 @@ describe('String', function()
         expect(ok).to.be_false()
       end)
 
-      it('should return false for an empty string with min_length = 1', function()
+      it('should return false for an empty string with min_length=1', function()
         local ok = String.__validate('', { min_length = 1 }, {}, 0, nil)
         expect(ok).to.be_false()
       end)

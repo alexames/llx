@@ -23,6 +23,12 @@ exclude_files = {
   "docs",
 }
 
+files["stubs"] = {
+  -- LuaLS ---@field annotations must stay on a single line, so the
+  -- stub files cannot honor the line-length cap.
+  max_line_length = false,
+}
+
 files["tests"] = {
   -- Test files use `_ENV = unit.create_test_env(_ENV)` which injects these globals.
   globals = {
