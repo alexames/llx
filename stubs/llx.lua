@@ -10,6 +10,8 @@
 ---@class llx
 ---@field class fun(name: string|table): llx.ClassDefiner
 ---@field isinstance fun(value: any, type_checker: any): boolean
+---@field is_subtype fun(a: any, b: any): boolean
+---@field signature_compatible fun(sub: table, super: table): boolean
 ---@field Schema fun(schema: table): llx.Schema
 ---@field matches_schema fun(schema: llx.Schema, value: any, nothrow?: boolean): boolean, llx.Exception?
 ---@field enum fun(name: string): fun(t: table): table

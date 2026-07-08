@@ -68,6 +68,7 @@ build = {
       ["llx.getclass"] = "src/getclass.lua",
       ["llx.hash"] = "src/hash.lua",
       ["llx.hash_table"] = "src/hash_table.lua",
+      ["llx.is_subtype"] = "src/is_subtype.lua",
       ["llx.isinstance"] = "src/isinstance.lua",
       ["llx.mathx"] = "src/mathx.lua",
       ["llx.method"] = "src/method.lua",

@@ -21,6 +21,7 @@ local ok, result = pcall(function()
     require 'llx.enum',
     require 'llx.getclass',
     require 'llx.hash_table',
+    require 'llx.is_subtype',
     require 'llx.isinstance',
     require 'llx.namedtuple',
     require 'llx.repr',
