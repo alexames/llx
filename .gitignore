@@ -2,6 +2,7 @@
 /lua.bat
 /lua_modules
 /.luarocks
-/.claude
+/.claude/*
+!/.claude/skills
 /docs
 nul
