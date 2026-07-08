@@ -135,45 +135,6 @@ local function dict_type_check(key_type, value_type)
   })
 end
 
--- Compares two type checkers for the purposes of signature matching.
--- Type checkers match when they are the same object, when both expose
--- the same __name (so two separately constructed matchers such as
--- Dict(String, Integer) compare equal), or when one side is a string
--- type name (Signature declarations may name a type by string, as
--- supported by check_arguments) equal to the other side's __name.
--- Anonymous classes share a placeholder __name, so they only ever
--- match by identity.
---
--- TODO(#26): replace exact matching with the signature-compatibility
--- relation (variance rules) once it exists.
-local anonymous_class_name = '<anonymous class>'
-
-local function same_type(a, b)
-  if rawequal(a, b) then return true end
-  if type(a) == 'string' and type(b) == 'table' then
-    return a == b.__name
-  end
-  if type(b) == 'string' and type(a) == 'table' then
-    return b == a.__name
-  end
-  if type(a) == 'table' and type(b) == 'table' then
-    local a_name = a.__name
-    return a_name ~= nil
-       and a_name ~= anonymous_class_name
-       and a_name == b.__name
-  end
-  return false
-end
-
-local function same_type_list(expected, actual)
-  if type(actual) ~= 'table' then return false end
-  if #expected ~= #actual then return false end
-  for i = 1, #expected do
-    if not same_type(expected[i], actual[i]) then return false end
-  end
-  return true
-end
-
 local function callable_type_check(param_types, return_types, options)
   param_types = param_types or {}
   return_types = return_types or {}
@@ -185,12 +146,13 @@ local function callable_type_check(param_types, return_types, options)
   local return_names = {}
   for i, t in ipairs(return_types) do return_names[i] = type_name_of(t) end
   -- Strictness is part of the matcher's identity, so it is encoded in
-  -- the name (which same_type falls back to when comparing matchers).
+  -- the name (which is_subtype falls back to when comparing matchers).
   local typename = 'Callable<(' .. table.concat(param_names, ', ')
                    .. ') -> (' .. table.concat(return_names, ', ') .. ')>'
                    .. (strict and ' strict' or '')
 
   local signature_module = nil
+  local subtype_module = nil
 
   return setmetatable({
     __name = typename,
@@ -202,14 +164,21 @@ local function callable_type_check(param_types, return_types, options)
 
     __isinstance = function(self, value)
       -- Signature-wrapped functions declare their parameter and return
-      -- types, so compare the declared signature directly. The require
-      -- is deferred to avoid a load-time cycle (llx.signature depends,
-      -- indirectly, on llx.types) and cached in an upvalue.
+      -- types, so compare the declared signature against this
+      -- matcher's with the standard variance rules (parameters are
+      -- contravariant, returns are covariant); see
+      -- llx.is_subtype.signature_compatible. Variance applies in both
+      -- lenient and strict mode: signature_compatible already requires
+      -- exact arity, and strict's extra constraints (exact arity, no
+      -- varargs) exist for raw functions, where no declared types are
+      -- available. The requires are deferred to avoid load-time cycles
+      -- (llx.signature and llx.is_subtype depend, indirectly, on
+      -- llx.types) and cached in upvalues.
       signature_module = signature_module or require 'llx.signature'
       if type(value) == 'table'
           and isinstance(value, signature_module.Function) then
-        return same_type_list(param_types, value.params)
-           and same_type_list(return_types, value.returns)
+        subtype_module = subtype_module or require 'llx.is_subtype'
+        return subtype_module.signature_compatible(value, self)
       end
       -- Raw functions carry no type information; arity (via
       -- debug.getinfo) is the strongest available check. By default the
