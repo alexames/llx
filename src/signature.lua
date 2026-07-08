@@ -12,7 +12,10 @@ local check_returns = check_arguments_module.check_returns
 local class = class_module.class
 local Decorator = decorator.Decorator
 
-local Function = class 'Function' {
+-- The typed-function wrapper produced by the Signature decorator.
+-- Exported so that matchers (e.g. types.matchers.Callable) can
+-- recognize wrapped functions and inspect their declared signature.
+Function = class 'Function' {
   __new = function(args)
     return args
   end,

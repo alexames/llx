@@ -1,12 +1,14 @@
 local unit = require 'llx.unit'
 local llx = require 'llx'
 local matchers = require 'llx.types.matchers'
+local signature = require 'llx.signature'
 
 local Any = matchers.Any
 local Union = matchers.Union
 local Optional = matchers.Optional
 local Dict = matchers.Dict
 local Protocol = matchers.Protocol
+local Callable = matchers.Callable
 
 local Integer = llx.Integer
 local Number = llx.Number
@@ -381,6 +383,216 @@ describe('Protocol', function()
     it('should expose the underlying shape table', function()
       local Shape = Protocol{a = Integer}
       expect(Shape.fields.a).to.be_equal_to(Integer)
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Callable
+-- ---------------------------------------------------------------------------
+
+describe('Callable', function()
+  describe('__name', function()
+    it('should expose a Callable<(params) -> (returns)> name', function()
+      local C = Callable({Integer}, {String})
+      expect(C.__name).to.be_equal_to('Callable<(Integer) -> (String)>')
+    end)
+
+    it('should handle empty parameter and return lists', function()
+      local C = Callable({}, {})
+      expect(C.__name).to.be_equal_to('Callable<() -> ()>')
+    end)
+
+    it('should default omitted lists to empty', function()
+      local C = Callable()
+      expect(C.__name).to.be_equal_to('Callable<() -> ()>')
+    end)
+
+    it('should encode strictness in the name', function()
+      local C = Callable({Integer}, {String}, {strict = true})
+      expect(C.__name)
+        .to.be_equal_to('Callable<(Integer) -> (String)> strict')
+    end)
+  end)
+
+  describe('exposed fields', function()
+    it('should expose params and returns for introspection', function()
+      local params = {Integer, String}
+      local returns = {Number}
+      local C = Callable(params, returns)
+      expect(C.params).to.be_equal_to(params)
+      expect(C.returns).to.be_equal_to(returns)
+    end)
+
+    it('should expose strict, defaulting to false', function()
+      expect(Callable({}, {}).strict).to.be_false()
+      expect(Callable({}, {}, {strict = true}).strict).to.be_true()
+    end)
+  end)
+
+  describe('raw functions (lenient by default)', function()
+    it('should accept a function with matching arity', function()
+      local C = Callable({Integer, Integer}, {Integer})
+      expect(C:__isinstance(function(a, b) return a + b end)).to.be_true()
+    end)
+
+    it('should accept a function declaring fewer parameters', function()
+      local C = Callable({Integer, Integer}, {Integer})
+      expect(C:__isinstance(function(a) return a end)).to.be_true()
+    end)
+
+    it('should reject a function declaring more parameters', function()
+      local C = Callable({Integer}, {Integer})
+      expect(C:__isinstance(function(a, b, c) return a end)).to.be_false()
+    end)
+
+    it('should accept a vararg function for any parameter list', function()
+      local C = Callable({Integer, String, Number}, {String})
+      expect(C:__isinstance(function(...) return ... end)).to.be_true()
+    end)
+  end)
+
+  describe('raw functions (strict)', function()
+    it('should accept only an exact arity match', function()
+      local C = Callable({Integer, Integer}, {Integer}, {strict = true})
+      expect(C:__isinstance(function(a, b) return a + b end)).to.be_true()
+      expect(C:__isinstance(function(a) return a end)).to.be_false()
+      expect(C:__isinstance(function(a, b, c) return a end)).to.be_false()
+    end)
+
+    it('should reject a vararg function', function()
+      local C = Callable({Integer}, {Integer}, {strict = true})
+      expect(C:__isinstance(function(...) return ... end)).to.be_false()
+    end)
+  end)
+
+  describe('Signature-wrapped functions', function()
+    local function make_wrapped(params, returns)
+      return signature.Function{
+        params = params,
+        returns = returns,
+        func = function(...) return ... end,
+      }
+    end
+
+    it('should accept a wrapper with a matching signature', function()
+      local wrapped = make_wrapped({Integer}, {String})
+      local C = Callable({Integer}, {String})
+      expect(C:__isinstance(wrapped)).to.be_true()
+    end)
+
+    it('should reject a wrapper with mismatched parameters', function()
+      local wrapped = make_wrapped({String}, {String})
+      local C = Callable({Integer}, {String})
+      expect(C:__isinstance(wrapped)).to.be_false()
+    end)
+
+    it('should reject a wrapper with mismatched returns', function()
+      local wrapped = make_wrapped({Integer}, {Integer})
+      local C = Callable({Integer}, {String})
+      expect(C:__isinstance(wrapped)).to.be_false()
+    end)
+
+    it('should reject a wrapper with a different parameter count', function()
+      local wrapped = make_wrapped({Integer, Integer}, {String})
+      local C = Callable({Integer}, {String})
+      expect(C:__isinstance(wrapped)).to.be_false()
+    end)
+
+    it('should compare structurally equal matchers by name', function()
+      local wrapped = make_wrapped({Dict(String, Integer)}, {String})
+      local C = Callable({Dict(String, Integer)}, {String})
+      expect(C:__isinstance(wrapped)).to.be_true()
+    end)
+
+    it('should match string type names against matcher names', function()
+      -- Signature declarations may name a type by string, e.g.
+      -- Signature{params={'MyClass', Integer}, ...}.
+      local wrapped = make_wrapped({'Integer'}, {'String'})
+      local C = Callable({Integer}, {String})
+      expect(C:__isinstance(wrapped)).to.be_true()
+    end)
+
+    it('should not match distinct anonymous classes by name', function()
+      local A = llx.class {}
+      local B = llx.class {}
+      local wrapped = make_wrapped({A}, {})
+      expect(Callable({A}, {}):__isinstance(wrapped)).to.be_true()
+      expect(Callable({B}, {}):__isinstance(wrapped)).to.be_false()
+    end)
+
+    it('should distinguish strict and lenient Callable '
+      .. 'parameters by name', function()
+      local Lenient = Callable({Integer}, {Integer})
+      local Strict = Callable({Integer}, {Integer}, {strict = true})
+      local wrapped = make_wrapped({Lenient}, {})
+      expect(Callable({Lenient}, {}):__isinstance(wrapped)).to.be_true()
+      expect(Callable({Strict}, {}):__isinstance(wrapped)).to.be_false()
+    end)
+  end)
+
+  describe('callable tables', function()
+    it('should accept a table with a __call metamethod', function()
+      local C = Callable({Integer}, {Integer})
+      local callable_table = setmetatable({}, {
+        __call = function(self, x) return x end,
+      })
+      expect(C:__isinstance(callable_table)).to.be_true()
+    end)
+
+    it('should reject a plain table', function()
+      local C = Callable({Integer}, {Integer})
+      expect(C:__isinstance({})).to.be_false()
+    end)
+
+    it('should reject non-callable values', function()
+      local C = Callable({Integer}, {Integer})
+      expect(C:__isinstance(42)).to.be_false()
+      expect(C:__isinstance('hello')).to.be_false()
+      expect(C:__isinstance(nil)).to.be_false()
+      expect(C:__isinstance(true)).to.be_false()
+    end)
+  end)
+
+  describe('isinstance integration', function()
+    it('should work as an isinstance target', function()
+      local C = Callable({Integer}, {Integer})
+      expect(isinstance(function(x) return x end, C)).to.be_true()
+      expect(isinstance(42, C)).to.be_false()
+    end)
+  end)
+
+  describe('composition', function()
+    it('should compose inside Union', function()
+      local C = Callable({Integer}, {Integer})
+      local U = Union{String, C}
+      expect(isinstance('hello', U)).to.be_true()
+      expect(isinstance(function(x) return x end, U)).to.be_true()
+      expect(isinstance(42, U)).to.be_false()
+    end)
+
+    it('should compose inside Protocol', function()
+      local Comparator = Protocol{
+        name = String,
+        compare = Callable({Any, Any}, {Integer}),
+      }
+      expect(isinstance({
+        name = 'by_value',
+        compare = function(a, b) return 0 end,
+      }, Comparator)).to.be_true()
+      expect(isinstance({
+        name = 'broken',
+        compare = 'not a function',
+      }, Comparator)).to.be_false()
+    end)
+
+    it('should compose inside Dict', function()
+      local Handlers = Dict(String, Callable({Any}, {}))
+      expect(isinstance({
+        on_open = function(event) end,
+        on_close = function(event) end,
+      }, Handlers)).to.be_true()
+      expect(isinstance({on_open = 'nope'}, Handlers)).to.be_false()
     end)
   end)
 end)
