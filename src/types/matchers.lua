@@ -206,12 +206,50 @@ local function callable_type_check(param_types, return_types, options)
   })
 end
 
+local function tuple_type_check(element_types)
+  if type(element_types) ~= 'table' then
+    error('Tuple: expected a list of element types', 2)
+  end
+  local element_names = {}
+  for i, t in ipairs(element_types) do
+    element_names[i] = type_name_of(t)
+  end
+  local typename = 'Tuple<' .. table.concat(element_names, ', ') .. '>'
+  return setmetatable({
+    __name = typename,
+
+    -- Expose the positional type list so callers can introspect.
+    element_types = element_types,
+
+    __isinstance = function(self, value)
+      -- Accept any table-backed sequence: plain array tables and
+      -- llx.Tuple instances alike (Tuple values are tables whose
+      -- __len/__index metamethods make # and value[i] behave).
+      -- Arity is checked with #, so values must be proper
+      -- sequences; a table with trailing nils has an unspecified
+      -- length in Lua, and a nil element can never satisfy a
+      -- positional slot (use Union/Optional element types only
+      -- with explicit non-nil sentinels).
+      if type(value) ~= 'table' then return false end
+      if #value ~= #element_types then return false end
+      for i, expected_type in ipairs(element_types) do
+        if not isinstance(value[i], expected_type) then
+          return false
+        end
+      end
+      return true
+    end,
+  }, {
+    __tostring = function(self) return self.__name end,
+  })
+end
+
 Any=any_type_check()
 Union=union_type_check
 Optional=optional_type_check
 Dict=dict_type_check
 Protocol=protocol_type_check
 Callable=callable_type_check
--- Tuple=tuple_type_check
+Tuple=tuple_type_check
 
 return _M
