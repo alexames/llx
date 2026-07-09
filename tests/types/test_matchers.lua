@@ -481,10 +481,26 @@ describe('ListOf', function()
       expect(L:__isinstance(true)).to.be_false()
     end)
 
-    it('should ignore non-array keys (only ipairs elements '
-      .. 'are checked)', function()
+    it('should reject a hash-only table (no vacuous match over an '
+      .. 'empty array part)', function()
       local L = ListOf(Integer)
-      expect(L:__isinstance({1, 2, extra = 'ignored'})).to.be_true()
+      expect(L:__isinstance({meta = print})).to.be_false()
+      expect(L:__isinstance({a = 1, b = 2})).to.be_false()
+    end)
+
+    it('should reject a table with hash keys alongside the array '
+      .. 'part', function()
+      local L = ListOf(Integer)
+      expect(L:__isinstance({1, 2, extra = 'nope'})).to.be_false()
+      expect(L:__isinstance({1, 2, [4.5] = 3})).to.be_false()
+    end)
+
+    it('should reject a table with a hole (keys beyond the ipairs '
+      .. 'prefix)', function()
+      local L = ListOf(Integer)
+      expect(L:__isinstance({1, 2, nil, 4})).to.be_false()
+      expect(L:__isinstance({[2] = 1})).to.be_false()
+      expect(L:__isinstance({[0] = 1, [1] = 2})).to.be_false()
     end)
   end)
 
@@ -574,6 +590,13 @@ describe('SetOf', function()
       local S = SetOf(Integer)
       expect(S:__isinstance({[1] = true, [2] = true})).to.be_false()
       expect(S:__isinstance({})).to.be_false()
+    end)
+
+    it('should reject a hash-only table (the nominal Set guard '
+      .. 'means no vacuous match; mirrors ListOf, #65)', function()
+      local S = SetOf(Integer)
+      expect(S:__isinstance({meta = print})).to.be_false()
+      expect(isinstance({meta = print}, S)).to.be_false()
     end)
 
     it('should reject non-table values', function()
@@ -2306,11 +2329,12 @@ describe('Lazy', function()
       }, Json)).to.be_true()
       expect(isinstance(print, Json)).to.be_false()
       expect(isinstance({1, print}, Json)).to.be_false()
+      -- A hash-only table with invalid values is rejected: the Dict
+      -- branch rejects the bad value, and ListOf no longer treats a
+      -- table with an empty array part as an empty list (#65).
+      expect(isinstance({meta = print}, Json)).to.be_false()
       -- Invalid nested documents are rejected through the recursive
-      -- reference. (Note: a hash-only table with invalid values,
-      -- e.g. {meta = print}, is accepted by this matcher because
-      -- ListOf treats any table with an empty array part as an empty
-      -- list -- a pre-existing ListOf property, not a Lazy one.)
+      -- reference.
       expect(isinstance({1, {2, print}}, Json)).to.be_false()
       expect(isinstance({'a', {'b', {'c', print}}}, Json))
         .to.be_false()

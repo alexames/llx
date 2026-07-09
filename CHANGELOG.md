@@ -26,6 +26,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inside the call-time checks with a raw "attempt to get length of a
   nil value". Declare an empty list explicitly (`params={}`,
   `returns={}`) or use `{'...'}` for an unchecked variadic list. (#63)
+- **Breaking:** `ListOf(T)` no longer vacuously matches tables with an
+  empty array part. Matching tables must now be list-shaped: their raw
+  keys must be exactly `1..n` for the `ipairs`-covered prefix (no hash
+  keys, no holes), and every element must satisfy `T`. The empty table
+  `{}` is still accepted (an empty list is `{}` in Lua,
+  indistinguishable from an empty dict), and `llx.List` instances are
+  unaffected. Previously `{meta = print}` satisfied `ListOf(Integer)`
+  because the element loop was vacuous over a hash-only table, so a
+  `Union{ListOf(T), Dict(K, V)}` JSON-style matcher could not reject
+  hash tables with invalid values; tables mixing hash keys into the
+  array part (e.g. `{1, 2, extra = 'x'}`) also matched and are now
+  rejected. `SetOf` is unaffected: it requires an `llx.Set` instance,
+  so it never had a vacuous path. (#65)
 
 ### Fixed
 
