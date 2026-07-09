@@ -27,9 +27,18 @@ describe('Boolean', function()
   end)
 
   describe('__tostring', function()
-    it('should return a default table string since Boolean '
-      .. 'has no metatable', function()
-      expect(tostring(Boolean)).to.start_with('table: ')
+    it('should return "Boolean"', function()
+      expect(tostring(Boolean)).to.be_equal_to('Boolean')
+    end)
+  end)
+
+  describe('__call', function()
+    it('should coerce values to booleans truthily', function()
+      expect(Boolean(true)).to.be_true()
+      expect(Boolean(1)).to.be_true()
+      expect(Boolean('')).to.be_true()
+      expect(Boolean(false)).to.be_false()
+      expect(Boolean(nil)).to.be_false()
     end)
   end)
 

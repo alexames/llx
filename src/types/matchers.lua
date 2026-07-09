@@ -897,6 +897,163 @@ local function class_of_type_check(base_class)
   })
 end
 
+-- Marker key identifying Lazy matchers. A module-local table key
+-- cannot be forged (or observed) outside this module, so nothing else
+-- can accidentally look like a Lazy. The key doubles as the force
+-- handle: it maps to the matcher's resolve function, which is how
+-- chain flattening below and resolve_lazy reach into a Lazy.
+local lazy_mark = {}
+
+-- Monotonic id so every unresolved Lazy gets a distinct placeholder
+-- name. A shared placeholder would make every container that embeds
+-- an unresolved Lazy of the same shape (e.g. two different recursive
+-- ListOf types) freeze identical names, and is_subtype's
+-- name-equality fallback would then treat structurally different
+-- recursive types as mutual subtypes.
+local lazy_counter = 0
+
+local function lazy_type_check(thunk)
+  -- Lazy(thunk): a deferred type reference, the analog of mypy's
+  -- recursive type aliases and forward references. The thunk is not
+  -- called at construction; it runs on the first __isinstance check
+  -- (or the first is_subtype comparison, which forces both operands),
+  -- and the matcher it returns is cached, so the thunk is called at
+  -- most once on success. This makes self-referential types
+  -- expressible with plain local variables:
+  --
+  --   local Json
+  --   Json = Union{String, Number, Boolean, Nil,
+  --                ListOf(Lazy(function() return Json end)),
+  --                Dict(String, Lazy(function() return Json end))}
+  --
+  -- Note the two-statement form: `local Json = Union{...}` would
+  -- capture an outer (usually nil) Json in the thunk, because the
+  -- local is not in scope inside its own initializer.
+  --
+  -- Naming: reading __name (or tostring) never forces resolution --
+  -- it reports a unique placeholder ('Lazy<?#1>', 'Lazy<?#2>', ...)
+  -- until the matcher has been resolved, after which it adopts the
+  -- resolved matcher's name. Consequently a matcher that embeds an
+  -- unresolved Lazy computes its own (construction-time) name with
+  -- the placeholder; that name is frozen, which is inherent to
+  -- laziness. The placeholder is unique per Lazy so two structurally
+  -- different recursive containers never freeze the same name (which
+  -- is_subtype's name-equality fallback would conflate); the flip
+  -- side is that separately constructed but identical recursive
+  -- containers do not compare equal by name -- compare by identity,
+  -- or let is_subtype force the Lazy itself.
+  --
+  -- Cycles: a Lazy that resolves -- directly or through a chain of
+  -- Lazy matchers -- back to itself has no underlying type, so
+  -- resolution raises a clear error instead of overflowing the stack.
+  -- Chains of Lazy flatten to the first non-Lazy matcher at
+  -- resolution time, so a check never dispatches from one Lazy to
+  -- another. A cycle routed through a structural matcher with no
+  -- non-recursive member (e.g. `local A; A = Union{Lazy(-> A)}`) is
+  -- an uninhabitable type with no base case; it cannot be detected at
+  -- resolution time and diverges at check time, like any other
+  -- unbounded recursion in user code.
+  --
+  -- Errors raised by the thunk itself propagate and are not cached:
+  -- a later check retries resolution.
+  if not is_callable(thunk) then
+    error('Lazy: expected a callable thunk, got ' .. type(thunk), 2)
+  end
+
+  lazy_counter = lazy_counter + 1
+  local placeholder = 'Lazy<?#' .. lazy_counter .. '>'
+
+  local resolved = nil
+  local resolving = false
+
+  local function resolve()
+    if resolved ~= nil then
+      return resolved
+    end
+    if resolving then
+      error('Lazy: resolution cycle detected (the thunk resolves, '
+        .. 'directly or through a chain of Lazy matchers, back to '
+        .. 'this Lazy)', 2)
+    end
+    resolving = true
+    local ok, result = pcall(function()
+      local r = thunk()
+      -- Flatten chains of Lazy so the cached matcher is never itself
+      -- a Lazy: a mutually-referential pair would otherwise bounce
+      -- between the two __isinstance implementations without bound
+      -- at check time. Forcing the inner Lazy re-enters its own
+      -- resolve, so a chain that loops back trips the resolving
+      -- guard above.
+      while type(r) == 'table' and rawget(r, lazy_mark) ~= nil do
+        r = rawget(r, lazy_mark)()
+      end
+      return r
+    end)
+    resolving = false
+    if not ok then
+      error(result, 0)
+    end
+    if type(result) ~= 'table' or result.__isinstance == nil then
+      local hint = ''
+      if result == nil then
+        -- The classic forward-reference pitfall: `local T = ...`
+        -- captures an outer T inside the thunk. Point at the fix.
+        hint = " (declare the local before assigning it: 'local T' "
+          .. "on its own line, then 'T = ...')"
+      end
+      error('Lazy: thunk returned ' .. describe_value(result)
+        .. '; expected a type matcher or class with __isinstance'
+        .. hint, 2)
+    end
+    resolved = result
+    return resolved
+  end
+
+  return setmetatable({
+    [lazy_mark] = resolve,
+
+    __isinstance = function(self, value)
+      return isinstance(value, resolve())
+    end,
+  }, {
+    __index = function(self, key)
+      if key == '__name' then
+        -- Non-forcing: introspection must stay side-effect free.
+        if resolved ~= nil then
+          return type_name_of(resolved)
+        end
+        return placeholder
+      end
+      if key == '__validate' then
+        -- Forwarded so Schema's per-type constraint hooks (minimum,
+        -- pattern, properties, ...) apply through a Lazy type field.
+        -- This read only happens while validating a value, where
+        -- resolution is needed anyway, so forcing here is sound.
+        return resolve().__validate
+      end
+      return nil
+    end,
+    __tostring = function(self)
+      return self.__name
+    end,
+  })
+end
+
+-- Sees through Lazy matchers: forces a Lazy (caching its resolution)
+-- and returns the resolved matcher; any other value passes through
+-- unchanged. llx.is_subtype applies this to both operands so the
+-- subtype relation always compares resolved matchers; it is exported
+-- for the same use elsewhere.
+local function resolve_lazy_matcher(t)
+  if type(t) == 'table' then
+    local force = rawget(t, lazy_mark)
+    if force ~= nil then
+      return force()
+    end
+  end
+  return t
+end
+
 Any=any_type_check()
 Never=never_type_check()
 Union=union_type_check
@@ -911,5 +1068,7 @@ Rest=rest_type_check
 Literal=literal_type_check
 NewType=new_type_check
 ClassOf=class_of_type_check
+Lazy=lazy_type_check
+resolve_lazy=resolve_lazy_matcher
 
 return _M
