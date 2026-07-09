@@ -113,6 +113,49 @@ describe('Signature', function()
       end)
       expect(ok).to.be_true()
     end)
+
+    describe('Rest(T) rejection at declaration time', function()
+      local ValueException = exceptions.ValueException
+      local Rest = require 'llx.types.matchers' . Rest
+
+      local function expect_rest_rejection(name, build)
+        local ok, err = pcall(build)
+        expect(ok).to.be_false()
+        expect(isinstance(err, ValueException)).to.be_true()
+        expect(err.what:find(
+            name .. ': Rest(T) is only valid inside Tuple',
+            1, true)).to_not.be_nil()
+      end
+
+      it('should reject Rest(T) in Signature params', function()
+        expect_rest_rejection('Signature', function()
+          return Signature{params={Integer, Rest(String)},
+                           returns={}}
+        end)
+      end)
+
+      it('should reject Rest(T) in Signature returns', function()
+        expect_rest_rejection('Signature', function()
+          return Signature{params={}, returns={Rest(Integer)}}
+        end)
+      end)
+
+      it('should reject Rest(T) in a direct Function construction',
+          function()
+        expect_rest_rejection('Function', function()
+          return Function{params={Rest(Integer)}, returns={},
+                          func=function() end}
+        end)
+      end)
+
+      it('should still accept a trailing VARARG', function()
+        local ok = pcall(function()
+          return Signature{params={Integer, '...'},
+                           returns={Number, '...'}}
+        end)
+        expect(ok).to.be_true()
+      end)
+    end)
   end)
 
   describe('Signature decorate method', function()

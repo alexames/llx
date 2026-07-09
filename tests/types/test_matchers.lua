@@ -926,6 +926,20 @@ describe('Tuple', function()
       it('should not act as a matcher outside Tuple', function()
         expect(isinstance(1, Rest(Integer))).to.be_false()
       end)
+
+      it('should be recognized by the is_rest predicate', function()
+        expect(matchers.is_rest(Rest(Integer))).to.be_true()
+        expect(matchers.is_rest(Rest(Union{Integer, String})))
+          .to.be_true()
+      end)
+
+      it('should not report non-Rest values as Rest', function()
+        expect(matchers.is_rest(Integer)).to.be_false()
+        expect(matchers.is_rest(VARARG)).to.be_false()
+        expect(matchers.is_rest(nil)).to.be_false()
+        expect(matchers.is_rest({element_type = Integer}))
+          .to.be_false()
+      end)
     end)
   end)
 
@@ -1281,6 +1295,37 @@ describe('Callable', function()
       expect(function()
         Callable({Integer, VARARG}, {Integer, VARARG})
       end).to_not.throw()
+    end)
+  end)
+
+  describe('Rest placement', function()
+    local ValueException =
+        require 'llx.exceptions' . ValueException
+
+    local function expect_rest_rejection(build)
+      local ok, err = pcall(build)
+      expect(ok).to.be_false()
+      expect(isinstance(err, ValueException)).to.be_true()
+      expect(err.what:find('Rest(T) is only valid inside Tuple',
+                           1, true)).to_not.be_nil()
+    end
+
+    it('should reject Rest(T) in the parameter list', function()
+      expect_rest_rejection(function()
+        return Callable({Rest(Integer)}, {})
+      end)
+      expect_rest_rejection(function()
+        return Callable({Integer, Rest(String)}, {})
+      end)
+    end)
+
+    it('should reject Rest(T) in the return list', function()
+      expect_rest_rejection(function()
+        return Callable({}, {Rest(Integer)})
+      end)
+      expect_rest_rejection(function()
+        return Callable({String, Rest(Integer)}, {Integer})
+      end)
     end)
   end)
 

@@ -51,23 +51,41 @@ function check_returns(expected_types, return_values)
   end
 end
 
+-- Cached upvalue for the deferred require of llx.types.matchers
+-- (deferred to avoid a load-time cycle: this module's dependencies
+-- pull in llx.types, and therefore llx.types.matchers, through
+-- llx.getclass).
+local matchers_module = nil
+
 -- Like check_returns, but also rejects values beyond the expected
 -- list. `count` must be the exact number of values, as captured by
 -- select('#', ...) or table.pack -- the # of the values table is
 -- unreliable when embedded nils are present. A trailing VARARG entry
 -- in expected_types suppresses the count check: the fixed prefix is
 -- still type-checked and any number of extra values is allowed.
+-- A Rest(T) marker (llx.types.matchers) is rejected anywhere in the
+-- list: Rest is only meaningful inside a Tuple element type list,
+-- and a signature position holding one could never match any value.
 function check_returns_exact(expected_types, return_values, count)
   local expected_count = #expected_types
   local variadic = expected_types[expected_count] == VARARG
   local fixed_count = variadic and expected_count - 1 or expected_count
+  if fixed_count > 0 then
+    matchers_module = matchers_module or require 'llx.types.matchers'
+  end
   for i=1, fixed_count do
-    if expected_types[i] == VARARG then
+    local expected_type = expected_types[i]
+    if expected_type == VARARG then
       error(ValueException(
           "VARARG ('...') must be the last entry in the expected "
           .. 'types list', 2))
     end
-    check_argument(i, return_values[i], expected_types[i])
+    if matchers_module.is_rest(expected_type) then
+      error(ValueException(
+          'Rest(T) is only valid inside Tuple; use a trailing '
+          .. "VARARG ('...') for variadic signatures", 2))
+    end
+    check_argument(i, return_values[i], expected_type)
   end
   if not variadic and count > expected_count then
     error(InvalidArgumentException(
