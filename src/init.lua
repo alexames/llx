@@ -13,6 +13,7 @@ local unlock = getmetatable(lock).__close
 
 local ok, result = pcall(function()
   return flatten_submodules {
+    require 'llx.cast',
     require 'llx.check_arguments',
     require 'llx.class',
     require 'llx.collections',

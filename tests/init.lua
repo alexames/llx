@@ -1,6 +1,7 @@
 -- Root module tests
 require 'llx.tests.test_bisect'
 require 'llx.tests.test_cache'
+require 'llx.tests.test_cast'
 require 'llx.tests.test_check_arguments'
 require 'llx.tests.test_class'
 require 'llx.tests.test_contextlib'
