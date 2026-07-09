@@ -33,3 +33,4 @@ eval "$(luarocks-5.4 path)" && lua5.4 examples/01_classes.lua
 | `06_collections.lua`          | Deque, Counter, OrderedDict, DefaultDict, Heap |
 | `07_result_option.lua`        | Result and Option for non-exceptional flow |
 | `08_namedtuple_bisect.lua`    | Immutable named tuples and binary search   |
+| `09_typed_functions.lua`      | Signature enforcement, Callable, variance  |
