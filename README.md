@@ -235,6 +235,19 @@ llx.isinstance(42, UserId)   --> false (raw values are unbranded)
 id + 1                       --> 43
 id:get()                     --> 42
 
+-- Class objects: ClassOf(C) matches a class itself (the runtime
+-- analog of mypy's type[C]) -- C or any transitive subclass -- and
+-- never an instance. ClassOf() with no argument matches any class,
+-- mirroring Python's bare type. Useful for typing factory/registry
+-- APIs that take a class parameter. String names are rejected; pass
+-- the class object itself.
+local Animal = llx.class 'Animal' {}
+local Dog = llx.class 'Dog' : extends(Animal) {}
+local OfAnimal = matchers.ClassOf(Animal)
+llx.isinstance(Dog, OfAnimal)      --> true
+llx.isinstance(Dog(), OfAnimal)    --> false (instance, not class)
+llx.isinstance(Dog, matchers.ClassOf())  --> true (any class)
+
 -- Schema with constraints
 local Schema = llx.Schema
 local AgeSchema = Schema{

@@ -721,6 +721,81 @@ local function new_type_check(name, base_type)
   return matcher
 end
 
+-- Returns true when value is a class object produced by llx.class (a
+-- class table proxy), as opposed to an instance, a plain table, or a
+-- non-table. Two facts uniquely identify a class proxy (see the
+-- implementation notes in src/class.lua):
+--
+-- - getmetatable(proxy) returns the proxy itself (the proxy metatable
+--   sets __metatable to the proxy), whereas getmetatable(instance)
+--   returns the instance's class proxy, never the instance, and a
+--   plain table's metatable (if any) is some other table.
+-- - The proxy's __index resolves against the internal class table,
+--   where __is_llx_class is rawset to true on every class; instances
+--   would also inherit the flag, but the metatable check above has
+--   already excluded them.
+local function is_class_object(value)
+  return type(value) == 'table'
+     and rawequal(getmetatable(value), value)
+     and value.__is_llx_class == true
+end
+
+local function class_of_type_check(base_class)
+  -- ClassOf(C): matches class objects (values created by llx.class),
+  -- never instances -- the runtime analog of mypy's type[C]. A value
+  -- matches when it is a class and is C itself or a (transitive)
+  -- subclass of C, per llx.is_subtype. ClassOf() with no argument
+  -- matches any class, mirroring Python's bare `type`.
+  --
+  -- Only class objects are accepted as the base: string class names
+  -- are rejected because is_subtype supports strings for name
+  -- equality only, so ClassOf('Animal') could never walk the
+  -- hierarchy and would silently match nothing but the exact name.
+  -- Type matchers (Integer, Union, NewType, ...) are rejected too:
+  -- they are not classes, so no value could ever match.
+  --
+  -- Caveat (inherited from is_subtype's equality rule): two distinct
+  -- classes sharing a non-anonymous __name compare as equal, so
+  -- ClassOf(Animal) also matches an unrelated class named 'Animal'.
+  -- Keep class names unique.
+  if base_class ~= nil and not is_class_object(base_class) then
+    local description = describe_value(base_class)
+    if type(base_class) == 'table'
+        and is_class_object(getmetatable(base_class)) then
+      -- A likely mistake: an *instance* where its class was meant.
+      description = 'an instance of '
+        .. type_name_of(getmetatable(base_class))
+        .. ' (pass the class itself)'
+    end
+    error('ClassOf: expected a class object (or no argument), got '
+      .. description, 2)
+  end
+  local typename = base_class == nil and 'ClassOf'
+      or 'ClassOf<' .. type_name_of(base_class) .. '>'
+
+  -- Cached upvalue for the deferred require of llx.is_subtype
+  -- (deferred to avoid a load-time cycle: llx.is_subtype requires
+  -- this module; the Callable pattern above).
+  local subtype_module = nil
+
+  return setmetatable({
+    __name = typename,
+
+    -- Expose the base so callers can introspect. nil for the bare
+    -- match-any-class form.
+    base_class = base_class,
+
+    __isinstance = function(self, value)
+      if not is_class_object(value) then return false end
+      if base_class == nil then return true end
+      subtype_module = subtype_module or require 'llx.is_subtype'
+      return subtype_module.is_subtype(value, base_class)
+    end,
+  }, {
+    __tostring = function(self) return self.__name end,
+  })
+end
+
 Any=any_type_check()
 Never=never_type_check()
 Union=union_type_check
@@ -733,5 +808,6 @@ Callable=callable_type_check
 Tuple=tuple_type_check
 Literal=literal_type_check
 NewType=new_type_check
+ClassOf=class_of_type_check
 
 return _M
