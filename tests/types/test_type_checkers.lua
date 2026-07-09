@@ -396,6 +396,20 @@ describe('Function', function()
     it('should return false for a boolean', function()
       expect(Function:__isinstance(true)).to.be_false()
     end)
+
+    it('should return true for a signature-wrapped function', function()
+      local Signature = require 'llx.signature' . Signature
+      local sig = Signature{params={Integer}, returns={String}}
+      local _, _, wrapped = sig:decorate(
+        {}, 'f', function(n) return tostring(n) end)
+      expect(Function:__isinstance(wrapped)).to.be_true()
+    end)
+
+    it('should return false for a plain table with a __call '
+      .. 'metamethod', function()
+      local callable = setmetatable({}, {__call = function() end})
+      expect(Function:__isinstance(callable)).to.be_false()
+    end)
   end)
 
   describe('isinstance integration', function()

@@ -240,6 +240,31 @@ describe('Signature', function()
     end)
   end)
 
+  describe('type system integration', function()
+    it('should make wrapped functions pass isinstance checks '
+      .. 'for types.Function', function()
+      local sig = Signature{params={Integer}, returns={String}}
+      local _, _, wrapped = sig:decorate(
+        {}, 'f', function(n) return tostring(n) end)
+      expect(type(wrapped)).to.be_equal_to('table')
+      expect(isinstance(wrapped, types.Function)).to.be_true()
+    end)
+
+    it('should let Protocol accept an object with a '
+      .. 'signature-annotated method', function()
+      local matchers = require 'llx.types.matchers'
+      local MyClass = class 'SigTestProtocolClass' {
+        ['on_tick' | Signature{
+            params={'SigTestProtocolClass', Integer},
+            returns={}}] =
+        function(self, n) end,
+      }
+      local obj = MyClass()
+      local Ticker = matchers.Protocol{on_tick = types.Function}
+      expect(isinstance(obj, Ticker)).to.be_true()
+    end)
+  end)
+
 end)
 
 if llx.main_file() then
