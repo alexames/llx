@@ -15,6 +15,7 @@ local Callable = matchers.Callable
 local Tuple = matchers.Tuple
 local Literal = matchers.Literal
 local ClassOf = matchers.ClassOf
+local Rest = matchers.Rest
 
 local TupleValue = require 'llx.tuple' . Tuple
 local VARARG = require 'llx.check_arguments' . VARARG
@@ -738,10 +739,196 @@ describe('Tuple', function()
     end)
   end)
 
+  describe('variadic tails', function()
+    describe('__name', function()
+      it('should spell an unchecked tail as ...', function()
+        local T = Tuple{String, Number, VARARG}
+        expect(T.__name).to.be_equal_to('Tuple<String, Number, ...>')
+      end)
+
+      it('should spell a typed tail as ...T', function()
+        local T = Tuple{String, Rest(Number)}
+        expect(T.__name).to.be_equal_to('Tuple<String, ...Number>')
+      end)
+
+      it('should spell a prefixless typed tail as ...T', function()
+        local T = Tuple{Rest(Integer)}
+        expect(T.__name).to.be_equal_to('Tuple<...Integer>')
+      end)
+
+      it('should distinguish the two tail forms by name', function()
+        local unchecked = Tuple{Integer, VARARG}
+        local typed = Tuple{Integer, Rest(Integer)}
+        expect(unchecked.__name == typed.__name).to.be_false()
+      end)
+    end)
+
+    describe('unchecked tail (bare VARARG)', function()
+      it('should accept an empty tail', function()
+        local T = Tuple{Integer, String, VARARG}
+        expect(T:__isinstance({1, 'one'})).to.be_true()
+      end)
+
+      it('should accept a long tail of arbitrary types', function()
+        local T = Tuple{Integer, String, VARARG}
+        expect(T:__isinstance({1, 'one', true, {}, 'x', 2.5}))
+          .to.be_true()
+      end)
+
+      it('should still reject a value shorter than the '
+        .. 'prefix', function()
+        local T = Tuple{Integer, String, VARARG}
+        expect(T:__isinstance({1})).to.be_false()
+      end)
+
+      it('should still type-check the fixed prefix', function()
+        local T = Tuple{Integer, String, VARARG}
+        expect(T:__isinstance({'one', 'two', 3})).to.be_false()
+        expect(T:__isinstance({1, 2, 3})).to.be_false()
+      end)
+
+      it('should accept any sequence for Tuple{VARARG}', function()
+        local T = Tuple{VARARG}
+        expect(T:__isinstance({})).to.be_true()
+        expect(T:__isinstance({1, 'mixed', true})).to.be_true()
+        expect(T:__isinstance(42)).to.be_false()
+      end)
+    end)
+
+    describe('typed tail (Rest)', function()
+      it('should accept an empty tail', function()
+        local T = Tuple{String, Rest(Number)}
+        expect(T:__isinstance({'label'})).to.be_true()
+      end)
+
+      it('should accept a homogeneous typed tail', function()
+        local T = Tuple{String, Rest(Number)}
+        expect(T:__isinstance({'label', 1, 2.5, 3})).to.be_true()
+      end)
+
+      it('should reject a tail value of the wrong type', function()
+        local T = Tuple{String, Rest(Number)}
+        expect(T:__isinstance({'label', 1, 'oops'})).to.be_false()
+        expect(T:__isinstance({'label', 1, 2, true})).to.be_false()
+      end)
+
+      it('should still type-check the fixed prefix', function()
+        local T = Tuple{String, Rest(Number)}
+        expect(T:__isinstance({1, 2, 3})).to.be_false()
+      end)
+
+      it('should still reject a value shorter than the '
+        .. 'prefix', function()
+        local T = Tuple{String, Rest(Number)}
+        expect(T:__isinstance({})).to.be_false()
+      end)
+
+      it('should express tuple[T, ...] as Tuple{Rest(T)}', function()
+        local Ints = Tuple{Rest(Integer)}
+        expect(Ints:__isinstance({})).to.be_true()
+        expect(Ints:__isinstance({1, 2, 3})).to.be_true()
+        expect(Ints:__isinstance({1, 2.5})).to.be_false()
+        expect(Ints:__isinstance({1, 'x'})).to.be_false()
+      end)
+
+      it('should compose matchers as the tail type', function()
+        local T = Tuple{Rest(Union{Integer, String})}
+        expect(T:__isinstance({1, 'a', 2})).to.be_true()
+        expect(T:__isinstance({1, true})).to.be_false()
+      end)
+    end)
+
+    describe('construction-time validation', function()
+      it('should reject a non-final VARARG', function()
+        expect(function() Tuple{VARARG, Integer} end).to.throw()
+        expect(function() Tuple{Integer, VARARG, String} end)
+          .to.throw()
+      end)
+
+      it('should reject a non-final Rest', function()
+        expect(function() Tuple{Rest(Integer), String} end).to.throw()
+        expect(function() Tuple{Integer, Rest(String), VARARG} end)
+          .to.throw()
+      end)
+
+      it('should reject Rest without an element type', function()
+        expect(function() Rest(nil) end)
+          .to.throw('Rest: expected an element type')
+        expect(function() Rest(false) end)
+          .to.throw('Rest: expected an element type')
+      end)
+    end)
+
+    describe('introspection', function()
+      it('should expose the derived shape of a fixed tuple', function()
+        local T = Tuple{Integer, String}
+        expect(T.fixed_count).to.be_equal_to(2)
+        expect(T.variadic).to.be_false()
+        expect(T.rest_type).to.be_nil()
+      end)
+
+      it('should expose the derived shape of an unchecked '
+        .. 'tail', function()
+        local T = Tuple{Integer, String, VARARG}
+        expect(T.fixed_count).to.be_equal_to(2)
+        expect(T.variadic).to.be_true()
+        expect(T.rest_type).to.be_nil()
+      end)
+
+      it('should expose the derived shape of a typed tail', function()
+        local T = Tuple{Integer, Rest(Number)}
+        expect(T.fixed_count).to.be_equal_to(1)
+        expect(T.variadic).to.be_true()
+        expect(T.rest_type).to.be_equal_to(Number)
+      end)
+
+      it('should expose element_type on the Rest marker', function()
+        expect(Rest(Number).element_type).to.be_equal_to(Number)
+        expect(tostring(Rest(Number))).to.be_equal_to('...Number')
+      end)
+    end)
+
+    describe('llx.Tuple values', function()
+      it('should accept Tuple values with variadic tails', function()
+        local T = Tuple{Integer, VARARG}
+        expect(T:__isinstance(TupleValue{1, 'x', true})).to.be_true()
+        local Ints = Tuple{Rest(Integer)}
+        expect(Ints:__isinstance(TupleValue{1, 2, 3})).to.be_true()
+        expect(Ints:__isinstance(TupleValue{1, 'x'})).to.be_false()
+      end)
+    end)
+
+    describe('composition', function()
+      it('should compose inside Union', function()
+        local U = Union{String, Tuple{Rest(Integer)}}
+        expect(isinstance('hello', U)).to.be_true()
+        expect(isinstance({1, 2, 3}, U)).to.be_true()
+        expect(isinstance({1, 'two'}, U)).to.be_false()
+      end)
+
+      it('should compose inside Dict', function()
+        local D = Dict(String, Tuple{Number, Rest(Number)})
+        expect(isinstance({polyline = {0, 1, 2}}, D)).to.be_true()
+        expect(isinstance({polyline = {}}, D)).to.be_false()
+        expect(isinstance({polyline = {0, 'x'}}, D)).to.be_false()
+      end)
+    end)
+
+    describe('standalone Rest markers', function()
+      it('should not act as a matcher outside Tuple', function()
+        expect(isinstance(1, Rest(Integer))).to.be_false()
+      end)
+    end)
+  end)
+
   describe('top-level llx namespace', function()
     it('should leave llx.Tuple as the value class', function()
       expect(llx.Tuple).to.be_equal_to(TupleValue)
       expect(tostring(llx.Tuple{1, 2})).to.be_equal_to('Tuple{1,2}')
+    end)
+
+    it('should export Rest at the top level', function()
+      expect(llx.Rest).to.be_equal_to(Rest)
     end)
   end)
 end)
