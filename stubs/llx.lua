@@ -20,6 +20,8 @@
 ---@field tostringf fun(formatter: any, ...: any): string
 ---@field strict any
 ---@field string_view fun(s: string, start?: integer, len?: integer): llx.StringView
+---@field cast fun(value: any, type_checker: any): any
+---@field try_cast fun(value: any, type_checker: any): llx.Result
 ---@field check_arguments fun(...): nil
 ---@field getclass fun(value: any): table?
 ---@field main_file fun(): boolean
