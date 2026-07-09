@@ -13,6 +13,7 @@
 -- (class tables, type matchers, Signature wrappers, or Callable
 -- matchers), never arbitrary runtime functions.
 
+local check_arguments = require 'llx.check_arguments'
 local environment = require 'llx.environment'
 local matchers = require 'llx.types.matchers'
 
@@ -21,6 +22,7 @@ local Integer = require 'llx.types.integer' . Integer
 local Number = require 'llx.types.number' . Number
 
 local Any = matchers.Any
+local VARARG = check_arguments.VARARG
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -142,28 +144,75 @@ function is_subtype(a, b)
   return false
 end
 
+-- Splits a declared type list into its fixed (typed) prefix length
+-- and a variadic flag. Only a *trailing* VARARG ('...') entry marks
+-- the list as variadic, mirroring the call-time semantics of
+-- llx.check_arguments.check_returns_exact (the fixed prefix is
+-- checked, any number of extra values is allowed unchecked). A
+-- VARARG anywhere else is malformed -- check_returns_exact raises
+-- for it at call time -- so nil is returned and the caller treats
+-- the signature as incompatible with everything.
+local function split_variadic(types)
+  local count = #types
+  local variadic = types[count] == VARARG
+  local fixed_count = variadic and count - 1 or count
+  for i = 1, fixed_count do
+    if types[i] == VARARG then
+      return nil
+    end
+  end
+  return fixed_count, variadic
+end
+
 --- Returns true when signature `sub` can be used where `super` is
 --- expected.
 --
 -- Both arguments are tables carrying `params` and `returns` arrays of
 -- type matchers -- Signature-wrapped functions, Callable matchers, or
 -- plain `{params = {...}, returns = {...}}` tables. Missing lists
--- default to empty.
+-- default to empty. A trailing VARARG (`'...'`) entry in either list
+-- declares a variadic tail: the fixed prefix is typed and anything
+-- beyond it is unchecked at call time (see llx.check_arguments).
 --
 -- Variance rules (the relation mypy applies to Callable):
 --
--- - Parameters are contravariant: each of `super`'s parameter types
---   must be a subtype of the corresponding `sub` parameter type, so
---   `sub` accepts at least everything `super` promises to accept.
--- - Returns are covariant: each of `sub`'s return types must be a
---   subtype of the corresponding `super` return type.
+-- - Parameters are contravariant: each parameter type `super`
+--   promises must be a subtype of the `sub` parameter type checked at
+--   that position, so `sub` accepts at least everything `super`
+--   promises to accept.
+-- - Returns are covariant: each return type `super` promises must be
+--   met by a `sub` return type that is a subtype of it.
 --
--- Arity must match exactly on both sides. For parameters this is the
--- conservative starting rule (varargs and optional trailing
--- parameters are not modeled). For returns it is required for
--- soundness: a Lua call in the tail of an expression list expands all
--- of its results, so extra return values are observable at call
--- sites.
+-- Arity, fixed lists: parameter and return counts must match exactly.
+-- For returns this is required for soundness: a Lua call in the tail
+-- of an expression list expands all of its results, so extra return
+-- values are observable at call sites.
+--
+-- Arity, variadic lists (derived from the call-time semantics, where
+-- the variadic tail is unchecked):
+--
+-- - Variadic `sub` params: compatible when `sub`'s fixed prefix does
+--   not extend past `super`'s parameter list -- every position `sub`
+--   checks is one `super` promises (contravariantly), and the rest
+--   land in `sub`'s unchecked tail.
+-- - Fixed `sub` params under a variadic `super`: incompatible.
+--   `super` promises callers may pass arbitrary extra arguments,
+--   which `sub`'s call-time count check rejects.
+-- - Variadic `sub` returns under a fixed `super`: incompatible.
+--   `sub` may produce extra results beyond its fixed prefix, and
+--   callers of `super` would observe those undeclared extras.
+-- - Fixed `sub` returns under a variadic `super`: compatible when
+--   `sub`'s returns cover `super`'s fixed prefix (covariantly);
+--   further `sub` returns land in `super`'s unchecked tail.
+--
+-- Note that a variadic `super` parameter list is not an "any
+-- parameters" wildcard (mypy's `Callable[..., R]`): it is a promise
+-- that callers may pass arbitrary extras, so only a variadic `sub`
+-- satisfies it. An unchecked-parameters escape hatch is a separate
+-- feature.
+--
+-- A non-trailing VARARG makes a signature malformed (its call-time
+-- check raises unconditionally), so it is compatible with nothing.
 --
 -- @param sub The candidate signature (used where `super` is expected)
 -- @param super The required signature
@@ -174,22 +223,58 @@ function signature_compatible(sub, super)
   end
   local sub_params = sub.params or {}
   local super_params = super.params or {}
-  if #sub_params ~= #super_params then
-    return false
-  end
   local sub_returns = sub.returns or {}
   local super_returns = super.returns or {}
-  if #sub_returns ~= #super_returns then
+  local sub_params_fixed, sub_params_variadic =
+      split_variadic(sub_params)
+  local super_params_fixed, super_params_variadic =
+      split_variadic(super_params)
+  local sub_returns_fixed, sub_returns_variadic =
+      split_variadic(sub_returns)
+  local super_returns_fixed, super_returns_variadic =
+      split_variadic(super_returns)
+  if sub_params_fixed == nil or super_params_fixed == nil
+      or sub_returns_fixed == nil or super_returns_fixed == nil then
     return false
   end
-  -- Parameters are contravariant.
-  for i = 1, #super_params do
+  -- Parameter arity. A variadic super promises callers may pass
+  -- arbitrary extra arguments, which only a variadic sub accepts at
+  -- call time. A variadic sub is fine anywhere its checked prefix
+  -- does not extend past super's parameter list.
+  if super_params_variadic and not sub_params_variadic then
+    return false
+  end
+  if sub_params_variadic then
+    if sub_params_fixed > super_params_fixed then
+      return false
+    end
+  elseif sub_params_fixed ~= super_params_fixed then
+    return false
+  end
+  -- Return arity is the mirror image: a variadic sub may produce
+  -- undeclared extras that a fixed super's callers would observe,
+  -- and a variadic super's fixed prefix must be covered by sub's
+  -- declared returns.
+  if sub_returns_variadic and not super_returns_variadic then
+    return false
+  end
+  if super_returns_variadic then
+    if super_returns_fixed > sub_returns_fixed then
+      return false
+    end
+  elseif sub_returns_fixed ~= super_returns_fixed then
+    return false
+  end
+  -- Parameters are contravariant over the positions sub checks; any
+  -- super parameters beyond them land in sub's unchecked tail.
+  for i = 1, sub_params_fixed do
     if not is_subtype(super_params[i], sub_params[i]) then
       return false
     end
   end
-  -- Returns are covariant.
-  for i = 1, #sub_returns do
+  -- Returns are covariant over the positions super promises; any sub
+  -- returns beyond them land in super's unchecked tail.
+  for i = 1, super_returns_fixed do
     if not is_subtype(sub_returns[i], super_returns[i]) then
       return false
     end

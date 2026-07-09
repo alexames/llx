@@ -16,6 +16,7 @@ local Tuple = matchers.Tuple
 local Literal = matchers.Literal
 
 local TupleValue = require 'llx.tuple' . Tuple
+local VARARG = require 'llx.check_arguments' . VARARG
 
 local Integer = llx.Integer
 local Number = llx.Number
@@ -1021,6 +1022,19 @@ describe('Callable', function()
       local C = Callable({Integer, String, Number}, {String})
       expect(C:__isinstance(function(...) return ... end)).to.be_true()
     end)
+
+    it('should accept any function for a variadic parameter '
+      .. 'list', function()
+      -- A trailing VARARG allows arbitrary extra arguments, so the
+      -- upper bound on the declared arity disappears: a function
+      -- declaring more parameters than the fixed prefix legitimately
+      -- consumes values from the variadic tail.
+      local C = Callable({Integer, VARARG}, {Integer})
+      expect(C:__isinstance(function(a) return a end)).to.be_true()
+      expect(C:__isinstance(function(a, b, c) return a end)).to.be_true()
+      expect(C:__isinstance(function(...) return ... end)).to.be_true()
+      expect(C:__isinstance(function() return 0 end)).to.be_true()
+    end)
   end)
 
   describe('raw functions (strict)', function()
@@ -1034,6 +1048,43 @@ describe('Callable', function()
     it('should reject a vararg function', function()
       local C = Callable({Integer}, {Integer}, {strict = true})
       expect(C:__isinstance(function(...) return ... end)).to.be_false()
+    end)
+
+    it('should require an exactly matching variadic shape for a '
+      .. 'variadic parameter list', function()
+      -- Strict pins the declared shape: the function must itself be
+      -- vararg and declare exactly the fixed prefix's parameters.
+      local C = Callable({String, VARARG}, {}, {strict = true})
+      expect(C:__isinstance(function(fmt, ...) return fmt, ... end))
+        .to.be_true()
+      expect(C:__isinstance(function(fmt) return fmt end)).to.be_false()
+      expect(C:__isinstance(function(fmt, a, ...) return a end))
+        .to.be_false()
+      expect(C:__isinstance(function(...) return ... end)).to.be_false()
+    end)
+
+    it('should accept a C function only against a bare variadic '
+      .. 'parameter list', function()
+      -- debug.getinfo reports every C function as vararg with
+      -- nparams == 0, exactly the declared shape of Callable({'...'}).
+      local Bare = Callable({VARARG}, {}, {strict = true})
+      local Prefixed = Callable({String, VARARG}, {}, {strict = true})
+      expect(Bare:__isinstance(print)).to.be_true()
+      expect(Prefixed:__isinstance(print)).to.be_false()
+    end)
+  end)
+
+  describe('VARARG placement', function()
+    it('should reject a non-trailing VARARG at construction', function()
+      expect(function() Callable({VARARG, Integer}, {}) end).to.throw()
+      expect(function() Callable({}, {VARARG, Integer}) end).to.throw()
+    end)
+
+    it('should accept a trailing VARARG in params and returns',
+        function()
+      expect(function()
+        Callable({Integer, VARARG}, {Integer, VARARG})
+      end).to_not.throw()
     end)
   end)
 
@@ -1099,6 +1150,33 @@ describe('Callable', function()
       local wrapped = make_wrapped({Lenient}, {})
       expect(Callable({Lenient}, {}):__isinstance(wrapped)).to.be_true()
       expect(Callable({Strict}, {}):__isinstance(wrapped)).to.be_false()
+    end)
+
+    it('should accept a variadic wrapper where its checked prefix '
+      .. 'is covered', function()
+      local wrapped = make_wrapped({Integer, VARARG}, {})
+      expect(Callable({Integer, String}, {}):__isinstance(wrapped))
+        .to.be_true()
+      expect(Callable({Integer, VARARG}, {}):__isinstance(wrapped))
+        .to.be_true()
+      expect(Callable({String}, {}):__isinstance(wrapped))
+        .to.be_false()
+    end)
+
+    it('should reject a fixed wrapper against a variadic '
+      .. 'Callable', function()
+      local wrapped = make_wrapped({Integer}, {})
+      expect(Callable({Integer, VARARG}, {}):__isinstance(wrapped))
+        .to.be_false()
+    end)
+
+    it('should reject a wrapper declaring variadic returns against '
+      .. 'fixed returns', function()
+      local wrapped = make_wrapped({}, {Integer, VARARG})
+      expect(Callable({}, {Integer}):__isinstance(wrapped))
+        .to.be_false()
+      expect(Callable({}, {Integer, VARARG}):__isinstance(wrapped))
+        .to.be_true()
     end)
   end)
 

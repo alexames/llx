@@ -191,11 +191,24 @@ local _, _, double = wide_sig:decorate({}, 'double', function(n)
 end)
 print(isinstance(double, NumberFn))               --> true
 
--- Arity must match exactly on both sides: extra declared returns are
--- observable in Lua (calls in expression-list tails expand all
--- results), so they break compatibility.
+-- Arity of fixed lists must match exactly on both sides: extra
+-- declared returns are observable in Lua (calls in expression-list
+-- tails expand all results), so they break compatibility.
 print(signature_compatible(
   {params = {Dog}, returns = {Animal, String}}, wants))      --> false
+
+-- Variadic declarations (a trailing '...') participate soundly: a
+-- variadic function can stand in for a fixed signature that covers
+-- its checked prefix (the extras land in the unchecked tail), but a
+-- fixed function cannot stand in for a variadic one, since callers
+-- may pass extra arguments that its call-time check rejects.
+local log_sig = Signature{params={String, '...'}, returns={}}
+local _, _, log = log_sig:decorate({}, 'log', function(fmt, ...)
+  print(fmt:format(...))
+end)
+print(isinstance(log, Callable({String, Integer}, {})))     --> true
+print(isinstance(log, Callable({String, '...'}, {})))       --> true
+print(isinstance(shout, Callable({String, '...'}, {String}))) --> false
 
 -- Signature wrappers carry params/returns, so they can be compared
 -- directly, too.
