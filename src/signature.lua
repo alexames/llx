@@ -8,7 +8,7 @@ local environment = require 'llx.environment'
 local _ENV, _M = environment.create_module_environment()
 
 local check_arguments = check_arguments_module.check_arguments
-local check_returns = check_arguments_module.check_returns
+local check_returns_exact = check_arguments_module.check_returns_exact
 local class = class_module.class
 local Decorator = decorator.Decorator
 
@@ -21,18 +21,22 @@ Function = class 'Function' {
   end,
 
   __call = function(self, ...)
-    self:check_preconditions({...})
-    local results = {self.func(...)}
+    self:check_preconditions(table.pack(...))
+    local results = table.pack(self.func(...))
     self:check_postconditions(results)
-    return table.unpack(results)
+    return table.unpack(results, 1, results.n)
   end,
 
+  -- table.pack supplies the exact value count in `n`; # is used as a
+  -- fallback so plain list tables still work when these methods are
+  -- called directly. A trailing '...' entry in params or returns
+  -- makes the signature variadic (see check_returns_exact).
   check_preconditions = function(self, arguments)
-    check_returns(self.params, arguments)
+    check_returns_exact(self.params, arguments, arguments.n or #arguments)
   end,
 
   check_postconditions = function(self, results)
-    check_returns(self.returns, results)
+    check_returns_exact(self.returns, results, results.n or #results)
   end,
 
   __tostring = function(self)
