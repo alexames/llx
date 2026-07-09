@@ -1340,6 +1340,256 @@ describe('Literal', function()
   end)
 end)
 
+-- ---------------------------------------------------------------------------
+-- NewType
+-- ---------------------------------------------------------------------------
+
+describe('NewType', function()
+  local NewType = matchers.NewType
+
+  describe('matcher identity', function()
+    it('should carry the given name', function()
+      local UserId = NewType('UserId', Integer)
+      expect(UserId.__name).to.be_equal_to('UserId')
+      expect(tostring(UserId)).to.be_equal_to('UserId')
+    end)
+
+    it('should expose the base type', function()
+      local UserId = NewType('UserId', Integer)
+      expect(UserId.base_type).to.be_equal_to(Integer)
+    end)
+
+    it('should reject a non-string name', function()
+      expect(function() NewType(42, Integer) end).to.throw()
+    end)
+
+    it('should reject a base without __isinstance', function()
+      expect(function() NewType('X', 5) end).to.throw()
+      expect(function() NewType('X', {}) end).to.throw()
+    end)
+  end)
+
+  describe('constructor', function()
+    it('should brand a value of the base type', function()
+      local UserId = NewType('UserId', Integer)
+      local id = UserId(42)
+      expect(isinstance(id, UserId)).to.be_true()
+    end)
+
+    it('should reject a value of the wrong base type', function()
+      local UserId = NewType('UserId', Integer)
+      expect(function() UserId('42') end).to.throw()
+      expect(function() UserId(1.5) end).to.throw()
+    end)
+
+    it('should reject nil', function()
+      local UserId = NewType('UserId', Integer)
+      expect(function() UserId(nil) end).to.throw()
+    end)
+
+    it('should return an already-branded value unchanged', function()
+      local UserId = NewType('UserId', Integer)
+      local id = UserId(42)
+      expect(rawequal(UserId(id), id)).to.be_true()
+    end)
+  end)
+
+  describe('isinstance', function()
+    it('should not match the raw base value', function()
+      local UserId = NewType('UserId', Integer)
+      expect(isinstance(42, UserId)).to.be_false()
+    end)
+
+    it('should not match a sibling brand', function()
+      local UserId = NewType('UserId', Integer)
+      local OrderId = NewType('OrderId', Integer)
+      expect(isinstance(UserId(42), OrderId)).to.be_false()
+      expect(isinstance(OrderId(42), UserId)).to.be_false()
+    end)
+
+    it('should not match arbitrary tables', function()
+      local UserId = NewType('UserId', Integer)
+      expect(isinstance({}, UserId)).to.be_false()
+      expect(isinstance(setmetatable({}, {}), UserId)).to.be_false()
+    end)
+
+    it('should match Any', function()
+      local UserId = NewType('UserId', Integer)
+      expect(isinstance(UserId(42), Any)).to.be_true()
+    end)
+  end)
+
+  describe('unwrapping', function()
+    it('should unwrap explicitly via get', function()
+      local UserId = NewType('UserId', Integer)
+      expect(UserId(42):get()).to.be_equal_to(42)
+    end)
+  end)
+
+  describe('operator forwarding', function()
+    it('should forward arithmetic to the underlying value', function()
+      local UserId = NewType('UserId', Integer)
+      expect(UserId(40) + 2).to.be_equal_to(42)
+      expect(UserId(44) - UserId(2)).to.be_equal_to(42)
+      expect(UserId(21) * 2).to.be_equal_to(42)
+      expect(UserId(85) // 2).to.be_equal_to(42)
+      expect(UserId(85) % 43).to.be_equal_to(42)
+      expect(-UserId(42)).to.be_equal_to(-42)
+    end)
+
+    it('should forward comparisons', function()
+      local UserId = NewType('UserId', Integer)
+      expect(UserId(1) < UserId(2)).to.be_true()
+      expect(UserId(2) < UserId(1)).to.be_false()
+      expect(UserId(1) <= UserId(1)).to.be_true()
+      expect(UserId(1) < 2).to.be_true()
+    end)
+
+    it('should compare equal on the underlying value', function()
+      local UserId = NewType('UserId', Integer)
+      local OrderId = NewType('OrderId', Integer)
+      expect(UserId(1) == UserId(1)).to.be_true()
+      expect(UserId(1) == UserId(2)).to.be_false()
+      -- Equality is erased across brands, matching Python's
+      -- runtime-erased NewType.
+      expect(UserId(1) == OrderId(1)).to.be_true()
+    end)
+
+    it('should forward concat, len, and tostring for string '
+        .. 'bases', function()
+      local Name = NewType('Name', String)
+      expect(Name('ab') .. '!').to.be_equal_to('ab!')
+      expect('<' .. Name('ab')).to.be_equal_to('<ab')
+      expect(#Name('abc')).to.be_equal_to(3)
+      expect(tostring(Name('ab'))).to.be_equal_to('ab')
+    end)
+
+    it('should forward calls for function bases', function()
+      local Handler = NewType('Handler', llx.Function)
+      local double = Handler(function(x) return x * 2 end)
+      expect(double(21)).to.be_equal_to(42)
+    end)
+
+    it('should hash equal payloads equally', function()
+      local UserId = NewType('UserId', Integer)
+      local OrderId = NewType('OrderId', Integer)
+      local hash = llx.hash.hash
+      expect(hash(UserId(42))).to.be_equal_to(hash(OrderId(42)))
+      expect(hash(UserId(1)) == hash(UserId(2))).to.be_false()
+    end)
+  end)
+
+  describe('table bases', function()
+    it('should forward field reads', function()
+      local Point = NewType('Point', llx.Table)
+      local p = Point({x = 1, y = 2})
+      expect(p.x).to.be_equal_to(1)
+      expect(p.y).to.be_equal_to(2)
+    end)
+
+    it('should be read-only through the wrapper', function()
+      local Point = NewType('Point', llx.Table)
+      local p = Point({x = 1})
+      expect(function() p.x = 5 end).to.throw()
+    end)
+
+    it('should allow mutation through get', function()
+      local Point = NewType('Point', llx.Table)
+      local p = Point({x = 1})
+      p:get().x = 5
+      expect(p.x).to.be_equal_to(5)
+    end)
+
+    it('should not compare equal to its unbranded payload', function()
+      -- Keeps == consistent with __hash: llx.hash mixes the outer
+      -- type name into a table's hash, so a wrapper and its raw
+      -- payload can never hash equally and must not compare equal.
+      local Point = NewType('Point', llx.Table)
+      local payload = {x = 1}
+      local p = Point(payload)
+      expect(p == payload).to.be_false()
+      expect(payload == p).to.be_false()
+      expect(p == Point(payload)).to.be_true()
+    end)
+  end)
+
+  describe('nested brands', function()
+    it('should brand over another NewType', function()
+      local UserId = NewType('UserId', Integer)
+      local AdminId = NewType('AdminId', UserId)
+      local admin = AdminId(UserId(7))
+      expect(isinstance(admin, AdminId)).to.be_true()
+      expect(isinstance(admin, UserId)).to.be_true()
+    end)
+
+    it('should reject an unbranded value for a nested brand',
+        function()
+      local UserId = NewType('UserId', Integer)
+      local AdminId = NewType('AdminId', UserId)
+      expect(function() AdminId(7) end).to.throw()
+    end)
+
+    it('should not match the outer brand from the inner', function()
+      local UserId = NewType('UserId', Integer)
+      local AdminId = NewType('AdminId', UserId)
+      expect(isinstance(UserId(7), AdminId)).to.be_false()
+    end)
+
+    it('should unwrap one brand level via get', function()
+      local UserId = NewType('UserId', Integer)
+      local AdminId = NewType('AdminId', UserId)
+      local admin = AdminId(UserId(7))
+      expect(isinstance(admin:get(), UserId)).to.be_true()
+      expect(admin:get():get()).to.be_equal_to(7)
+    end)
+
+    it('should forward operators through the whole chain', function()
+      local UserId = NewType('UserId', Integer)
+      local AdminId = NewType('AdminId', UserId)
+      local admin = AdminId(UserId(7))
+      expect(admin + 1).to.be_equal_to(8)
+      expect(admin == UserId(7)).to.be_true()
+    end)
+  end)
+
+  describe('composition', function()
+    it('should compose inside Union', function()
+      local UserId = NewType('UserId', Integer)
+      local OrderId = NewType('OrderId', Integer)
+      local AnyId = Union{UserId, OrderId}
+      expect(isinstance(UserId(1), AnyId)).to.be_true()
+      expect(isinstance(OrderId(1), AnyId)).to.be_true()
+      expect(isinstance(1, AnyId)).to.be_false()
+    end)
+
+    it('should compose inside Optional', function()
+      local UserId = NewType('UserId', Integer)
+      local MaybeId = Optional(UserId)
+      expect(isinstance(nil, MaybeId)).to.be_true()
+      expect(isinstance(UserId(1), MaybeId)).to.be_true()
+      expect(isinstance(1, MaybeId)).to.be_false()
+    end)
+
+    it('should compose inside Protocol', function()
+      local UserId = NewType('UserId', Integer)
+      local User = Protocol{
+        id = UserId,
+        name = String,
+      }
+      expect(isinstance({id = UserId(1), name = 'ada'}, User))
+        .to.be_true()
+      expect(isinstance({id = 1, name = 'ada'}, User))
+        .to.be_false()
+    end)
+  end)
+
+  describe('top-level llx namespace', function()
+    it('should be exported as llx.NewType', function()
+      expect(llx.NewType).to.be_equal_to(NewType)
+    end)
+  end)
+end)
+
 if llx.main_file() then
   unit.run_unit_tests()
 end

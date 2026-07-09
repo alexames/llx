@@ -399,6 +399,274 @@ local function literal_type_check(value_list)
   })
 end
 
+-- Private key under which a branded wrapper stores its underlying
+-- value. The key is a module-local table, so it cannot be forged (or
+-- even observed) outside this module.
+local newtype_raw_key = {}
+
+-- Marker key identifying NewType matcher tables, used to walk chains
+-- of brands (NewType over NewType). A non-string key keeps it out of
+-- the matcher's public field namespace.
+local newtype_mark = {}
+
+-- Cached upvalue for the deferred require of llx.hash (deferred to
+-- avoid load-time cycles; llx.hash pulls in the exception hierarchy).
+local hash_module = nil
+
+-- Fully unwraps a branded value: follows the chain of wrappers down
+-- to the first non-branded value. Non-branded values pass through
+-- unchanged, so this is safe to apply to both operands of a binary
+-- operator.
+local function newtype_unwrap(value)
+  while type(value) == 'table' do
+    local raw = rawget(value, newtype_raw_key)
+    if raw == nil then break end
+    value = raw
+  end
+  return value
+end
+
+local function describe_value(value)
+  local value_type = type(value)
+  if value_type == 'number' or value_type == 'boolean' then
+    return value_type .. ' ' .. tostring(value)
+  end
+  if value_type == 'string' then
+    return "string '" .. value .. "'"
+  end
+  return value_type
+end
+
+local function new_type_check(name, base_type)
+  -- Branded runtime types, the runtime analog of Python's
+  -- NewType('UserId', int): semantically distinct types over the same
+  -- representation, so a UserId cannot be passed where an OrderId is
+  -- expected. Python's NewType is erased at runtime; llx is a runtime
+  -- checker, so the constructor brands the value instead by wrapping
+  -- it in a small table marked with the brand.
+  --
+  -- The returned object serves both roles:
+  --
+  -- - Constructor: UserId(v) validates v against base_type and
+  --   returns a branded wrapper. Passing a value that already carries
+  --   this brand (or a brand built on top of it) returns it
+  --   unchanged.
+  -- - Matcher: isinstance(v, UserId) accepts only branded values.
+  --   is_subtype(UserId, base_type) holds (the matcher exposes the
+  --   base through __superclasses), so brands widen to their base at
+  --   the type level.
+  --
+  -- Wrappers forward the value-level operators (arithmetic, bitwise,
+  -- comparison, concat, len, call, tostring) to the underlying value,
+  -- unwrapping branded operands on either side. Unwrapping is
+  -- explicit otherwise: wrapper:get() returns the underlying value
+  -- (one brand level; 'get' is therefore a reserved field name on
+  -- wrappers). Known limitations of the wrapper strategy:
+  --
+  -- - A branded primitive is a table at the value level, so
+  --   isinstance(UserId(1), Integer) is false, and a branded value
+  --   never compares equal (==) to an unbranded one, whatever the
+  --   payload type. Unwrap first.
+  -- - Method-call syntax is not forwarded for string bases:
+  --   branded:upper() would pass the wrapper as self. Use
+  --   branded:get():upper().
+  -- - Wrappers are read-only; mutate table-based values through
+  --   :get(). Reads of table fields are forwarded.
+  -- - Brand names should be unique: is_subtype compares matchers by
+  --   __name (a pre-existing caveat), so two NewTypes sharing a name
+  --   are mutual subtypes at the type level even though isinstance
+  --   still tells their values apart.
+  if type(name) ~= 'string' then
+    error('NewType: expected a string name, got ' .. type(name), 2)
+  end
+  if type(base_type) ~= 'table' or base_type.__isinstance == nil then
+    error('NewType: base type must be a type matcher or class with '
+      .. '__isinstance', 2)
+  end
+
+  local matcher
+
+  local function get(self)
+    return rawget(self, newtype_raw_key)
+  end
+
+  -- Note: the wrapper metatable deliberately carries no __name.
+  -- llx.hash.hash_value mixes the metatable __name into the hash
+  -- before consulting __hash, and __eq below is erased across brands
+  -- (UserId(1) == OrderId(1)), so a per-brand __name would break the
+  -- equal-values-hash-equally invariant.
+  local wrapper_metatable
+  wrapper_metatable = {
+    __add = function(a, b)
+      return newtype_unwrap(a) + newtype_unwrap(b)
+    end,
+    __sub = function(a, b)
+      return newtype_unwrap(a) - newtype_unwrap(b)
+    end,
+    __mul = function(a, b)
+      return newtype_unwrap(a) * newtype_unwrap(b)
+    end,
+    __div = function(a, b)
+      return newtype_unwrap(a) / newtype_unwrap(b)
+    end,
+    __mod = function(a, b)
+      return newtype_unwrap(a) % newtype_unwrap(b)
+    end,
+    __pow = function(a, b)
+      return newtype_unwrap(a) ^ newtype_unwrap(b)
+    end,
+    __idiv = function(a, b)
+      return newtype_unwrap(a) // newtype_unwrap(b)
+    end,
+    __band = function(a, b)
+      return newtype_unwrap(a) & newtype_unwrap(b)
+    end,
+    __bor = function(a, b)
+      return newtype_unwrap(a) | newtype_unwrap(b)
+    end,
+    __bxor = function(a, b)
+      return newtype_unwrap(a) ~ newtype_unwrap(b)
+    end,
+    __shl = function(a, b)
+      return newtype_unwrap(a) << newtype_unwrap(b)
+    end,
+    __shr = function(a, b)
+      return newtype_unwrap(a) >> newtype_unwrap(b)
+    end,
+    __unm = function(a)
+      return -newtype_unwrap(a)
+    end,
+    __bnot = function(a)
+      return ~newtype_unwrap(a)
+    end,
+    __concat = function(a, b)
+      return newtype_unwrap(a) .. newtype_unwrap(b)
+    end,
+    __len = function(a)
+      return #newtype_unwrap(a)
+    end,
+    __eq = function(a, b)
+      -- Equality is on the underlying values, so two brands over the
+      -- same representation compare equal when their payloads do
+      -- (matching Python, where NewType is erased and equality falls
+      -- through to the base value). A branded value never equals an
+      -- unbranded one, though: for primitive payloads Lua already
+      -- never consults __eq across types, and for table payloads the
+      -- wrapper refuses explicitly, keeping == uniform across payload
+      -- types and consistent with __hash (llx.hash mixes the outer
+      -- type name into a table's hash, so a wrapper and its raw table
+      -- payload can never hash equally).
+      local a_branded =
+          type(a) == 'table' and rawget(a, newtype_raw_key) ~= nil
+      local b_branded =
+          type(b) == 'table' and rawget(b, newtype_raw_key) ~= nil
+      if not (a_branded and b_branded) then
+        return false
+      end
+      return newtype_unwrap(a) == newtype_unwrap(b)
+    end,
+    __lt = function(a, b)
+      return newtype_unwrap(a) < newtype_unwrap(b)
+    end,
+    __le = function(a, b)
+      return newtype_unwrap(a) <= newtype_unwrap(b)
+    end,
+    __call = function(self, ...)
+      return newtype_unwrap(self)(...)
+    end,
+    __tostring = function(self)
+      return tostring(newtype_unwrap(self))
+    end,
+    -- __eq implies __hash (type regularity); hash the underlying
+    -- value so values that compare equal hash equal, including
+    -- across sibling brands.
+    __hash = function(self, running_hash)
+      hash_module = hash_module or require 'llx.hash'
+      return hash_module.hash_value(
+        newtype_unwrap(self), running_hash)
+    end,
+
+    __index = function(self, key)
+      if key == 'get' then return get end
+      -- Forward field reads so branded records stay usable without
+      -- unwrapping. Non-table payloads have no fields to forward.
+      local raw = rawget(self, newtype_raw_key)
+      if type(raw) == 'table' then
+        return raw[key]
+      end
+      return nil
+    end,
+
+    __newindex = function(self, key, value)
+      error(name .. ' values are read-only; unwrap with :get() to '
+        .. 'mutate the underlying value', 2)
+    end,
+  }
+
+  matcher = setmetatable({
+    [newtype_mark] = true,
+
+    __name = name,
+
+    -- Expose the base so callers can introspect.
+    base_type = base_type,
+
+    -- Participate in is_subtype's superclass-chain walk, so
+    -- is_subtype(UserId, Integer) holds (and transitively
+    -- is_subtype(UserId, Number) via numeric widening).
+    __superclasses = {base_type},
+
+    __isinstance = function(self, value)
+      if type(value) ~= 'table' then return false end
+      local value_metatable = getmetatable(value)
+      if type(value_metatable) ~= 'table' then return false end
+      -- Walk the brand chain so a value branded with a NewType built
+      -- on top of this one also matches (an AdminId is a UserId).
+      local brand = value_metatable.__newtype
+      while brand ~= nil do
+        if rawequal(brand, self) then return true end
+        local brand_base = rawget(brand, 'base_type')
+        if type(brand_base) ~= 'table'
+            or rawget(brand_base, newtype_mark) == nil then
+          return false
+        end
+        brand = brand_base
+      end
+      return false
+    end,
+  }, {
+    __call = function(self, value)
+      -- Already carrying this brand (or one derived from it): return
+      -- unchanged rather than double-wrapping.
+      if self:__isinstance(value) then
+        return value
+      end
+      if value == nil then
+        -- A branded nil would be indistinguishable from an unbranded
+        -- payload when unwrapping; reject it outright.
+        error(name .. ': cannot brand nil', 2)
+      end
+      if not isinstance(value, base_type) then
+        error(name .. ': expected ' .. type_name_of(base_type)
+          .. ', got ' .. describe_value(value), 2)
+      end
+      return setmetatable(
+        {[newtype_raw_key] = value}, wrapper_metatable)
+    end,
+
+    __tostring = function(self)
+      return self.__name
+    end,
+  })
+
+  -- The wrapper metatable carries its brand so the matcher above can
+  -- identify branded values. Assigned after construction because the
+  -- metatable and the matcher reference each other.
+  wrapper_metatable.__newtype = matcher
+
+  return matcher
+end
+
 Any=any_type_check()
 Never=never_type_check()
 Union=union_type_check
@@ -410,5 +678,6 @@ Protocol=protocol_type_check
 Callable=callable_type_check
 Tuple=tuple_type_check
 Literal=literal_type_check
+NewType=new_type_check
 
 return _M

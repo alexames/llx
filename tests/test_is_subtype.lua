@@ -165,6 +165,49 @@ describe('is_subtype', function()
       expect(is_subtype(Float, Integer)).to.be_false()
     end)
   end)
+
+  describe('NewType brands', function()
+    local NewType = matchers.NewType
+
+    it('should treat a brand as a subtype of its base', function()
+      local UserId = NewType('UserId', Integer)
+      expect(is_subtype(UserId, Integer)).to.be_true()
+    end)
+
+    it('should widen transitively through the base', function()
+      local UserId = NewType('UserId', Integer)
+      expect(is_subtype(UserId, Number)).to.be_true()
+      expect(is_subtype(UserId, Any)).to.be_true()
+    end)
+
+    it('should not widen from base to brand', function()
+      local UserId = NewType('UserId', Integer)
+      expect(is_subtype(Integer, UserId)).to.be_false()
+    end)
+
+    it('should keep sibling brands unrelated', function()
+      local UserId = NewType('UserId', Integer)
+      local OrderId = NewType('OrderId', Integer)
+      expect(is_subtype(UserId, OrderId)).to.be_false()
+      expect(is_subtype(OrderId, UserId)).to.be_false()
+    end)
+
+    it('should chain through nested brands', function()
+      local UserId = NewType('UserId', Integer)
+      local AdminId = NewType('AdminId', UserId)
+      expect(is_subtype(AdminId, UserId)).to.be_true()
+      expect(is_subtype(AdminId, Integer)).to.be_true()
+      expect(is_subtype(UserId, AdminId)).to.be_false()
+    end)
+
+    it('should be a subtype of a Union containing the brand '
+      .. 'or its base', function()
+      local UserId = NewType('UserId', Integer)
+      expect(is_subtype(UserId, Union{UserId, String})).to.be_true()
+      expect(is_subtype(UserId, Union{Integer, String})).to.be_true()
+      expect(is_subtype(UserId, Union{String})).to.be_false()
+    end)
+  end)
 end)
 
 describe('signature_compatible', function()
