@@ -502,6 +502,73 @@ describe('signature_compatible', function()
         .to.be_false()
     end)
   end)
+
+  describe('TypeVar exclusion', function()
+    -- Type variables are excluded from the variance relation in this
+    -- first iteration: a TypeVar relates only to itself (and to Any,
+    -- as every type does). See llx.types.matchers.TypeVar.
+    local TypeVar = matchers.TypeVar
+
+    it('should be reflexive for a TypeVar', function()
+      local T = TypeVar('T')
+      expect(is_subtype(T, T)).to.be_true()
+    end)
+
+    it('should not conflate distinct TypeVars sharing a name',
+        function()
+      local T1 = TypeVar('T')
+      local T2 = TypeVar('T')
+      expect(is_subtype(T1, T2)).to.be_false()
+      expect(is_subtype(T2, T1)).to.be_false()
+    end)
+
+    it('should widen a TypeVar to Any but never the reverse',
+        function()
+      local T = TypeVar('T')
+      expect(is_subtype(T, Any)).to.be_true()
+      expect(is_subtype(Any, T)).to.be_false()
+    end)
+
+    it('should not relate a TypeVar to concrete types', function()
+      local T = TypeVar('T')
+      expect(is_subtype(T, Integer)).to.be_false()
+      expect(is_subtype(Integer, T)).to.be_false()
+      expect(is_subtype('T', T)).to.be_false()
+      expect(is_subtype(T, 'T')).to.be_false()
+    end)
+
+    it('should not relate a TypeVar to its bound', function()
+      local N = TypeVar('N', {bound = Number})
+      expect(is_subtype(N, Number)).to.be_false()
+      expect(is_subtype(Number, N)).to.be_false()
+    end)
+
+    it('should accept generic signatures only through TypeVar '
+      .. 'identity', function()
+      local T = TypeVar('T')
+      local U = TypeVar('U')
+      local generic = {params = {T}, returns = {T}}
+      expect(signature_compatible(generic, generic)).to.be_true()
+      expect(signature_compatible(
+          {params = {T}, returns = {T}},
+          {params = {U}, returns = {U}})).to.be_false()
+    end)
+
+    it('should conservatively reject a generic signature against '
+      .. 'a concrete Callable', function()
+      local T = TypeVar('T')
+      local wrapped = signature.Function{
+        params = {T},
+        returns = {T},
+        func = function(x) return x end,
+      }
+      expect(isinstance(wrapped, Callable({Integer}, {Integer})))
+        .to.be_false()
+      -- Only the return position may widen (covariantly) to Any.
+      expect(isinstance(wrapped, Callable({T}, {Any})))
+        .to.be_true()
+    end)
+  end)
 end)
 
 if llx.main_file() then

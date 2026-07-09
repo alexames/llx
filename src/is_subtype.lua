@@ -23,6 +23,7 @@ local Number = require 'llx.types.number' . Number
 
 local Any = matchers.Any
 local VARARG = check_arguments.VARARG
+local is_type_var = matchers.is_type_var
 local resolve_lazy = matchers.resolve_lazy
 
 local _ENV, _M = environment.create_module_environment()
@@ -96,6 +97,11 @@ end
 -- - `Lazy`: deferred references are forced (resolving and caching
 --   the underlying matcher) before comparison, so a Lazy compares
 --   exactly as the matcher it resolves to.
+-- - `TypeVar`: a type variable is a subtype only of itself and of
+--   `Any`; every other comparison involving a TypeVar is false.
+--   Generic signatures are thereby conservatively excluded from
+--   `signature_compatible` in this iteration (see the matcher's
+--   documentation in llx.types.matchers).
 --
 -- Caveats: distinct types sharing a non-anonymous `__name` compare as
 -- equal (and therefore as mutual subtypes), matching the equality
@@ -118,6 +124,19 @@ function is_subtype(a, b)
   -- forced by the recursive is_subtype calls below.
   a = resolve_lazy(a)
   b = resolve_lazy(b)
+  -- TypeVars (llx.types.matchers.TypeVar) are excluded from the
+  -- variance relation in this first iteration: a type variable stands
+  -- for a per-call binding, not a concrete type, so without a
+  -- constraint solver the only sound relations are identity (a
+  -- variable is trivially a subtype of itself) and widening to the
+  -- top type (every binding is a subtype of Any). Everything else --
+  -- including is_subtype(T, T.bound), which the value-level bound
+  -- check does not justify for structural bounds -- is conservatively
+  -- false. Checked before the name-equality rule below so two
+  -- distinct TypeVars sharing a name are never conflated.
+  if is_type_var(a) or is_type_var(b) then
+    return rawequal(a, b) or rawequal(b, Any)
+  end
   if type_equal(a, b) then
     return true
   end

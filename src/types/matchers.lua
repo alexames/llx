@@ -3,10 +3,14 @@
 local core = require 'llx.core'
 local environment = require 'llx.environment'
 
+-- Load-bearing: TypeVar binding inference binds numbers to the
+-- narrowest of these singletons (see infer_type_var_binding).
+local Float = require 'llx.types.float' . Float
+local Integer = require 'llx.types.integer' . Integer
+
 -- TODO: I believe these can be removed.
 local Boolean = require 'llx.types.boolean' . Boolean
 local Function = require 'llx.types.function' . Function
-local Integer = require 'llx.types.integer' . Integer
 local Nil = require 'llx.types.nil' . Nil
 local Number = require 'llx.types.number' . Number
 local String = require 'llx.types.string' . String
@@ -1058,6 +1062,243 @@ local function resolve_lazy_matcher(t)
   return t
 end
 
+-- Marker key identifying TypeVar matchers. A module-local table key
+-- cannot be forged (or observed) outside this module, so nothing else
+-- can accidentally look like a TypeVar. is_type_var (exported below)
+-- is the public way to recognize one.
+local type_var_mark = {}
+
+-- The stack of active TypeVar binding scopes. A scope is a plain
+-- table mapping TypeVar objects (by identity, never by name) to the
+-- type they bound in the current checked call; the innermost entry is
+-- the active scope. The stack is entered and exited only around
+-- synchronous signature checks (llx.signature pushes before checking
+-- a call's arguments or returns and pops immediately after, whether
+-- or not the check raises), never across user code:
+--
+-- - Recursion nests naturally: an inner wrapped call pushes its own
+--   scope on top and pops it before the outer check resumes.
+-- - Coroutines are safe: the wrapped function's *body* runs with no
+--   scope active, so a yield never suspends midway through an entered
+--   scope, and interleaved coroutines cannot observe each other's
+--   bindings.
+--
+-- This dynamic-scope design is what lets parameterized matchers
+-- (ListOf(T), Dict(K, V), Tuple, ...) propagate bindings into element
+-- checks with no change to the __isinstance protocol: their recursive
+-- isinstance calls reach TypeVar.__isinstance, which reads the
+-- innermost scope here.
+local type_var_scope_stack = {}
+
+-- Opens a TypeVar binding scope: pushes `scope` (a fresh table when
+-- nil) and returns it. Primarily an integration hook for
+-- llx.signature, which opens a scope around a call's precondition
+-- check and re-enters the same scope around the postcondition check
+-- so parameters and returns share one set of bindings. Every enter
+-- must be paired with exit_type_var_scope, including on error paths.
+local function enter_type_var_scope(scope)
+  if scope == nil then
+    scope = {}
+  elseif type(scope) ~= 'table' then
+    error('enter_type_var_scope: expected a scope table (or nil), '
+      .. 'got ' .. type(scope), 2)
+  end
+  type_var_scope_stack[#type_var_scope_stack + 1] = scope
+  return scope
+end
+
+-- Closes the innermost TypeVar binding scope (the counterpart of
+-- enter_type_var_scope). Raises if no scope is active, since an
+-- unbalanced exit indicates a caller bug that would otherwise
+-- silently corrupt an enclosing scope.
+local function exit_type_var_scope()
+  local top = #type_var_scope_stack
+  if top == 0 then
+    error('exit_type_var_scope: no active TypeVar binding scope', 2)
+  end
+  type_var_scope_stack[top] = nil
+end
+
+-- Returns true when value is a TypeVar produced by the TypeVar
+-- factory below. Used by llx.is_subtype to exclude type variables
+-- from the variance relation (only a TypeVar's identity relates it to
+-- another type; see that module).
+local function is_type_var(value)
+  return type(value) == 'table'
+     and rawget(value, type_var_mark) == true
+end
+
+-- Cached upvalue for the deferred require of llx.getclass (deferred
+-- to avoid a load-time cycle: llx.getclass requires llx.types and
+-- therefore this module).
+local getclass_module = nil
+
+-- Infers the type a TypeVar binds from its first witness value: the
+-- narrowest built-in singleton for numbers (Integer or Float, per
+-- math.type), otherwise the value's class per llx.getclass (the
+-- exact class of an instance, or the built-in singleton for other
+-- primitives). Binding narrowly is what makes params={T, T} reject
+-- f(1, 1.5): the witness 1 binds T to Integer, which 1.5 fails.
+local function infer_type_var_binding(value)
+  local number_type = math.type(value)
+  if number_type == 'integer' then
+    return Integer
+  end
+  if number_type == 'float' then
+    return Float
+  end
+  getclass_module = getclass_module or require 'llx.getclass'
+  return getclass_module.getclass(value)
+end
+
+-- Checks a later occurrence of a bound TypeVar: the value must be
+-- consistent with the recorded binding. Bindings produced by
+-- llx.getclass are usually matchers or classes with __isinstance, in
+-- which case the value-level check applies (so a subclass instance is
+-- accepted after a superclass binding). Everything else falls back to
+-- exact-class identity: a witness whose class is a plain metatable
+-- with no __isinstance, a non-table binding (getmetatable on a
+-- __metatable-protected value yields the protection value, whatever
+-- its type), or a metatable whose own strict __index would raise on
+-- the field probe (hence the pcall; the lookup cannot be a rawget
+-- because class proxies resolve __isinstance through their __index).
+local function type_var_consistent(value, binding)
+  if type(binding) == 'table' then
+    local ok, field = pcall(function()
+      return binding.__isinstance
+    end)
+    if ok and field ~= nil then
+      return isinstance(value, binding)
+    end
+  end
+  return rawequal(infer_type_var_binding(value), binding)
+end
+
+local function type_var_type_check(name, opts)
+  -- TypeVar(name, opts): a generic type variable with per-call
+  -- binding, the runtime analog of mypy's TypeVar('T'). Within a
+  -- single signature-checked call (llx.signature.Function, or an
+  -- Overload candidate), the variable binds to the type of the first
+  -- value checked against it -- inferred narrowly, see
+  -- infer_type_var_binding above -- and every later position naming
+  -- the same variable (in params or returns, bare or nested inside a
+  -- parameterized matcher such as ListOf(T) or Dict(K, V)) must be
+  -- consistent with that binding:
+  --
+  --   local T = TypeVar('T')
+  --   local first = Signature{params={ListOf(T)}, returns={T}}
+  --       .. function(xs) return xs[1] end
+  --
+  -- opts.bound constrains admissible values: every value checked
+  -- against the variable must satisfy isinstance(value, bound),
+  -- whether it is the binding witness or a later occurrence (checking
+  -- every occurrence keeps structural bounds such as Protocol sound
+  -- even when the inferred binding is coarse, e.g. Table).
+  --
+  -- Semantics and caveats (first iteration; deliberate, documented
+  -- choices):
+  --
+  -- - Binding is first-witness, one-pass: there is no constraint
+  --   solving or join, so with params={T, T} the call f(cat, animal)
+  --   is rejected while f(animal, cat) is accepted (the second value
+  --   is checked against the first one's binding with isinstance,
+  --   which admits subclass instances). Likewise f(1, 1.5) is
+  --   rejected: 1 binds T to Integer, not Number.
+  -- - Binding is also one-pass in that there is no rollback: a
+  --   matcher branch that ultimately fails (a Union member, or a
+  --   container that rejects a later element) may still have
+  --   recorded a binding for a variable it touched, and that binding
+  --   persists for the rest of the call. E.g. Union{ListOf(T), Any}
+  --   can bind T from a list the ListOf branch then rejects, so a
+  --   call accepted through the Any member is still constrained by
+  --   that binding, and results can depend on Union member order.
+  --   Keep TypeVars out of union alternatives that are expected to
+  --   fail over.
+  -- - The witness is the first value *checked*: positional params
+  --   and ipairs-ordered containers (ListOf, Tuple) bind
+  --   deterministically, but pairs-iterated containers (Dict, SetOf)
+  --   reach an arbitrary element first, so a container whose
+  --   elements mix a class with its subclasses may bind
+  --   nondeterministically.
+  -- - Bindings are per call and identity-keyed: two TypeVars sharing
+  --   a name are independent variables, and a fresh scope is opened
+  --   for every checked call, so bindings never leak between calls,
+  --   recursive activations, or coroutines (see
+  --   type_var_scope_stack).
+  -- - Outside any signature-checked call, plain isinstance treats the
+  --   variable as unconstrained-but-bounded: isinstance(v, T) is true
+  --   whenever v satisfies opts.bound (or always, without a bound).
+  --   The wrapped function's own body runs outside the scope, so
+  --   plain isinstance there behaves the same way.
+  -- - Type-level relations do not learn TypeVars in this iteration:
+  --   llx.is_subtype relates a TypeVar only to itself (and to Any, as
+  --   every type is), so signature_compatible -- and therefore the
+  --   Callable matcher -- conservatively rejects a generic signature
+  --   against a concrete one. ParamSpec/TypeVarTuple analogs are
+  --   follow-ups.
+  -- - Like NewType, the matcher's __name is the given name, and
+  --   is_subtype compares *containers* by name: two ListOf(T)s built
+  --   from distinct TypeVars both named 'T' compare equal at the
+  --   type level (bare TypeVars are protected by the identity rule
+  --   above). Keep TypeVar names unique where that matters.
+  if type(name) ~= 'string' then
+    error('TypeVar: expected a string name, got ' .. type(name), 2)
+  end
+  opts = opts or {}
+  if type(opts) ~= 'table' then
+    error('TypeVar: expected an options table, got ' .. type(opts), 2)
+  end
+  for key in pairs(opts) do
+    if key ~= 'bound' then
+      error("TypeVar: unknown option '" .. tostring(key) .. "'", 2)
+    end
+  end
+  local bound = opts.bound
+  if bound ~= nil
+      and (type(bound) ~= 'table' or bound.__isinstance == nil) then
+    error('TypeVar: bound must be a type matcher or class with '
+      .. '__isinstance', 2)
+  end
+
+  local var
+  var = setmetatable({
+    [type_var_mark] = true,
+
+    __name = name,
+
+    -- Expose the bound so callers can introspect. nil when
+    -- unconstrained.
+    bound = bound,
+
+    __isinstance = function(self, value)
+      -- The bound applies to every occurrence, bound or not.
+      if bound ~= nil and not isinstance(value, bound) then
+        return false
+      end
+      local scope = type_var_scope_stack[#type_var_scope_stack]
+      if scope == nil then
+        -- No active binding scope (plain isinstance, outside any
+        -- signature-checked call): the variable is unconstrained
+        -- beyond its bound.
+        return true
+      end
+      local binding = scope[var]
+      if binding == nil then
+        -- First occurrence in this call: this value is the witness;
+        -- record its inferred type as the binding.
+        scope[var] = infer_type_var_binding(value)
+        return true
+      end
+      return type_var_consistent(value, binding)
+    end,
+  }, {
+    __tostring = function(self)
+      return self.__name
+    end,
+  })
+  return var
+end
+
 Any=any_type_check()
 Never=never_type_check()
 Union=union_type_check
@@ -1074,5 +1315,12 @@ NewType=new_type_check
 ClassOf=class_of_type_check
 Lazy=lazy_type_check
 resolve_lazy=resolve_lazy_matcher
+TypeVar=type_var_type_check
+-- These three share their (local) implementation names, so the
+-- exports go through _ENV explicitly (a bare assignment would just
+-- write the local back to itself).
+_ENV.is_type_var=is_type_var
+_ENV.enter_type_var_scope=enter_type_var_scope
+_ENV.exit_type_var_scope=exit_type_var_scope
 
 return _M
