@@ -825,6 +825,137 @@ describe('Protocol', function()
       expect(Shape.fields.a).to.be_equal_to(Integer)
     end)
   end)
+
+  describe('optional fields via Optional', function()
+    local Contact = Protocol{
+      name = String,
+      email = Optional(String),
+    }
+
+    it('should accept a value with the optional field absent', function()
+      expect(Contact:__isinstance({name = 'Alice'})).to.be_true()
+    end)
+
+    it('should accept a value with the optional field present '
+      .. 'and well-typed', function()
+      expect(Contact:__isinstance({
+        name = 'Alice',
+        email = 'alice@example.com',
+      })).to.be_true()
+    end)
+
+    it('should reject a value whose optional field has the '
+      .. 'wrong type', function()
+      expect(Contact:__isinstance({name = 'Alice', email = 42}))
+        .to.be_false()
+    end)
+
+    it('should still require the non-optional fields', function()
+      expect(Contact:__isinstance({email = 'alice@example.com'}))
+        .to.be_false()
+    end)
+  end)
+
+  describe('closed shapes via __exact', function()
+    local Point = Protocol{
+      x = Integer,
+      y = Integer,
+      __exact = true,
+    }
+
+    it('should accept a value with exactly the declared fields', function()
+      expect(Point:__isinstance({x = 1, y = 2})).to.be_true()
+    end)
+
+    it('should reject a value with an extra key', function()
+      expect(Point:__isinstance({x = 1, y = 2, z = 3})).to.be_false()
+    end)
+
+    it('should reject a value with a typo\'d key', function()
+      -- The declared fields still pass (x present, y missing would
+      -- fail), so use a shape with an optional field to isolate the
+      -- typo detection.
+      local Named = Protocol{
+        name = String,
+        nickname = Optional(String),
+        __exact = true,
+      }
+      expect(Named:__isinstance({name = 'A', nickame = 'B'}))
+        .to.be_false()
+    end)
+
+    it('should accept a missing Optional field in exact mode', function()
+      local Named = Protocol{
+        name = String,
+        nickname = Optional(String),
+        __exact = true,
+      }
+      expect(Named:__isinstance({name = 'A'})).to.be_true()
+      expect(Named:__isinstance({name = 'A', nickname = 'B'}))
+        .to.be_true()
+    end)
+
+    it('should accept only the empty table for an empty exact '
+      .. 'shape', function()
+      local Empty = Protocol{__exact = true}
+      expect(Empty:__isinstance({})).to.be_true()
+      expect(Empty:__isinstance({a = 1})).to.be_false()
+    end)
+
+    it('should ignore metatable-provided fields (raw keys '
+      .. 'only)', function()
+      local value = setmetatable({x = 1, y = 2}, {
+        __index = {z = 3},
+        __pairs = function(t)
+          return function() error('__pairs must not be called') end, t
+        end,
+      })
+      expect(Point:__isinstance(value)).to.be_true()
+    end)
+
+    it('should reject non-table values', function()
+      expect(Point:__isinstance(42)).to.be_false()
+      expect(Point:__isinstance(nil)).to.be_false()
+    end)
+
+    it('should work as an isinstance target', function()
+      expect(isinstance({x = 1, y = 2}, Point)).to.be_true()
+      expect(isinstance({x = 1, y = 2, z = 3}, Point)).to.be_false()
+    end)
+
+    it('should expose exact and keep __exact out of fields', function()
+      expect(Point.exact).to.be_true()
+      expect(Point.fields.__exact).to.be_nil()
+      expect(Point.fields.x).to.be_equal_to(Integer)
+    end)
+
+    it('should default to open shapes with exact = false', function()
+      local Open = Protocol{x = Integer}
+      expect(Open.exact).to.be_false()
+      expect(Open:__isinstance({x = 1, extra = 'fine'})).to.be_true()
+    end)
+
+    it('should reject a non-boolean __exact value', function()
+      expect(function() Protocol{x = Integer, __exact = 1} end)
+        .to.throw('Protocol: __exact must be a boolean')
+      expect(function() Protocol{x = Integer, __exact = 'yes'} end)
+        .to.throw()
+    end)
+
+    it('should treat __exact = false as an open shape', function()
+      local Open = Protocol{x = Integer, __exact = false}
+      expect(Open.exact).to.be_false()
+      expect(Open:__isinstance({x = 1, extra = 'fine'})).to.be_true()
+      expect(Open.__name).to.be_equal_to('Protocol{x}')
+    end)
+
+    it('should encode exactness in the name', function()
+      expect(Point.__name).to.be_equal_to('Protocol{x, y} exact')
+      expect(tostring(Point)).to.be_equal_to('Protocol{x, y} exact')
+      local Open = Protocol{x = Integer}
+      expect(Open.__name).to.be_equal_to('Protocol{x}')
+    end)
+  end)
 end)
 
 -- ---------------------------------------------------------------------------
