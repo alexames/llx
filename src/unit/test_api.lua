@@ -152,14 +152,20 @@ local function expect(actual)
             local exception_msg = exception
             if type(expected) == 'string'
                 and type(exception) == 'string' then
-              local path_colon =
-                exception:find(':', 1, true)
-              local line_colon =
-                exception:find(':', path_colon + 1,
-                  true)
-              if line_colon then
-                exception_msg =
-                  exception:sub(line_colon + 2)
+              -- Strip a leading "file:line: " prefix
+              -- by anchoring on the line number
+              -- (":%d+: ") instead of counting
+              -- colons, so Windows drive letters
+              -- ("C:\...") do not confuse the strip.
+              -- Lazy matching removes only the
+              -- shortest such prefix, preserving
+              -- any ":N:" sequences in the message
+              -- itself. Falls back to the raw
+              -- message when no prefix matches.
+              local stripped =
+                exception:match('^.-:%d+: (.*)')
+              if stripped then
+                exception_msg = stripped
               end
             end
             evaluate_matcher(

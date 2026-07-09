@@ -41,6 +41,60 @@ describe('throw matcher', function()
   end)
 end)
 
+-- Test throw() "file:line:" prefix stripping (issue #66).
+-- Errors are raised with level 0 so Lua does not prepend its
+-- own position prefix, letting each fabricated shape be tested
+-- exactly as written.
+describe('throw message prefix stripping', function()
+  it('strips a genuine Lua-generated prefix', function()
+    expect(function()
+      error('real boom')
+    end).to.throw('real boom')
+  end)
+
+  it('strips a relative "file:line:" prefix', function()
+    expect(function()
+      error('src/foo.lua:12: boom', 0)
+    end).to.throw('boom')
+  end)
+
+  it('strips a Windows absolute path prefix', function()
+    expect(function()
+      error('C:\\Users\\dev\\proj\\file.lua:123: boom', 0)
+    end).to.throw('boom')
+  end)
+
+  it('preserves colons in the message body', function()
+    expect(function()
+      error('src/foo.lua:12: bad value: expected number', 0)
+    end).to.throw('bad value: expected number')
+  end)
+
+  it('preserves colons after a Windows prefix', function()
+    expect(function()
+      error('C:\\proj\\file.lua:7: bad value: got nil', 0)
+    end).to.throw('bad value: got nil')
+  end)
+
+  it('strips only the first prefix (lazy anchoring)', function()
+    expect(function()
+      error('src/foo.lua:12: inner.lua:34: nested', 0)
+    end).to.throw('inner.lua:34: nested')
+  end)
+
+  it('keeps the raw message when there is no prefix', function()
+    expect(function()
+      error('no prefix here', 0)
+    end).to.throw('no prefix here')
+  end)
+
+  it('keeps a message whose colon is not a position', function()
+    expect(function()
+      error('C: drive not ready', 0)
+    end).to.throw('C: drive not ready')
+  end)
+end)
+
 -- Test expect.extend (custom matchers)
 describe('expect.extend', function()
   test_api.expect_extend('be_divisible_by', function(divisor)

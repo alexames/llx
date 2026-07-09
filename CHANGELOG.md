@@ -42,6 +42,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The unit framework's `throw(expected)` matcher now strips the
+  leading `"file:line: "` error-position prefix with a pattern
+  anchored on the line number (lazy `^.-:%d+: `) instead of cutting
+  through the second colon. Windows absolute chunknames
+  (`C:\path\file.lua:123: msg`) previously left part of the path in
+  place because the drive-letter colon was counted as the path/line
+  separator, and messages with no colon at all crashed the matcher
+  with a nil-arithmetic error. Lazy anchoring strips only the
+  shortest such prefix, preserving `":N:"` sequences and colons
+  inside the message body; when no prefix matches, the raw message
+  is compared unchanged. (#66)
 - A `Rest(T)` marker placed in a `Signature`/`Function` `params` or
   `returns` list, or in a `Callable` parameter or return type list, now
   raises `ValueException` at declaration/construction time ("Rest(T) is
