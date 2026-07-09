@@ -219,6 +219,22 @@ local Point = matchers.Protocol{
   __exact = true,
 }
 
+-- Branded types: NewType makes semantically distinct types over the
+-- same representation (the runtime analog of Python's NewType). The
+-- constructor validates against the base type and brands the value;
+-- the result matches its own brand but not a sibling's, while
+-- is_subtype(UserId, llx.Integer) still holds. Wrappers forward
+-- operators (arithmetic, comparison, concat, len, call, tostring)
+-- to the underlying value; unwrap explicitly with :get().
+local UserId = matchers.NewType('UserId', llx.Integer)
+local OrderId = matchers.NewType('OrderId', llx.Integer)
+local id = UserId(42)
+llx.isinstance(id, UserId)   --> true
+llx.isinstance(id, OrderId)  --> false
+llx.isinstance(42, UserId)   --> false (raw values are unbranded)
+id + 1                       --> 43
+id:get()                     --> 42
+
 -- Schema with constraints
 local Schema = llx.Schema
 local AgeSchema = Schema{
