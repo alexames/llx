@@ -18,6 +18,8 @@ local ClassOf = matchers.ClassOf
 local Rest = matchers.Rest
 local Lazy = matchers.Lazy
 local resolve_lazy = matchers.resolve_lazy
+local Iterator = matchers.Iterator
+local Generator = matchers.Generator
 
 local TupleValue = require 'llx.tuple' . Tuple
 local VARARG = require 'llx.check_arguments' . VARARG
@@ -2617,6 +2619,299 @@ describe('TypeVar', function()
   describe('top-level llx namespace', function()
     it('should be exported as llx.TypeVar', function()
       expect(llx.TypeVar).to.be_equal_to(TypeVar)
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Iterator
+-- ---------------------------------------------------------------------------
+
+describe('Iterator', function()
+  local typed_iterators = require 'llx.typed_iterators'
+  local Yields = typed_iterators.Yields
+  local Generates = typed_iterators.Generates
+
+  local function counter(n)
+    local i = 0
+    return function()
+      i = i + 1
+      if i <= n then return i end
+    end
+  end
+
+  describe('__name', function()
+    it('should expose an Iterator<yields> name', function()
+      expect(Iterator(Integer, String).__name)
+        .to.be_equal_to('Iterator<Integer, String>')
+      expect(tostring(Iterator(Integer)))
+        .to.be_equal_to('Iterator<Integer>')
+    end)
+
+    it('should handle an empty yield list', function()
+      expect(Iterator().__name).to.be_equal_to('Iterator<>')
+    end)
+
+    it('should render a variadic tail as ..., not String', function()
+      expect(Iterator(Integer, VARARG).__name)
+        .to.be_equal_to('Iterator<Integer, ...>')
+    end)
+  end)
+
+  describe('construction', function()
+    it('should expose the yield types for introspection', function()
+      local I = Iterator(Integer, String)
+      expect(I.yields[1]).to.be_equal_to(Integer)
+      expect(I.yields[2]).to.be_equal_to(String)
+    end)
+
+    it('should reject a non-trailing VARARG', function()
+      expect(function() Iterator(VARARG, Integer) end)
+        .to.throw("Iterator: VARARG ('...') must be the last entry "
+          .. 'in the yield type list')
+    end)
+
+    it('should reject a nil yield type', function()
+      expect(function() Iterator(nil, Integer) end)
+        .to.throw('Iterator: yield type 1 is nil')
+    end)
+  end)
+
+  describe('raw functions and callables (structural)', function()
+    it('should accept any function', function()
+      -- Raw functions carry no per-step type information; the
+      -- structural check is the documented weak fallback.
+      local I = Iterator(Integer)
+      expect(I:__isinstance(function() end)).to.be_true()
+      expect(I:__isinstance(counter(3))).to.be_true()
+    end)
+
+    it('should accept a callable table', function()
+      local callable = setmetatable({}, {__call = function() end})
+      expect(Iterator(Integer):__isinstance(callable)).to.be_true()
+    end)
+
+    it('should reject non-callable values', function()
+      local I = Iterator(Integer)
+      expect(I:__isinstance(42)).to.be_false()
+      expect(I:__isinstance('iter')).to.be_false()
+      expect(I:__isinstance({})).to.be_false()
+      expect(I:__isinstance(nil)).to.be_false()
+    end)
+
+    it('should reject bare coroutine threads', function()
+      -- generic-for cannot drive a thread directly.
+      local thread = coroutine.create(function() end)
+      expect(Iterator(Integer):__isinstance(thread)).to.be_false()
+    end)
+  end)
+
+  describe('wrapped iterators (declared yields)', function()
+    it('should match a wrapper with identical yields', function()
+      local wrapped = Yields{Integer} .. counter(3)
+      expect(isinstance(wrapped, Iterator(Integer))).to.be_true()
+    end)
+
+    it('should compare yields covariantly', function()
+      local wrapped = Yields{Integer} .. counter(3)
+      expect(isinstance(wrapped, Iterator(Number))).to.be_true()
+      expect(isinstance(wrapped, Iterator(String))).to.be_false()
+    end)
+
+    it('should require matching yield arity', function()
+      local wrapped = Yields{Integer} .. counter(3)
+      expect(isinstance(wrapped, Iterator(Integer, String)))
+        .to.be_false()
+    end)
+
+    it('should apply variadic arity rules to declared '
+      .. 'yields', function()
+      -- A fixed wrapper satisfies a variadic matcher whose fixed
+      -- prefix it covers; a variadic wrapper may produce undeclared
+      -- extras a fixed matcher's consumers would observe.
+      local fixed = Yields{Integer, String} .. counter(0)
+      expect(isinstance(fixed, Iterator(Integer, VARARG)))
+        .to.be_true()
+      local variadic = Yields{Integer, VARARG} .. counter(0)
+      expect(isinstance(variadic, Iterator(Integer))).to.be_false()
+      expect(isinstance(variadic, Iterator(Integer, VARARG)))
+        .to.be_true()
+    end)
+
+    it('should match typed generators by their yields', function()
+      local gen = Generates{yields = {Integer}} .. function()
+        coroutine.yield(1)
+      end
+      local instance = gen()
+      expect(isinstance(instance, Iterator(Integer))).to.be_true()
+      expect(isinstance(instance, Iterator(Number))).to.be_true()
+      expect(isinstance(instance, Iterator(String))).to.be_false()
+    end)
+
+    it('should reject typed generators that declare return '
+      .. 'values', function()
+      -- A generator whose body may return values on completion is
+      -- not generic-for terminable: the loop would consume the
+      -- return values as a step and then resume a dead coroutine.
+      local gen = Generates{yields = {Integer}, returns = {String}}
+          .. function()
+        coroutine.yield(1)
+        return 'done'
+      end
+      expect(isinstance(gen(), Iterator(Integer))).to.be_false()
+    end)
+  end)
+
+  describe('composition', function()
+    it('should compose inside Protocol', function()
+      local Iterable = Protocol{iter = Iterator(Integer)}
+      local good = {iter = Yields{Integer} .. counter(2)}
+      local bad = {iter = Yields{String} .. counter(2)}
+      local missing = {}
+      expect(isinstance(good, Iterable)).to.be_true()
+      expect(isinstance(bad, Iterable)).to.be_false()
+      expect(isinstance(missing, Iterable)).to.be_false()
+    end)
+  end)
+
+  describe('top-level llx namespace', function()
+    it('should be exported as llx.Iterator', function()
+      expect(llx.Iterator).to.be_equal_to(Iterator)
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Generator
+-- ---------------------------------------------------------------------------
+
+describe('Generator', function()
+  local typed_iterators = require 'llx.typed_iterators'
+  local Generates = typed_iterators.Generates
+
+  local function typed_gen(contract)
+    return (Generates(contract) .. function()
+      coroutine.yield(1)
+    end)()
+  end
+
+  describe('__name', function()
+    it('should encode the full contract in the name', function()
+      local G = Generator{yields = {Integer}, accepts = {String},
+                          returns = {Boolean}}
+      expect(G.__name).to.be_equal_to(
+        'Generator<yields=(Integer), accepts=(String), '
+        .. 'returns=(Boolean)>')
+    end)
+
+    it('should default missing lists to empty', function()
+      expect(Generator{}.__name).to.be_equal_to(
+        'Generator<yields=(), accepts=(), returns=()>')
+      expect(Generator().__name).to.be_equal_to(
+        'Generator<yields=(), accepts=(), returns=()>')
+    end)
+  end)
+
+  describe('construction', function()
+    it('should expose the contract for introspection', function()
+      local yields, accepts, returns = {Integer}, {String}, {}
+      local G = Generator{yields = yields, accepts = accepts,
+                          returns = returns}
+      expect(G.yields).to.be_equal_to(yields)
+      expect(G.accepts).to.be_equal_to(accepts)
+      expect(G.returns).to.be_equal_to(returns)
+    end)
+
+    it('should reject unknown contract keys', function()
+      expect(function() Generator{sends = {Integer}} end)
+        .to.throw("Generator: unknown contract key 'sends'")
+    end)
+  end)
+
+  describe('plain threads (structural fallback)', function()
+    it('should accept any thread, whatever the contract', function()
+      -- Documented weak fallback: a raw thread carries no contract,
+      -- so only its threadness can be verified.
+      local thread = coroutine.create(function() end)
+      expect(Generator{yields = {Integer}}:__isinstance(thread))
+        .to.be_true()
+      expect(Generator{}:__isinstance(thread)).to.be_true()
+    end)
+  end)
+
+  describe('typed generators (declared contract)', function()
+    it('should match an identical contract', function()
+      local instance = typed_gen{yields = {Integer}}
+      expect(isinstance(instance, Generator{yields = {Integer}}))
+        .to.be_true()
+    end)
+
+    it('should compare yields covariantly', function()
+      local instance = typed_gen{yields = {Integer}}
+      expect(isinstance(instance, Generator{yields = {Number}}))
+        .to.be_true()
+      expect(isinstance(instance, Generator{yields = {String}}))
+        .to.be_false()
+    end)
+
+    it('should compare accepts contravariantly', function()
+      local instance = typed_gen{yields = {Integer},
+                                 accepts = {Number}}
+      -- The instance accepts any Number, so it can stand in where
+      -- only Integers are promised to be sent...
+      expect(isinstance(instance, Generator{yields = {Integer},
+                                            accepts = {Integer}}))
+        .to.be_true()
+      -- ...but an Integer-only instance cannot stand in where
+      -- callers are promised they may send any Number.
+      local narrow = typed_gen{yields = {Integer},
+                               accepts = {Integer}}
+      expect(isinstance(narrow, Generator{yields = {Integer},
+                                          accepts = {Number}}))
+        .to.be_false()
+    end)
+
+    it('should compare returns covariantly', function()
+      local instance = typed_gen{yields = {Integer},
+                                 returns = {Integer}}
+      expect(isinstance(instance, Generator{yields = {Integer},
+                                            returns = {Number}}))
+        .to.be_true()
+      expect(isinstance(instance, Generator{yields = {Integer},
+                                            returns = {String}}))
+        .to.be_false()
+    end)
+
+    it('should require matching accepts arity', function()
+      local instance = typed_gen{yields = {Integer}}
+      expect(isinstance(instance, Generator{yields = {Integer},
+                                            accepts = {String}}))
+        .to.be_false()
+    end)
+  end)
+
+  describe('rejected values', function()
+    it('should reject plain functions and wrap results', function()
+      -- coroutine.wrap returns a plain function, indistinguishable
+      -- from any other; Iterator or Callable are the right matchers
+      -- for it.
+      local G = Generator{yields = {Integer}}
+      expect(G:__isinstance(function() end)).to.be_false()
+      expect(G:__isinstance(coroutine.wrap(function() end)))
+        .to.be_false()
+    end)
+
+    it('should reject non-coroutine values', function()
+      local G = Generator{}
+      expect(G:__isinstance(42)).to.be_false()
+      expect(G:__isinstance({})).to.be_false()
+      expect(G:__isinstance(nil)).to.be_false()
+    end)
+  end)
+
+  describe('top-level llx namespace', function()
+    it('should be exported as llx.Generator', function()
+      expect(llx.Generator).to.be_equal_to(Generator)
     end)
   end)
 end)

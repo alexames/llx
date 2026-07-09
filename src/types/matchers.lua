@@ -25,6 +25,16 @@ local is_callable = core.is_callable
 local _ENV, _M = environment.create_module_environment()
 
 local function type_name_of(t)
+  -- String type names (and the VARARG '...' marker) are their own
+  -- description. The explicit type check matters: llx extends the
+  -- string library, so every Lua string exposes __name == 'String'
+  -- and the generic branch would render all of them as 'String' --
+  -- which would also make matcher names collide (e.g.
+  -- Callable({VARARG}, {}) with Callable({String}, {})), and
+  -- is_subtype falls back to name equality when comparing matchers.
+  if type(t) == 'string' then
+    return t
+  end
   return t and (t.__name or tostring(t)) or 'nil'
 end
 
@@ -372,6 +382,194 @@ local function callable_type_check(param_types, return_types, options)
       -- metamethod) is accepted; no arity information is recoverable.
       -- is_callable can return nil; coerce to a proper boolean.
       return not not is_callable(value)
+    end,
+  }, {
+    __tostring = function(self) return self.__name end,
+  })
+end
+
+local function iterator_type_check(...)
+  -- Iterator(T1, T2, ...): matches values usable as generic-for
+  -- iterators yielding the given tuple per step -- the runtime analog
+  -- of mypy's Iterator[T]. A trailing VARARG ('...') entry declares
+  -- an unchecked variadic tail beyond the fixed, typed prefix,
+  -- mirroring the Signature/Callable convention.
+  --
+  -- What the matcher can actually see (the same layering as
+  -- Callable):
+  --
+  -- - Typed iterator wrappers (llx.typed_iterators.IteratorFunction)
+  --   and typed generators (GeneratorInstance), which both declare
+  --   their per-step yield types, are compared covariantly: the
+  --   declared yields must be usable where this matcher's yields are
+  --   expected, with the variadic arity rules of
+  --   llx.is_subtype.signature_compatible's return lists. A typed
+  --   generator additionally qualifies only when its declared
+  --   returns list is empty: a generator whose body may return
+  --   values on completion is not generic-for terminable (the loop
+  --   would consume the return values as a step and resume a dead
+  --   coroutine), so it is not usable as an iterator.
+  -- - Raw functions carry no per-step type information, so they are
+  --   accepted structurally (any function could be an iterator
+  --   closure; generic-for's state/control arguments make arity
+  --   heuristics meaningless here). This is the documented weak
+  --   fallback; wrap the iterator (Yields{...} .. fn) to make the
+  --   yield types checkable.
+  -- - Other callables (tables or userdata with __call) are likewise
+  --   accepted structurally.
+  -- - Everything else -- including bare coroutine threads, which
+  --   generic-for cannot drive -- is rejected.
+  --
+  -- The matcher never checks yielded values itself: per-step checking
+  -- costs O(yield arity) on every loop iteration, so enforcement
+  -- stays opt-in via the wrappers in llx.typed_iterators.
+  local yield_count = select('#', ...)
+  local yield_types = {...}
+  check_arguments_module =
+      check_arguments_module or require 'llx.check_arguments'
+  local vararg_marker = check_arguments_module.VARARG
+  for i = 1, yield_count do
+    if yield_types[i] == nil then
+      error('Iterator: yield type ' .. i .. ' is nil', 2)
+    end
+    if i < yield_count and yield_types[i] == vararg_marker then
+      error("Iterator: VARARG ('...') must be the last entry in "
+        .. 'the yield type list', 2)
+    end
+  end
+  local yield_names = {}
+  for i = 1, yield_count do
+    yield_names[i] = type_name_of(yield_types[i])
+  end
+  local typename = 'Iterator<' .. table.concat(yield_names, ', ')
+                   .. '>'
+
+  -- Cached upvalues for deferred requires (the Callable pattern:
+  -- llx.typed_iterators and llx.is_subtype depend on this module, so
+  -- requiring them at load time would cycle).
+  local typed_iterators_module = nil
+  local subtype_module = nil
+
+  return setmetatable({
+    __name = typename,
+
+    -- Expose the per-step yield types so callers can introspect.
+    yields = yield_types,
+
+    __isinstance = function(self, value)
+      if type(value) == 'table' then
+        typed_iterators_module = typed_iterators_module
+            or require 'llx.typed_iterators'
+        local is_generator = isinstance(
+            value, typed_iterators_module.GeneratorInstance)
+        if is_generator
+            or isinstance(value,
+                          typed_iterators_module.IteratorFunction)
+        then
+          -- A generator that may return values on completion cannot
+          -- be driven to a clean stop by generic-for; see the note
+          -- above.
+          if is_generator and #value.returns > 0 then
+            return false
+          end
+          -- Declared yields are covariant, with the same arity and
+          -- variadic rules as a signature's return list; reuse
+          -- signature_compatible on returns-only signatures.
+          subtype_module = subtype_module or require 'llx.is_subtype'
+          return subtype_module.signature_compatible(
+              {returns = value.yields}, {returns = yield_types})
+        end
+      end
+      if type(value) == 'function' then
+        return true
+      end
+      -- is_callable can return nil; coerce to a proper boolean.
+      return not not is_callable(value)
+    end,
+  }, {
+    __tostring = function(self) return self.__name end,
+  })
+end
+
+local function generator_type_check(contract)
+  -- Generator{yields=, accepts=, returns=}: matches typed coroutine
+  -- generators by declared contract -- the runtime analog of mypy's
+  -- Generator[YieldType, SendType, ReturnType]. Each list is optional
+  -- (defaulting to empty); a trailing VARARG ('...') entry declares
+  -- an unchecked variadic tail.
+  --
+  -- - Typed generators (llx.typed_iterators.GeneratorInstance)
+  --   declare their contract, which is compared with the standard
+  --   variance rules: yields and returns covariant, accepts (send
+  --   types) contravariant; see
+  --   llx.is_subtype.generator_compatible.
+  -- - Plain coroutine threads match only structurally (the value is
+  --   a thread): a raw thread carries no contract, so nothing about
+  --   its yields, sends, or returns can be verified. This is the
+  --   documented weak fallback; wrap the coroutine
+  --   (Generates{...} .. body) to make the contract checkable.
+  -- - Everything else is rejected -- including plain functions and
+  --   coroutine.wrap results, which are indistinguishable from
+  --   ordinary functions and are better matched by Iterator or
+  --   Callable.
+  --
+  -- Like Iterator, the matcher never checks crossing values itself;
+  -- enforcement stays opt-in via the wrapper.
+  contract = contract or {}
+  if type(contract) ~= 'table' then
+    error('Generator: expected a contract table with optional '
+      .. 'yields, accepts, and returns lists', 2)
+  end
+  for key in pairs(contract) do
+    if key ~= 'yields' and key ~= 'accepts' and key ~= 'returns' then
+      error("Generator: unknown contract key '" .. tostring(key)
+        .. "'", 2)
+    end
+  end
+  local yields = contract.yields or {}
+  local accepts = contract.accepts or {}
+  local returns = contract.returns or {}
+  local function names_of(types)
+    local names = {}
+    for i, t in ipairs(types) do names[i] = type_name_of(t) end
+    return table.concat(names, ', ')
+  end
+  -- The full contract is part of the matcher's identity, so it is
+  -- encoded in the name (which is_subtype falls back to when
+  -- comparing matchers).
+  local typename = 'Generator<yields=(' .. names_of(yields)
+                   .. '), accepts=(' .. names_of(accepts)
+                   .. '), returns=(' .. names_of(returns) .. ')>'
+
+  -- Cached upvalues for deferred requires; see Iterator above.
+  local typed_iterators_module = nil
+  local subtype_module = nil
+
+  return setmetatable({
+    __name = typename,
+
+    -- Expose the contract so callers (and generator_compatible) can
+    -- introspect.
+    yields = yields,
+    accepts = accepts,
+    returns = returns,
+
+    __isinstance = function(self, value)
+      if type(value) == 'thread' then
+        -- Weak structural fallback: it is a coroutine, but its
+        -- contract is unknowable at runtime.
+        return true
+      end
+      if type(value) == 'table' then
+        typed_iterators_module = typed_iterators_module
+            or require 'llx.typed_iterators'
+        if isinstance(value,
+                      typed_iterators_module.GeneratorInstance) then
+          subtype_module = subtype_module or require 'llx.is_subtype'
+          return subtype_module.generator_compatible(value, self)
+        end
+      end
+      return false
     end,
   }, {
     __tostring = function(self) return self.__name end,
@@ -1308,6 +1506,8 @@ ListOf=list_of_type_check
 SetOf=set_of_type_check
 Protocol=protocol_type_check
 Callable=callable_type_check
+Iterator=iterator_type_check
+Generator=generator_type_check
 Tuple=tuple_type_check
 Rest=rest_type_check
 Literal=literal_type_check

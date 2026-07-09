@@ -6,6 +6,8 @@ local signature = require 'llx.signature'
 local is_subtype = require 'llx.is_subtype' . is_subtype
 local signature_compatible =
     require 'llx.is_subtype' . signature_compatible
+local generator_compatible =
+    require 'llx.is_subtype' . generator_compatible
 local VARARG = require 'llx.check_arguments' . VARARG
 
 local Any = matchers.Any
@@ -567,6 +569,98 @@ describe('signature_compatible', function()
       -- Only the return position may widen (covariantly) to Any.
       expect(isinstance(wrapped, Callable({T}, {Any})))
         .to.be_true()
+    end)
+  end)
+end)
+
+describe('generator_compatible', function()
+  describe('reflexivity and defaults', function()
+    it('should accept identical contracts', function()
+      local contract = {yields = {Integer}, accepts = {String},
+                        returns = {Number}}
+      expect(generator_compatible(contract, contract)).to.be_true()
+    end)
+
+    it('should default missing lists to empty', function()
+      expect(generator_compatible({}, {})).to.be_true()
+      expect(generator_compatible({yields = {}}, {})).to.be_true()
+      expect(generator_compatible({}, {yields = {Integer}}))
+        .to.be_false()
+    end)
+
+    it('should reject non-table operands', function()
+      expect(generator_compatible(nil, {})).to.be_false()
+      expect(generator_compatible({}, 42)).to.be_false()
+    end)
+  end)
+
+  describe('variance', function()
+    it('should treat yields covariantly', function()
+      expect(generator_compatible({yields = {Integer}},
+                                  {yields = {Number}})).to.be_true()
+      expect(generator_compatible({yields = {Number}},
+                                  {yields = {Integer}})).to.be_false()
+    end)
+
+    it('should treat accepts contravariantly', function()
+      expect(generator_compatible({accepts = {Number}},
+                                  {accepts = {Integer}})).to.be_true()
+      expect(generator_compatible({accepts = {Integer}},
+                                  {accepts = {Number}})).to.be_false()
+    end)
+
+    it('should treat returns covariantly', function()
+      expect(generator_compatible({returns = {Integer}},
+                                  {returns = {Number}})).to.be_true()
+      expect(generator_compatible({returns = {Number}},
+                                  {returns = {Integer}})).to.be_false()
+    end)
+
+    it('should require every list to be compatible', function()
+      local sub = {yields = {Integer}, accepts = {Number},
+                   returns = {Integer}}
+      expect(generator_compatible(sub, {yields = {Number},
+                                        accepts = {Integer},
+                                        returns = {Number}}))
+        .to.be_true()
+      expect(generator_compatible(sub, {yields = {Number},
+                                        accepts = {Integer},
+                                        returns = {String}}))
+        .to.be_false()
+    end)
+  end)
+
+  describe('arity and variadic tails', function()
+    it('should require exact arity on fixed lists', function()
+      expect(generator_compatible({yields = {Integer, Integer}},
+                                  {yields = {Integer}})).to.be_false()
+      expect(generator_compatible({accepts = {Integer}},
+                                  {accepts = {Integer, Integer}}))
+        .to.be_false()
+    end)
+
+    it('should apply return-list variadic rules to yields', function()
+      expect(generator_compatible({yields = {Integer, Integer}},
+                                  {yields = {Integer, VARARG}}))
+        .to.be_true()
+      expect(generator_compatible({yields = {Integer, VARARG}},
+                                  {yields = {Integer}})).to.be_false()
+    end)
+
+    it('should apply parameter-list variadic rules to '
+      .. 'accepts', function()
+      expect(generator_compatible({accepts = {Integer, VARARG}},
+                                  {accepts = {Integer, Number}}))
+        .to.be_true()
+      expect(generator_compatible({accepts = {Integer}},
+                                  {accepts = {Integer, VARARG}}))
+        .to.be_false()
+    end)
+
+    it('should reject a malformed non-trailing VARARG', function()
+      expect(generator_compatible({yields = {VARARG, Integer}},
+                                  {yields = {VARARG, Integer}}))
+        .to.be_false()
     end)
   end)
 end)

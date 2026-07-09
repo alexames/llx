@@ -91,6 +91,7 @@ build = {
       ["llx.truthy"] = "src/truthy.lua",
       ["llx.tuple"] = "src/tuple.lua",
       ["llx.type_check_decorator"] = "src/type_check_decorator.lua",
+      ["llx.typed_iterators"] = "src/typed_iterators.lua",
 
       -- debug submodule
       ["llx.debug"] = "src/debug/init.lua",

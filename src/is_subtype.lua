@@ -356,4 +356,54 @@ function signature_compatible(sub, super)
   return true
 end
 
+--- Returns true when generator contract `sub` can be used where
+--- `super` is expected.
+--
+-- Both arguments are tables carrying `yields`, `accepts`, and
+-- `returns` arrays of type matchers -- GeneratorInstance wrappers
+-- (llx.typed_iterators), Generator matchers (llx.types.matchers), or
+-- plain contract tables. Missing lists default to empty; a trailing
+-- VARARG (`'...'`) entry declares an unchecked variadic tail, as in
+-- signature declarations.
+--
+-- This is the generator form of the variance question raised by
+-- typed coroutines, kept as a separate relation next to
+-- `signature_compatible` rather than folded into it: a generator's
+-- contract is three lists, not a params/returns pair, so growing
+-- signature_compatible a special form would complicate its contract
+-- for every existing caller. The variance rules themselves are
+-- exactly the signature rules, applied twice (mirroring mypy, where
+-- Generator[Y, S, R] is covariant in Y and R and contravariant in
+-- S):
+--
+-- - yields are produced by the generator, like return values:
+--   covariant.
+-- - accepts (send types) are consumed by the generator, like
+--   parameters: contravariant. The first resume, which starts the
+--   body, does not participate (its values are not sends).
+-- - returns are produced on completion: covariant.
+--
+-- Arity and variadic handling follow signature_compatible: yields
+-- and returns get the return-list rules, accepts gets the
+-- parameter-list rules, and a non-trailing VARARG makes the contract
+-- compatible with nothing.
+--
+-- @param sub The candidate contract (used where `super` is expected)
+-- @param super The required contract
+-- @return True if `sub` is compatible with `super`, otherwise false
+function generator_compatible(sub, super)
+  if type(sub) ~= 'table' or type(super) ~= 'table' then
+    return false
+  end
+  -- yields-out and accepts-in follow exactly a signature's
+  -- returns/params variance, so reuse signature_compatible for that
+  -- pair, and once more for the completion returns.
+  return signature_compatible(
+      {params = sub.accepts or {}, returns = sub.yields or {}},
+      {params = super.accepts or {}, returns = super.yields or {}})
+    and signature_compatible(
+      {returns = sub.returns or {}},
+      {returns = super.returns or {}})
+end
+
 return _M

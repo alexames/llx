@@ -44,6 +44,7 @@ require 'llx.tests.test_tracing'
 require 'llx.tests.test_truthy'
 require 'llx.tests.test_tuple'
 require 'llx.tests.test_type_check_decorator'
+require 'llx.tests.test_typed_iterators'
 
 -- debug/ tests
 require 'llx.tests.debug.test_debug'

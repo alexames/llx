@@ -55,6 +55,7 @@ local ok, result = pcall(function()
     proxy = require 'llx.proxy',
     truthy = require 'llx.truthy',
     type_check_decorator = require 'llx.type_check_decorator',
+    typed_iterators = require 'llx.typed_iterators',
     bytecode = require 'llx.bytecode',
   }
 end)
