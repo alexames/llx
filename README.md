@@ -248,6 +248,23 @@ llx.isinstance(Dog, OfAnimal)      --> true
 llx.isinstance(Dog(), OfAnimal)    --> false (instance, not class)
 llx.isinstance(Dog, matchers.ClassOf())  --> true (any class)
 
+-- Recursive and forward references: Lazy(thunk) defers a type
+-- reference until the first check (the runtime analog of mypy's
+-- recursive type aliases). The thunk runs once, on first use, and
+-- the resolved matcher is cached. Declare the local first, then
+-- assign, so the thunk captures the right variable.
+local Json
+Json = matchers.Union{
+  llx.String, llx.Number, llx.Boolean, llx.Nil,
+  matchers.ListOf(matchers.Lazy(function() return Json end)),
+  matchers.Dict(llx.String, matchers.Lazy(function() return Json end)),
+}
+llx.isinstance({name = 'llx', tags = {'lua', 'types'}}, Json) --> true
+-- A Lazy that resolves (directly or through a chain of Lazy
+-- matchers) back to itself raises a clear error instead of
+-- overflowing the stack. is_subtype sees through Lazy by forcing
+-- it; resolve_lazy(matcher) forces one explicitly.
+
 -- Schema with constraints
 local Schema = llx.Schema
 local AgeSchema = Schema{

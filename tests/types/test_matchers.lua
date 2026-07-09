@@ -16,6 +16,8 @@ local Tuple = matchers.Tuple
 local Literal = matchers.Literal
 local ClassOf = matchers.ClassOf
 local Rest = matchers.Rest
+local Lazy = matchers.Lazy
+local resolve_lazy = matchers.resolve_lazy
 
 local TupleValue = require 'llx.tuple' . Tuple
 local VARARG = require 'llx.check_arguments' . VARARG
@@ -23,8 +25,12 @@ local VARARG = require 'llx.check_arguments' . VARARG
 local Integer = llx.Integer
 local Number = llx.Number
 local String = llx.String
+local Boolean = llx.Boolean
 local Nil = llx.Nil
 local isinstance = llx.isinstance
+local is_subtype = llx.is_subtype
+local Schema = llx.Schema
+local Table = llx.Table
 
 _ENV = unit.create_test_env(_ENV)
 
@@ -2060,6 +2066,340 @@ describe('ClassOf', function()
   describe('top-level llx namespace', function()
     it('should be exported as llx.ClassOf', function()
       expect(llx.ClassOf).to.be_equal_to(ClassOf)
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Lazy
+-- ---------------------------------------------------------------------------
+
+describe('Lazy', function()
+  describe('construction', function()
+    it('should raise on a non-callable thunk', function()
+      expect(function() Lazy(nil) end)
+        .to.throw('Lazy: expected a callable thunk, got nil')
+      expect(function() Lazy(42) end)
+        .to.throw('Lazy: expected a callable thunk, got number')
+      expect(function() Lazy('Integer') end)
+        .to.throw('Lazy: expected a callable thunk, got string')
+    end)
+
+    it('should accept a callable table as the thunk', function()
+      local thunk = setmetatable({}, {
+        __call = function() return Integer end,
+      })
+      expect(isinstance(1, Lazy(thunk))).to.be_true()
+    end)
+
+    it('should not call the thunk at construction', function()
+      local called = false
+      Lazy(function() called = true; return Integer end)
+      expect(called).to.be_false()
+    end)
+  end)
+
+  describe('__name and tostring', function()
+    it('should report a placeholder before resolution', function()
+      local L = Lazy(function() return Integer end)
+      expect(L.__name).to.start_with('Lazy<?#')
+      expect(tostring(L)).to.be_equal_to(L.__name)
+    end)
+
+    it('should give each unresolved Lazy a distinct placeholder, so '
+      .. 'containers embedding different unresolved references never '
+      .. 'freeze the same name', function()
+      local A = Lazy(function() return Integer end)
+      local B = Lazy(function() return String end)
+      expect(A.__name).to_not.be_equal_to(B.__name)
+      expect(ListOf(A).__name).to_not.be_equal_to(ListOf(B).__name)
+    end)
+
+    it('should not force resolution when the name is read', function()
+      local calls = 0
+      local L = Lazy(function() calls = calls + 1; return Integer end)
+      local _ = L.__name
+      local _ = tostring(L)
+      expect(calls).to.be_equal_to(0)
+    end)
+
+    it('should adopt the resolved name after resolution', function()
+      local L = Lazy(function() return Integer end)
+      isinstance(1, L)
+      expect(L.__name).to.be_equal_to('Integer')
+      expect(tostring(L)).to.be_equal_to('Integer')
+    end)
+  end)
+
+  describe('__isinstance', function()
+    it('should defer to the resolved matcher', function()
+      local L = Lazy(function() return Integer end)
+      expect(isinstance(1, L)).to.be_true()
+      expect(isinstance(1.5, L)).to.be_false()
+      expect(isinstance('one', L)).to.be_false()
+    end)
+
+    it('should support a forward reference to a matcher defined '
+      .. 'later', function()
+      local Element
+      local Wrapper = Protocol{
+        element = Lazy(function() return Element end),
+      }
+      Element = Union{Integer, String}
+      expect(isinstance({element = 1}, Wrapper)).to.be_true()
+      expect(isinstance({element = 'one'}, Wrapper)).to.be_true()
+      expect(isinstance({element = true}, Wrapper)).to.be_false()
+    end)
+
+    it('should call the thunk once and cache the resolution',
+        function()
+      local calls = 0
+      local L = Lazy(function() calls = calls + 1; return Integer end)
+      expect(isinstance(1, L)).to.be_true()
+      expect(isinstance(2, L)).to.be_true()
+      expect(isinstance('x', L)).to.be_false()
+      expect(calls).to.be_equal_to(1)
+    end)
+
+    it('should not cache a thunk error, so a later check retries',
+        function()
+      local attempts = 0
+      local L = Lazy(function()
+        attempts = attempts + 1
+        if attempts == 1 then
+          error('transient failure')
+        end
+        return Integer
+      end)
+      expect(function() isinstance(1, L) end).to.throw()
+      expect(isinstance(1, L)).to.be_true()
+      expect(attempts).to.be_equal_to(2)
+    end)
+  end)
+
+  describe('resolution errors', function()
+    it('should raise on a thunk returning nil (the undeclared-local '
+      .. 'pitfall)', function()
+      -- `local T = Union{..., Lazy(function() return T end)}` captures
+      -- an outer (nil) T; the error message points at the fix.
+      local L = Lazy(function() return nil end)
+      expect(function() isinstance(1, L) end)
+        .to.throw('Lazy: thunk returned nil; expected a type matcher '
+          .. 'or class with __isinstance (declare the local before '
+          .. "assigning it: 'local T' on its own line, then "
+          .. "'T = ...')")
+    end)
+
+    it('should raise on a thunk returning a non-matcher', function()
+      local L = Lazy(function() return 42 end)
+      expect(function() isinstance(1, L) end)
+        .to.throw('Lazy: thunk returned number 42; expected a type '
+          .. 'matcher or class with __isinstance')
+      local L2 = Lazy(function() return {} end)
+      expect(function() isinstance(1, L2) end)
+        .to.throw('Lazy: thunk returned table; expected a type '
+          .. 'matcher or class with __isinstance')
+    end)
+
+    it('should raise on a direct self-resolution cycle', function()
+      local L
+      L = Lazy(function() return L end)
+      expect(function() isinstance(1, L) end).to.throw()
+    end)
+
+    it('should raise on a cycle through a chain of Lazy matchers',
+        function()
+      local A, B
+      A = Lazy(function() return B end)
+      B = Lazy(function() return A end)
+      expect(function() isinstance(1, A) end).to.throw()
+      expect(function() isinstance(1, B) end).to.throw()
+    end)
+  end)
+
+  describe('chains of Lazy', function()
+    it('should flatten a Lazy resolving to another Lazy', function()
+      local inner = Lazy(function() return Integer end)
+      local outer = Lazy(function() return inner end)
+      expect(isinstance(1, outer)).to.be_true()
+      expect(isinstance('x', outer)).to.be_false()
+      expect(outer.__name).to.be_equal_to('Integer')
+    end)
+  end)
+
+  describe('resolve_lazy', function()
+    it('should force a Lazy and return the resolved matcher',
+        function()
+      local L = Lazy(function() return Integer end)
+      expect(resolve_lazy(L)).to.be_equal_to(Integer)
+    end)
+
+    it('should pass non-Lazy values through unchanged', function()
+      expect(resolve_lazy(Integer)).to.be_equal_to(Integer)
+      expect(resolve_lazy(nil)).to.be_equal_to(nil)
+      expect(resolve_lazy('Integer')).to.be_equal_to('Integer')
+    end)
+  end)
+
+  describe('recursive types', function()
+    it('should express a recursive JSON document type', function()
+      local Json
+      Json = Union{String, Number, Boolean, Nil,
+                   ListOf(Lazy(function() return Json end)),
+                   Dict(String, Lazy(function() return Json end))}
+      expect(isinstance('text', Json)).to.be_true()
+      expect(isinstance(42, Json)).to.be_true()
+      expect(isinstance(true, Json)).to.be_true()
+      expect(isinstance(nil, Json)).to.be_true()
+      expect(isinstance({1, 'two', {3, 4}}, Json)).to.be_true()
+      expect(isinstance({
+        name = 'llx',
+        tags = {'lua', 'types'},
+        meta = {stars = 42, active = true},
+      }, Json)).to.be_true()
+      expect(isinstance(print, Json)).to.be_false()
+      expect(isinstance({1, print}, Json)).to.be_false()
+      -- Invalid nested documents are rejected through the recursive
+      -- reference. (Note: a hash-only table with invalid values,
+      -- e.g. {meta = print}, is accepted by this matcher because
+      -- ListOf treats any table with an empty array part as an empty
+      -- list -- a pre-existing ListOf property, not a Lazy one.)
+      expect(isinstance({1, {2, print}}, Json)).to.be_false()
+      expect(isinstance({'a', {'b', {'c', print}}}, Json))
+        .to.be_false()
+    end)
+
+    it('should express a recursive tree over class instances',
+        function()
+      local Node = llx.class 'LazyTestNode' {
+        __init = function(self, value, children)
+          self.value = value
+          self.children = children or {}
+        end,
+      }
+      local TreeShape
+      TreeShape = Protocol{
+        value = Integer,
+        children = ListOf(Lazy(function() return TreeShape end)),
+      }
+      local leaf = Node(1)
+      local tree = Node(2, {leaf, Node(3, {Node(4)})})
+      expect(isinstance(leaf, TreeShape)).to.be_true()
+      expect(isinstance(tree, TreeShape)).to.be_true()
+      local bad = Node(5, {Node('six')})
+      expect(isinstance(bad, TreeShape)).to.be_false()
+    end)
+  end)
+
+  describe('is_subtype', function()
+    it('should force the subtype side', function()
+      expect(is_subtype(Lazy(function() return Integer end), Number))
+        .to.be_true()
+      expect(is_subtype(Lazy(function() return String end), Number))
+        .to.be_false()
+    end)
+
+    it('should force the supertype side', function()
+      expect(is_subtype(Integer, Lazy(function() return Number end)))
+        .to.be_true()
+      expect(is_subtype(Number, Lazy(function() return Integer end)))
+        .to.be_false()
+    end)
+
+    it('should treat a Lazy as equal to its resolved matcher',
+        function()
+      local L = Lazy(function() return Integer end)
+      expect(is_subtype(L, Integer)).to.be_true()
+      expect(is_subtype(Integer, L)).to.be_true()
+      expect(is_subtype(L, L)).to.be_true()
+    end)
+
+    it('should resolve Lazy union members through recursion',
+        function()
+      local U = Union{Lazy(function() return Integer end), String}
+      expect(is_subtype(Integer, U)).to.be_true()
+      expect(is_subtype(U, Union{Number, String})).to.be_true()
+    end)
+  end)
+
+  describe('composition', function()
+    it('should compose inside Signature params', function()
+      local Element
+      local wrapped = signature.Function{
+        params = {Lazy(function() return Element end)},
+        returns = {String},
+        func = function(x) return tostring(x) end,
+      }
+      Element = Integer
+      expect(Callable({Integer}, {String}):__isinstance(wrapped))
+        .to.be_true()
+      expect(Callable({String}, {String}):__isinstance(wrapped))
+        .to.be_false()
+    end)
+
+    it('should compose inside Callable params', function()
+      local C = Callable({Lazy(function() return Integer end)},
+                         {String})
+      local wrapped = signature.Function{
+        params = {Integer},
+        returns = {String},
+        func = function(x) return tostring(x) end,
+      }
+      expect(C:__isinstance(wrapped)).to.be_true()
+    end)
+
+    it('should compose inside Tuple', function()
+      local Pair = Tuple{Integer, Lazy(function() return String end)}
+      expect(isinstance({1, 'one'}, Pair)).to.be_true()
+      expect(isinstance({1, 2}, Pair)).to.be_false()
+    end)
+  end)
+
+  describe('Schema integration', function()
+    it('should forward per-type constraint validation', function()
+      local schema = Schema{
+        type = Lazy(function() return Number end),
+        minimum = 2,
+      }
+      expect(isinstance(3, schema)).to.be_true()
+      expect(isinstance(1, schema)).to.be_false()
+      expect(isinstance('three', schema)).to.be_false()
+    end)
+
+    it('should express a recursive schema', function()
+      local TreeSchema
+      TreeSchema = Schema{
+        type = Table,
+        properties = {
+          value = {type = Number},
+          left = {type = Lazy(function() return TreeSchema end)},
+          right = {type = Lazy(function() return TreeSchema end)},
+        },
+        required = {'value'},
+      }
+      expect(isinstance({value = 1}, TreeSchema)).to.be_true()
+      expect(isinstance({
+        value = 1,
+        left = {value = 2},
+        right = {value = 3, left = {value = 4}},
+      }, TreeSchema)).to.be_true()
+      expect(isinstance({value = 'one'}, TreeSchema)).to.be_false()
+      expect(isinstance({
+        value = 1,
+        left = {value = 2, right = {value = 'three'}},
+      }, TreeSchema)).to.be_false()
+      expect(isinstance({left = {value = 2}}, TreeSchema))
+        .to.be_false()
+    end)
+  end)
+
+  describe('top-level llx namespace', function()
+    it('should be exported as llx.Lazy', function()
+      expect(llx.Lazy).to.be_equal_to(Lazy)
+    end)
+
+    it('should export resolve_lazy as llx.resolve_lazy', function()
+      expect(llx.resolve_lazy).to.be_equal_to(resolve_lazy)
     end)
   end)
 end)

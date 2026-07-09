@@ -42,6 +42,8 @@
 ---@field Dict fun(key_type: any, value_type: any): any
 ---@field Protocol fun(fields: table<string, any>): any
 ---@field Rest fun(element_type: any): any
+---@field Lazy fun(thunk: fun(): any): any
+---@field resolve_lazy fun(t: any): any
 -- Value-type classes (flattened from llx.types, llx.string_view,
 -- llx.seq, llx.tuple, llx.hash_table)
 ---@field List llx.List

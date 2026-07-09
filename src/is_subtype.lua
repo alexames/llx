@@ -23,6 +23,7 @@ local Number = require 'llx.types.number' . Number
 
 local Any = matchers.Any
 local VARARG = check_arguments.VARARG
+local resolve_lazy = matchers.resolve_lazy
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -80,6 +81,9 @@ end
 --   mirroring the value level where both satisfy `Number`.
 -- - Classes: the transitive `__superclasses` chain is walked, so a
 --   derived class is a subtype of each of its bases.
+-- - `Lazy`: deferred references are forced (resolving and caching
+--   the underlying matcher) before comparison, so a Lazy compares
+--   exactly as the matcher it resolves to.
 --
 -- Caveats: distinct types sharing a non-anonymous `__name` compare as
 -- equal (and therefore as mutual subtypes), matching the equality
@@ -95,6 +99,13 @@ function is_subtype(a, b)
   if a == nil or b == nil then
     return false
   end
+  -- Lazy matchers are forced up front (llx.types.matchers.Lazy;
+  -- forcing caches the resolution), so the whole relation -- name
+  -- equality, union member walks, numeric widening, superclass
+  -- chains -- sees the resolved matchers. Nested Lazy members are
+  -- forced by the recursive is_subtype calls below.
+  a = resolve_lazy(a)
+  b = resolve_lazy(b)
   if type_equal(a, b) then
     return true
   end
