@@ -370,20 +370,109 @@ local function callable_type_check(param_types, return_types, options)
   })
 end
 
+-- Marker key identifying Rest(T) typed-tail wrappers, used by Tuple.
+-- A module-local table key cannot be forged (or observed) outside
+-- this module, so nothing else can accidentally look like a Rest.
+local rest_mark = {}
+
+local function rest_type_check(element_type)
+  -- Rest(T): the typed variadic-tail marker for Tuple, the spelling
+  -- of mypy's `tuple[T, ...]` tail. Only meaningful as the *last*
+  -- entry of a Tuple element type list, where it declares that every
+  -- value beyond the fixed prefix must satisfy T. It is not a
+  -- standalone matcher (it has no __isinstance), so isinstance
+  -- against a bare Rest(T) is always false.
+  --
+  -- This is deliberately distinct from the bare VARARG ('...')
+  -- marker established by llx.check_arguments: VARARG is a plain
+  -- string (so it can appear in declared type lists without
+  -- colliding with class names) and means "unchecked tail", whereas
+  -- Rest(T) checks the tail. Making VARARG callable to support
+  -- VARARG(T) would change its type and break the string comparisons
+  -- Signature, Callable, and is_subtype rely on.
+  -- Falsy values are rejected outright (not just nil): no value can
+  -- ever satisfy `false` as a type, and a falsy element_type would
+  -- defeat the truthiness tests Tuple applies to the marker.
+  if not element_type then
+    error('Rest: expected an element type', 2)
+  end
+  return setmetatable({
+    [rest_mark] = true,
+
+    -- Expose the tail element type so callers can introspect.
+    element_type = element_type,
+  }, {
+    __tostring = function(self)
+      return '...' .. type_name_of(element_type)
+    end,
+  })
+end
+
+local function is_rest(entry)
+  return type(entry) == 'table' and rawget(entry, rest_mark) == true
+end
+
 local function tuple_type_check(element_types)
   if type(element_types) ~= 'table' then
     error('Tuple: expected a list of element types', 2)
   end
+  -- A trailing marker declares a variadic tail beyond the fixed,
+  -- typed prefix:
+  --
+  -- - bare VARARG ('...'): the tail is unchecked, mirroring the
+  --   Signature/Callable convention from llx.check_arguments.
+  -- - Rest(T): every tail value must satisfy T -- the analog of
+  --   mypy's `tuple[T, ...]` (which is spelled Tuple{Rest(T)}).
+  --
+  -- In both forms the tail may be empty. A non-final marker can
+  -- never be satisfied, so it fails loudly at construction, the same
+  -- policy Callable applies to its parameter and return lists.
+  check_arguments_module =
+      check_arguments_module or require 'llx.check_arguments'
+  local vararg_marker = check_arguments_module.VARARG
+  local declared_count = #element_types
+  local last_entry = element_types[declared_count]
+  local unchecked_tail = last_entry == vararg_marker
+  local rest_type = nil
+  if is_rest(last_entry) then
+    rest_type = last_entry.element_type
+  end
+  local variadic = unchecked_tail or rest_type ~= nil
+  local fixed_count = variadic and declared_count - 1
+                      or declared_count
+  for i = 1, fixed_count do
+    local entry = element_types[i]
+    if entry == vararg_marker or is_rest(entry) then
+      error("Tuple: '...' and Rest(T) must be the last entry in "
+        .. 'the element type list', 2)
+    end
+  end
   local element_names = {}
-  for i, t in ipairs(element_types) do
-    element_names[i] = type_name_of(t)
+  for i = 1, fixed_count do
+    element_names[i] = type_name_of(element_types[i])
+  end
+  -- The variadic tail is part of the matcher's identity, so it is
+  -- encoded in the name (which is_subtype falls back to when
+  -- comparing matchers), with distinct spellings for the unchecked
+  -- ('...') and typed ('...T') forms.
+  if unchecked_tail then
+    element_names[fixed_count + 1] = '...'
+  elseif rest_type ~= nil then
+    element_names[fixed_count + 1] = '...' .. type_name_of(rest_type)
   end
   local typename = 'Tuple<' .. table.concat(element_names, ', ') .. '>'
   return setmetatable({
     __name = typename,
 
-    -- Expose the positional type list so callers can introspect.
+    -- Expose the positional type list (as declared, including any
+    -- trailing marker) plus the derived shape so callers can
+    -- introspect: fixed_count positions are typed individually,
+    -- variadic says whether extra values are allowed, and rest_type
+    -- (nil for the unchecked '...' form) types the tail.
     element_types = element_types,
+    fixed_count = fixed_count,
+    variadic = variadic,
+    rest_type = rest_type,
 
     __isinstance = function(self, value)
       -- Accept any table-backed sequence: plain array tables and
@@ -395,10 +484,22 @@ local function tuple_type_check(element_types)
       -- positional slot (use Union/Optional element types only
       -- with explicit non-nil sentinels).
       if type(value) ~= 'table' then return false end
-      if #value ~= #element_types then return false end
-      for i, expected_type in ipairs(element_types) do
-        if not isinstance(value[i], expected_type) then
+      local length = #value
+      if variadic then
+        if length < fixed_count then return false end
+      elseif length ~= fixed_count then
+        return false
+      end
+      for i = 1, fixed_count do
+        if not isinstance(value[i], element_types[i]) then
           return false
+        end
+      end
+      if rest_type ~= nil then
+        for i = fixed_count + 1, length do
+          if not isinstance(value[i], rest_type) then
+            return false
+          end
         end
       end
       return true
@@ -806,6 +907,7 @@ SetOf=set_of_type_check
 Protocol=protocol_type_check
 Callable=callable_type_check
 Tuple=tuple_type_check
+Rest=rest_type_check
 Literal=literal_type_check
 NewType=new_type_check
 ClassOf=class_of_type_check
