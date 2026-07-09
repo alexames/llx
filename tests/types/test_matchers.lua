@@ -14,6 +14,7 @@ local Protocol = matchers.Protocol
 local Callable = matchers.Callable
 local Tuple = matchers.Tuple
 local Literal = matchers.Literal
+local ClassOf = matchers.ClassOf
 
 local TupleValue = require 'llx.tuple' . Tuple
 local VARARG = require 'llx.check_arguments' . VARARG
@@ -1664,6 +1665,214 @@ describe('NewType', function()
   describe('top-level llx namespace', function()
     it('should be exported as llx.NewType', function()
       expect(llx.NewType).to.be_equal_to(NewType)
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- ClassOf
+-- ---------------------------------------------------------------------------
+
+describe('ClassOf', function()
+  local class = llx.class
+  local Animal = class 'Animal' {}
+  local Dog = class 'Dog' : extends(Animal) {}
+  local Puppy = class 'Puppy' : extends(Dog) {}
+  local Rock = class 'Rock' {}
+
+  describe('__name', function()
+    it('should have __name ClassOf<Animal>', function()
+      expect(ClassOf(Animal).__name).to.be_equal_to('ClassOf<Animal>')
+    end)
+
+    it('should have __name ClassOf for the bare form', function()
+      expect(ClassOf().__name).to.be_equal_to('ClassOf')
+    end)
+  end)
+
+  describe('__tostring', function()
+    it('should stringify with the base class name', function()
+      expect(tostring(ClassOf(Animal)))
+        .to.be_equal_to('ClassOf<Animal>')
+    end)
+
+    it('should stringify the bare form as ClassOf', function()
+      expect(tostring(ClassOf())).to.be_equal_to('ClassOf')
+    end)
+  end)
+
+  describe('introspection', function()
+    it('should expose the base class', function()
+      expect(ClassOf(Animal).base_class).to.be_equal_to(Animal)
+    end)
+
+    it('should expose a nil base for the bare form', function()
+      expect(ClassOf().base_class).to.be_equal_to(nil)
+    end)
+  end)
+
+  describe('__isinstance', function()
+    local OfAnimal = ClassOf(Animal)
+
+    it('should match the base class itself', function()
+      expect(isinstance(Animal, OfAnimal)).to.be_true()
+    end)
+
+    it('should match a direct subclass', function()
+      expect(isinstance(Dog, OfAnimal)).to.be_true()
+    end)
+
+    it('should match a transitive subclass', function()
+      expect(isinstance(Puppy, OfAnimal)).to.be_true()
+    end)
+
+    it('should reject an unrelated class', function()
+      expect(isinstance(Rock, OfAnimal)).to.be_false()
+    end)
+
+    it('should reject a superclass of the base', function()
+      expect(isinstance(Animal, ClassOf(Dog))).to.be_false()
+    end)
+
+    it('should reject an instance of the base class', function()
+      expect(isinstance(Animal(), OfAnimal)).to.be_false()
+    end)
+
+    it('should reject an instance of a subclass', function()
+      expect(isinstance(Puppy(), OfAnimal)).to.be_false()
+    end)
+
+    it('should reject non-tables', function()
+      expect(isinstance(nil, OfAnimal)).to.be_false()
+      expect(isinstance(42, OfAnimal)).to.be_false()
+      expect(isinstance('Animal', OfAnimal)).to.be_false()
+      expect(isinstance(true, OfAnimal)).to.be_false()
+      expect(isinstance(function() end, OfAnimal)).to.be_false()
+    end)
+
+    it('should reject a plain table', function()
+      expect(isinstance({}, OfAnimal)).to.be_false()
+    end)
+
+    it('should reject a table posing as its own metatable', function()
+      -- Mimics the proxy's self-metatable shape without being a
+      -- class: the __is_llx_class flag must also be present.
+      local imposter = {}
+      setmetatable(imposter, {__metatable = imposter})
+      expect(isinstance(imposter, OfAnimal)).to.be_false()
+      expect(isinstance(imposter, ClassOf())).to.be_false()
+    end)
+
+    it('should reject a type matcher', function()
+      expect(isinstance(Integer, OfAnimal)).to.be_false()
+    end)
+
+    it('should support an anonymous base class', function()
+      local Base = class {}
+      local Derived = class 'Derived' : extends(Base) {}
+      local OfBase = ClassOf(Base)
+      expect(isinstance(Base, OfBase)).to.be_true()
+      expect(isinstance(Derived, OfBase)).to.be_true()
+      expect(isinstance(Rock, OfBase)).to.be_false()
+    end)
+
+    it('should walk multiple inheritance', function()
+      local Robot = class 'Robot' {}
+      local RoboDog = class 'RoboDog' : extends(Animal, Robot) {}
+      expect(isinstance(RoboDog, ClassOf(Animal))).to.be_true()
+      expect(isinstance(RoboDog, ClassOf(Robot))).to.be_true()
+      expect(isinstance(RoboDog, ClassOf(Rock))).to.be_false()
+    end)
+  end)
+
+  describe('bare ClassOf()', function()
+    local AnyClass = ClassOf()
+
+    it('should match any class', function()
+      expect(isinstance(Animal, AnyClass)).to.be_true()
+      expect(isinstance(Puppy, AnyClass)).to.be_true()
+      expect(isinstance(Rock, AnyClass)).to.be_true()
+    end)
+
+    it('should match an anonymous class', function()
+      local Anonymous = class {}
+      expect(isinstance(Anonymous, AnyClass)).to.be_true()
+    end)
+
+    it('should reject instances and plain values', function()
+      expect(isinstance(Animal(), AnyClass)).to.be_false()
+      expect(isinstance({}, AnyClass)).to.be_false()
+      expect(isinstance(42, AnyClass)).to.be_false()
+      expect(isinstance(nil, AnyClass)).to.be_false()
+    end)
+  end)
+
+  describe('argument validation', function()
+    it('should raise on a string class name', function()
+      expect(function() ClassOf('Animal') end)
+        .to.throw('ClassOf: expected a class object (or no '
+          .. "argument), got string 'Animal'")
+    end)
+
+    it('should raise on a type matcher base', function()
+      expect(function() ClassOf(Integer) end).to.throw()
+      expect(function() ClassOf(Union{Integer, String}) end)
+        .to.throw()
+    end)
+
+    it('should raise on an instance base', function()
+      expect(function() ClassOf(Animal()) end)
+        .to.throw('ClassOf: expected a class object (or no '
+          .. 'argument), got an instance of Animal '
+          .. '(pass the class itself)')
+    end)
+
+    it('should raise on other non-class values', function()
+      expect(function() ClassOf(42) end).to.throw()
+      expect(function() ClassOf(true) end).to.throw()
+      expect(function() ClassOf({}) end).to.throw()
+    end)
+  end)
+
+  describe('composition', function()
+    it('should compose inside Union', function()
+      local ClassOrName = Union{ClassOf(Animal), String}
+      expect(isinstance(Dog, ClassOrName)).to.be_true()
+      expect(isinstance('Dog', ClassOrName)).to.be_true()
+      expect(isinstance(Rock, ClassOrName)).to.be_false()
+      expect(isinstance(Dog(), ClassOrName)).to.be_false()
+    end)
+
+    it('should compose inside Protocol', function()
+      local Registration = Protocol{
+        name = String,
+        entity_class = ClassOf(Animal),
+      }
+      expect(isinstance(
+        {name = 'dog', entity_class = Dog}, Registration))
+        .to.be_true()
+      expect(isinstance(
+        {name = 'rock', entity_class = Rock}, Registration))
+        .to.be_false()
+      expect(isinstance(
+        {name = 'dog', entity_class = Dog()}, Registration))
+        .to.be_false()
+    end)
+
+    it('should compose inside Dict', function()
+      local Registry = Dict(String, ClassOf(Animal))
+      expect(isinstance({dog = Dog, puppy = Puppy}, Registry))
+        .to.be_true()
+      expect(isinstance({dog = Dog, rock = Rock}, Registry))
+        .to.be_false()
+      expect(isinstance({dog = Dog()}, Registry))
+        .to.be_false()
+    end)
+  end)
+
+  describe('top-level llx namespace', function()
+    it('should be exported as llx.ClassOf', function()
+      expect(llx.ClassOf).to.be_equal_to(ClassOf)
     end)
   end)
 end)
