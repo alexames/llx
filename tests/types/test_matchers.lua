@@ -4,6 +4,7 @@ local matchers = require 'llx.types.matchers'
 local signature = require 'llx.signature'
 
 local Any = matchers.Any
+local Never = matchers.Never
 local Union = matchers.Union
 local Optional = matchers.Optional
 local Dict = matchers.Dict
@@ -92,6 +93,112 @@ describe('Any', function()
 
     it('should match a function via isinstance', function()
       expect(isinstance(function() end, Any)).to.be_true()
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Never
+-- ---------------------------------------------------------------------------
+
+describe('Never', function()
+  describe('__name', function()
+    it('should have __name equal to "Never"', function()
+      expect(Never.__name).to.be_equal_to('Never')
+    end)
+  end)
+
+  describe('__tostring', function()
+    it('should stringify as "Never"', function()
+      expect(tostring(Never)).to.be_equal_to('Never')
+    end)
+  end)
+
+  describe('__isinstance', function()
+    it('should return false for nil', function()
+      expect(Never:__isinstance(nil)).to.be_false()
+    end)
+
+    it('should return false for a boolean', function()
+      expect(Never:__isinstance(true)).to.be_false()
+    end)
+
+    it('should return false for false', function()
+      expect(Never:__isinstance(false)).to.be_false()
+    end)
+
+    it('should return false for a number (integer)', function()
+      expect(Never:__isinstance(42)).to.be_false()
+    end)
+
+    it('should return false for a number (float)', function()
+      expect(Never:__isinstance(3.14)).to.be_false()
+    end)
+
+    it('should return false for a string', function()
+      expect(Never:__isinstance('hello')).to.be_false()
+    end)
+
+    it('should return false for a table', function()
+      expect(Never:__isinstance({})).to.be_false()
+    end)
+
+    it('should return false for a function', function()
+      expect(Never:__isinstance(function() end)).to.be_false()
+    end)
+
+    it('should return false for a coroutine', function()
+      expect(Never:__isinstance(coroutine.create(function() end)))
+        .to.be_false()
+    end)
+  end)
+
+  describe('isinstance integration', function()
+    it('should not match nil via isinstance', function()
+      expect(isinstance(nil, Never)).to.be_false()
+    end)
+
+    it('should not match a boolean via isinstance', function()
+      expect(isinstance(true, Never)).to.be_false()
+    end)
+
+    it('should not match a number via isinstance', function()
+      expect(isinstance(42, Never)).to.be_false()
+    end)
+
+    it('should not match a string via isinstance', function()
+      expect(isinstance('hello', Never)).to.be_false()
+    end)
+
+    it('should not match a table via isinstance', function()
+      expect(isinstance({}, Never)).to.be_false()
+    end)
+
+    it('should not match a function via isinstance', function()
+      expect(isinstance(function() end, Never)).to.be_false()
+    end)
+  end)
+
+  describe('Union composition', function()
+    it('should act as an identity element: Union{Never, Integer} '
+      .. 'accepts integers', function()
+      local NeverOrInteger = Union{Never, Integer}
+      expect(isinstance(42, NeverOrInteger)).to.be_true()
+    end)
+
+    it('should act as an identity element: Union{Never, Integer} '
+      .. 'rejects non-integers', function()
+      local NeverOrInteger = Union{Never, Integer}
+      expect(isinstance('hello', NeverOrInteger)).to.be_false()
+      expect(isinstance(3.14, NeverOrInteger)).to.be_false()
+      expect(isinstance(nil, NeverOrInteger)).to.be_false()
+    end)
+
+    it('should make Union{Never} match nothing', function()
+      local Bottom = Union{Never}
+      expect(isinstance(nil, Bottom)).to.be_false()
+      expect(isinstance(42, Bottom)).to.be_false()
+      expect(isinstance('hello', Bottom)).to.be_false()
     end)
   end)
 end)

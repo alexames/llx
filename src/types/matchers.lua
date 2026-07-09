@@ -36,6 +36,23 @@ local function any_type_check()
   })
 end
 
+local function never_type_check()
+  -- The bottom type: no value is an instance of Never. It is the
+  -- counterpart of Any (the top type), useful for exhaustiveness
+  -- assertions (a branch that should be unreachable can check its
+  -- value against Never to fail loudly) and as the identity element
+  -- when composing unions programmatically.
+  return setmetatable({
+    __name = 'Never';
+
+    __isinstance = function(self, value)
+      return false
+    end;
+  }, {
+    __tostring = function() return 'Never' end;
+  })
+end
+
 local function union_type_check(type_list)
   local expected_typenames = '{' .. Table.concat(type_list, ',') .. '}'
   local typename = 'Union' .. expected_typenames
@@ -346,6 +363,7 @@ local function literal_type_check(value_list)
 end
 
 Any=any_type_check()
+Never=never_type_check()
 Union=union_type_check
 Optional=optional_type_check
 Dict=dict_type_check
