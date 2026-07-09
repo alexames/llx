@@ -1,5 +1,18 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+-- The Tuple matcher shares its name with the llx.Tuple value class
+-- (src/tuple.lua). The value class owns the top-level name when llx
+-- flattens its submodules (flatten_submodules rejects duplicate
+-- keys), so the matcher is excluded here and stays reachable via
+-- require 'llx.types.matchers'.
+local matchers = require 'llx.types.matchers'
+local matcher_exports = {}
+for key, value in pairs(matchers) do
+  if key ~= 'Tuple' then
+    matcher_exports[key] = value
+  end
+end
+
 return require 'llx.flatten_submodules' {
   require 'llx.types.boolean',
   require 'llx.types.float',
@@ -15,5 +28,5 @@ return require 'llx.flatten_submodules' {
   require 'llx.types.list',
   require 'llx.types.set',
 
-  require 'llx.types.matchers'
+  matcher_exports
 }

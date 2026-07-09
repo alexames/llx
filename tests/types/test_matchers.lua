@@ -9,6 +9,9 @@ local Optional = matchers.Optional
 local Dict = matchers.Dict
 local Protocol = matchers.Protocol
 local Callable = matchers.Callable
+local Tuple = matchers.Tuple
+
+local TupleValue = require 'llx.tuple' . Tuple
 
 local Integer = llx.Integer
 local Number = llx.Number
@@ -300,6 +303,152 @@ describe('Dict', function()
       expect(D.__name:find('Dict')).to_not.be_nil()
       expect(D.__name:find('String')).to_not.be_nil()
       expect(D.__name:find('Integer')).to_not.be_nil()
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Tuple
+-- ---------------------------------------------------------------------------
+
+describe('Tuple', function()
+  describe('__name', function()
+    it('should expose a Tuple<...> name listing element types', function()
+      local T = Tuple{Integer, String}
+      expect(T.__name).to.be_equal_to('Tuple<Integer, String>')
+    end)
+
+    it('should handle an empty element type list', function()
+      local T = Tuple{}
+      expect(T.__name).to.be_equal_to('Tuple<>')
+    end)
+
+    it('should be used as the tostring form', function()
+      local T = Tuple{Integer, String}
+      expect(tostring(T)).to.be_equal_to('Tuple<Integer, String>')
+    end)
+  end)
+
+  describe('element_types field', function()
+    it('should expose the positional type list', function()
+      local types = {Integer, String}
+      local T = Tuple(types)
+      expect(T.element_types).to.be_equal_to(types)
+    end)
+  end)
+
+  describe('__isinstance on plain tables', function()
+    it('should accept a table with the declared shape', function()
+      local T = Tuple{Integer, String}
+      expect(T:__isinstance({1, 'one'})).to.be_true()
+    end)
+
+    it('should reject a table that is too short', function()
+      local T = Tuple{Integer, String}
+      expect(T:__isinstance({1})).to.be_false()
+    end)
+
+    it('should reject a table that is too long', function()
+      local T = Tuple{Integer, String}
+      expect(T:__isinstance({1, 'one', 'extra'})).to.be_false()
+    end)
+
+    it('should reject a wrong-typed first element', function()
+      local T = Tuple{Integer, String}
+      expect(T:__isinstance({'one', 'two'})).to.be_false()
+    end)
+
+    it('should reject a wrong-typed second element', function()
+      local T = Tuple{Integer, String}
+      expect(T:__isinstance({1, 2})).to.be_false()
+    end)
+
+    it('should accept only the empty table for Tuple{}', function()
+      local T = Tuple{}
+      expect(T:__isinstance({})).to.be_true()
+      expect(T:__isinstance({1})).to.be_false()
+    end)
+
+    it('should reject non-table values', function()
+      local T = Tuple{Integer, String}
+      expect(T:__isinstance(42)).to.be_false()
+      expect(T:__isinstance('x')).to.be_false()
+      expect(T:__isinstance(nil)).to.be_false()
+      expect(T:__isinstance(true)).to.be_false()
+    end)
+  end)
+
+  describe('__isinstance on llx.Tuple values', function()
+    it('should accept a Tuple value with the declared shape', function()
+      local T = Tuple{Integer, String}
+      expect(T:__isinstance(TupleValue{1, 'one'})).to.be_true()
+    end)
+
+    it('should reject a Tuple value of the wrong length', function()
+      local T = Tuple{Integer, String}
+      expect(T:__isinstance(TupleValue{1})).to.be_false()
+      expect(T:__isinstance(TupleValue{1, 'one', 2})).to.be_false()
+    end)
+
+    it('should reject a Tuple value with a wrong-typed '
+      .. 'element', function()
+      local T = Tuple{Integer, String}
+      expect(T:__isinstance(TupleValue{1, 2})).to.be_false()
+    end)
+
+    it('should accept an empty Tuple value for Tuple{}', function()
+      local T = Tuple{}
+      expect(T:__isinstance(TupleValue{})).to.be_true()
+    end)
+  end)
+
+  describe('nested Tuple matchers', function()
+    it('should compose with another Tuple as an element type', function()
+      local T = Tuple{Integer, Tuple{String, String}}
+      expect(T:__isinstance({1, {'a', 'b'}})).to.be_true()
+      expect(T:__isinstance({1, {'a', 2}})).to.be_false()
+      expect(T:__isinstance({1, {'a'}})).to.be_false()
+    end)
+  end)
+
+  describe('isinstance integration', function()
+    it('should work as an isinstance target', function()
+      local T = Tuple{Integer, String}
+      expect(isinstance({1, 'one'}, T)).to.be_true()
+      expect(isinstance(TupleValue{1, 'one'}, T)).to.be_true()
+      expect(isinstance({1, 2}, T)).to.be_false()
+    end)
+  end)
+
+  describe('composition', function()
+    it('should compose inside Union', function()
+      local Pair = Tuple{Integer, Integer}
+      local U = Union{String, Pair}
+      expect(isinstance('hello', U)).to.be_true()
+      expect(isinstance({1, 2}, U)).to.be_true()
+      expect(isinstance({1, 'two'}, U)).to.be_false()
+    end)
+
+    it('should compose inside Protocol', function()
+      local Shape = Protocol{
+        name = String,
+        position = Tuple{Number, Number},
+      }
+      expect(isinstance({
+        name = 'origin',
+        position = {0.0, 0.0},
+      }, Shape)).to.be_true()
+      expect(isinstance({
+        name = 'broken',
+        position = {0.0},
+      }, Shape)).to.be_false()
+    end)
+  end)
+
+  describe('top-level llx namespace', function()
+    it('should leave llx.Tuple as the value class', function()
+      expect(llx.Tuple).to.be_equal_to(TupleValue)
+      expect(tostring(llx.Tuple{1, 2})).to.be_equal_to('Tuple{1,2}')
     end)
   end)
 end)
