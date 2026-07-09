@@ -2404,6 +2404,223 @@ describe('Lazy', function()
   end)
 end)
 
+-- ---------------------------------------------------------------------------
+-- TypeVar
+-- ---------------------------------------------------------------------------
+
+describe('TypeVar', function()
+  local TypeVar = matchers.TypeVar
+  local is_type_var = matchers.is_type_var
+  local enter_type_var_scope = matchers.enter_type_var_scope
+  local exit_type_var_scope = matchers.exit_type_var_scope
+  local Float = llx.Float
+
+  describe('construction', function()
+    it('should require a string name', function()
+      local ok, err = pcall(TypeVar, 42)
+      expect(ok).to.be_false()
+      expect(tostring(err):find('expected a string name', 1, true))
+        .to_not.be_nil()
+    end)
+
+    it('should reject a non-table options argument', function()
+      local ok = pcall(TypeVar, 'T', 'bound')
+      expect(ok).to.be_false()
+    end)
+
+    it('should reject unknown options', function()
+      local ok, err = pcall(TypeVar, 'T', {covariant = true})
+      expect(ok).to.be_false()
+      expect(tostring(err):find('unknown option', 1, true))
+        .to_not.be_nil()
+    end)
+
+    it('should reject a bound without __isinstance', function()
+      local ok, err = pcall(TypeVar, 'T', {bound = {}})
+      expect(ok).to.be_false()
+      expect(tostring(err):find('bound must be', 1, true))
+        .to_not.be_nil()
+    end)
+
+    it('should expose its name via __name and tostring', function()
+      local T = TypeVar('T')
+      expect(T.__name).to.be_equal_to('T')
+      expect(tostring(T)).to.be_equal_to('T')
+    end)
+
+    it('should expose its bound for introspection', function()
+      local N = TypeVar('N', {bound = Number})
+      expect(N.bound).to.be_equal_to(Number)
+      expect(TypeVar('T').bound).to.be_nil()
+    end)
+  end)
+
+  describe('is_type_var', function()
+    it('should recognize TypeVars', function()
+      expect(is_type_var(TypeVar('T'))).to.be_true()
+    end)
+
+    it('should reject non-TypeVars', function()
+      expect(is_type_var(Integer)).to.be_false()
+      expect(is_type_var('T')).to.be_false()
+      expect(is_type_var(nil)).to.be_false()
+      expect(is_type_var({__name = 'T'})).to.be_false()
+    end)
+  end)
+
+  describe('plain isinstance (no active binding scope)', function()
+    it('should accept any value when unconstrained', function()
+      local T = TypeVar('T')
+      expect(isinstance(1, T)).to.be_true()
+      expect(isinstance('s', T)).to.be_true()
+      expect(isinstance(nil, T)).to.be_true()
+      expect(isinstance({}, T)).to.be_true()
+    end)
+
+    it('should behave as its bound when one is declared', function()
+      local N = TypeVar('N', {bound = Number})
+      expect(isinstance(1, N)).to.be_true()
+      expect(isinstance(1.5, N)).to.be_true()
+      expect(isinstance('s', N)).to.be_false()
+    end)
+  end)
+
+  describe('binding scopes', function()
+    it('should bind to the first witness and require consistency',
+        function()
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      expect(isinstance(1, T)).to.be_true()
+      expect(isinstance(2, T)).to.be_true()
+      expect(isinstance('s', T)).to.be_false()
+      expect(scope[T]).to.be_equal_to(Integer)
+      exit_type_var_scope()
+    end)
+
+    it('should bind numbers narrowly (Integer vs Float)', function()
+      local T = TypeVar('T')
+      enter_type_var_scope()
+      expect(isinstance(1, T)).to.be_true()
+      expect(isinstance(1.5, T)).to.be_false()
+      exit_type_var_scope()
+      local scope = enter_type_var_scope()
+      expect(isinstance(1.5, T)).to.be_true()
+      expect(isinstance(1, T)).to.be_false()
+      expect(scope[T]).to.be_equal_to(Float)
+      exit_type_var_scope()
+    end)
+
+    it('should key bindings by identity, not by name', function()
+      local T1 = TypeVar('T')
+      local T2 = TypeVar('T')
+      enter_type_var_scope()
+      expect(isinstance(1, T1)).to.be_true()
+      -- A distinct variable with the same name is independent.
+      expect(isinstance('s', T2)).to.be_true()
+      expect(isinstance('s', T1)).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should enforce the bound on every occurrence', function()
+      -- The inferred binding for a plain table is Table, which is
+      -- coarser than the structural bound; a later table missing the
+      -- bound's shape must still be rejected.
+      local Named = Protocol{name = String}
+      local T = TypeVar('T', {bound = Named})
+      enter_type_var_scope()
+      expect(isinstance({name = 'a'}, T)).to.be_true()
+      expect(isinstance({name = 'b'}, T)).to.be_true()
+      expect(isinstance({title = 'c'}, T)).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should accept subclass witnesses of a superclass binding',
+        function()
+      local class = llx.class
+      local Animal = class 'TypeVarScopeAnimal' { }
+      local Cat = class 'TypeVarScopeCat' : extends(Animal) { }
+      local T = TypeVar('T')
+      enter_type_var_scope()
+      expect(isinstance(Animal(), T)).to.be_true()
+      expect(isinstance(Cat(), T)).to.be_true()
+      exit_type_var_scope()
+      -- The reverse order narrows the binding to Cat first.
+      enter_type_var_scope()
+      expect(isinstance(Cat(), T)).to.be_true()
+      expect(isinstance(Animal(), T)).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should fall back to exact-class identity for values whose '
+      .. 'class has no __isinstance', function()
+      local plain_metatable = {}
+      local a = setmetatable({}, plain_metatable)
+      local b = setmetatable({}, plain_metatable)
+      local c = setmetatable({}, {})
+      local T = TypeVar('T')
+      enter_type_var_scope()
+      expect(isinstance(a, T)).to.be_true()
+      expect(isinstance(b, T)).to.be_true()
+      expect(isinstance(c, T)).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should stay self-consistent for __metatable-protected '
+      .. 'values', function()
+      -- getmetatable (and therefore getclass) on such a value yields
+      -- the protection value, which may not even be a table; the
+      -- consistency check must fall back to identity rather than
+      -- treating the value as an instance of that string.
+      local locked = setmetatable({}, {__metatable = 'locked'})
+      local T = TypeVar('T')
+      enter_type_var_scope()
+      expect(isinstance(locked, T)).to.be_true()
+      expect(isinstance(locked, T)).to.be_true()
+      expect(isinstance({}, T)).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should propagate bindings into parameterized matchers',
+        function()
+      local T = TypeVar('T')
+      enter_type_var_scope()
+      expect(isinstance({1, 2, 3}, ListOf(T))).to.be_true()
+      -- The list's elements bound T to Integer.
+      expect(isinstance('s', T)).to.be_false()
+      expect(isinstance({4, 5}, ListOf(T))).to.be_true()
+      expect(isinstance({'a'}, ListOf(T))).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should bind nil witnesses to Nil', function()
+      local T = TypeVar('T')
+      enter_type_var_scope()
+      expect(isinstance(nil, T)).to.be_true()
+      expect(isinstance(nil, T)).to.be_true()
+      expect(isinstance(1, T)).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should raise on exit with no active scope', function()
+      local ok, err = pcall(exit_type_var_scope)
+      expect(ok).to.be_false()
+      expect(tostring(err):find('no active TypeVar binding scope',
+                                1, true)).to_not.be_nil()
+    end)
+
+    it('should reject a non-table scope argument', function()
+      local ok = pcall(enter_type_var_scope, 'scope')
+      expect(ok).to.be_false()
+    end)
+  end)
+
+  describe('top-level llx namespace', function()
+    it('should be exported as llx.TypeVar', function()
+      expect(llx.TypeVar).to.be_equal_to(TypeVar)
+    end)
+  end)
+end)
+
 if llx.main_file() then
   unit.run_unit_tests()
 end

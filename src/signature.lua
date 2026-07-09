@@ -7,6 +7,7 @@ local decorator = require 'llx.decorator'
 local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
 local isinstance_module = require 'llx.isinstance'
+local matchers = require 'llx.types.matchers'
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -19,6 +20,8 @@ local OverloadResolutionException =
     exceptions.OverloadResolutionException
 local is_callable = core.is_callable
 local isinstance = isinstance_module.isinstance
+local enter_type_var_scope = matchers.enter_type_var_scope
+local exit_type_var_scope = matchers.exit_type_var_scope
 
 local function type_name_of(t)
   -- String type names (and the VARARG '...' marker) are their own
@@ -57,9 +60,9 @@ Function = class 'Function' {
   end,
 
   __call = function(self, ...)
-    self:check_preconditions(table.pack(...))
+    local scope = self:check_preconditions(table.pack(...))
     local results = table.pack(self.func(...))
-    self:check_postconditions(results)
+    self:check_postconditions(results, scope)
     return table.unpack(results, 1, results.n)
   end,
 
@@ -67,12 +70,39 @@ Function = class 'Function' {
   -- fallback so plain list tables still work when these methods are
   -- called directly. A trailing '...' entry in params or returns
   -- makes the signature variadic (see check_returns_exact).
+  --
+  -- Generic signatures: each precondition check runs inside a fresh
+  -- TypeVar binding scope (see llx.types.matchers), so a TypeVar in
+  -- params binds to the type of the first value checked against it
+  -- and later occurrences must be consistent. The scope is returned
+  -- so the caller can hand it to check_postconditions, which
+  -- re-enters the *same* scope; that is what correlates parameter and
+  -- return types through a shared TypeVar. The scope is entered only
+  -- for the duration of the synchronous check (never across the
+  -- wrapped function's body), which keeps recursion and coroutines
+  -- safe, and it is always exited -- the pcall re-raise below
+  -- preserves the exception object unchanged (llx exceptions capture
+  -- their location at construction, so the reported position
+  -- survives; only the raw traceback gains the pcall frame).
   check_preconditions = function(self, arguments)
-    check_returns_exact(self.params, arguments, arguments.n or #arguments)
+    local scope = enter_type_var_scope()
+    local ok, err = pcall(check_returns_exact, self.params, arguments,
+                          arguments.n or #arguments)
+    exit_type_var_scope()
+    if not ok then
+      error(err, 0)
+    end
+    return scope
   end,
 
-  check_postconditions = function(self, results)
-    check_returns_exact(self.returns, results, results.n or #results)
+  check_postconditions = function(self, results, scope)
+    enter_type_var_scope(scope)
+    local ok, err = pcall(check_returns_exact, self.returns, results,
+                          results.n or #results)
+    exit_type_var_scope()
+    if not ok then
+      error(err, 0)
+    end
   end,
 
   __tostring = function(self)
@@ -190,16 +220,23 @@ Overload = class 'Overload' {
     local arguments = table.pack(...)
     local failures = {}
     for _, fn in ipairs(self.overloads) do
-      local ok, err = pcall(fn.check_preconditions, fn, arguments)
+      -- On success the pcall yields the candidate's TypeVar binding
+      -- scope (each candidate opens its own, so a rejected
+      -- candidate's partial bindings never leak into the next);
+      -- passing it to check_postconditions correlates the winning
+      -- declaration's parameter and return types through any shared
+      -- TypeVars. On failure it yields the rejection exception.
+      local ok, scope_or_err = pcall(fn.check_preconditions, fn,
+                                     arguments)
       if ok then
         local results = table.pack(fn.func(...))
-        fn:check_postconditions(results)
+        fn:check_postconditions(results, scope_or_err)
         return table.unpack(results, 1, results.n)
       end
-      if not isinstance(err, InvalidArgumentException) then
-        error(err, 0)
+      if not isinstance(scope_or_err, InvalidArgumentException) then
+        error(scope_or_err, 0)
       end
-      failures[#failures + 1] = err
+      failures[#failures + 1] = scope_or_err
     end
     local candidates = {}
     for i, fn in ipairs(self.overloads) do

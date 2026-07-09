@@ -398,6 +398,178 @@ describe('Signature', function()
     end)
   end)
 
+  describe('TypeVar generic signatures', function()
+    local matchers = require 'llx.types.matchers'
+    local TypeVar = matchers.TypeVar
+    local ListOf = matchers.ListOf
+    local Dict = matchers.Dict
+    local Overload = signature_module.Overload
+
+    local function make_wrapped(params, returns, func)
+      return Signature{params=params, returns=returns} .. func
+    end
+
+    it('should bind a TypeVar to the argument and accept a '
+      .. 'consistent return', function()
+      local T = TypeVar('T')
+      local identity = make_wrapped({T}, {T}, function(x) return x end)
+      expect(identity(42)).to.be_equal_to(42)
+      -- The binding is per call: a fresh call re-binds from scratch.
+      expect(identity('hi')).to.be_equal_to('hi')
+    end)
+
+    it('should reject a return value inconsistent with the '
+      .. 'parameter binding', function()
+      local T = TypeVar('T')
+      local wrapped = make_wrapped(
+        {T}, {T}, function(x) return 'oops' end)
+      expect(pcall(wrapped, 1)).to.be_false()
+      expect(wrapped('oops')).to.be_equal_to('oops')
+    end)
+
+    it('should accept two values of the same type for '
+      .. 'params={T, T}', function()
+      local T = TypeVar('T')
+      local wrapped = make_wrapped(
+        {T, T}, {}, function(a, b) end)
+      expect(pcall(wrapped, 1, 2)).to.be_true()
+      expect(pcall(wrapped, 'a', 'b')).to.be_true()
+    end)
+
+    it('should reject mixed types for params={T, T}', function()
+      local T = TypeVar('T')
+      local wrapped = make_wrapped(
+        {T, T}, {}, function(a, b) end)
+      expect(pcall(wrapped, 1, 'x')).to.be_false()
+      -- Numbers bind narrowly: an Integer witness rejects a Float.
+      expect(pcall(wrapped, 1, 1.5)).to.be_false()
+    end)
+
+    it('should accept a subclass instance after a superclass '
+      .. 'binding, but not the reverse', function()
+      local Animal = class 'SigTypeVarAnimal' { }
+      local Cat = class 'SigTypeVarCat' : extends(Animal) { }
+      local T = TypeVar('T')
+      local wrapped = make_wrapped(
+        {T, T}, {}, function(a, b) end)
+      expect(pcall(wrapped, Animal(), Cat())).to.be_true()
+      expect(pcall(wrapped, Cat(), Animal())).to.be_false()
+    end)
+
+    it('should reject values outside a declared bound', function()
+      local N = TypeVar('N', {bound=Number})
+      local wrapped = make_wrapped(
+        {N}, {N}, function(x) return x end)
+      expect(wrapped(2)).to.be_equal_to(2)
+      expect(pcall(wrapped, 'not a number')).to.be_false()
+    end)
+
+    it('should propagate bindings through ListOf into the return',
+        function()
+      local T = TypeVar('T')
+      local first = make_wrapped(
+        {ListOf(T)}, {T}, function(xs) return xs[1] end)
+      expect(first({1, 2, 3})).to.be_equal_to(1)
+      expect(first({'a', 'b'})).to.be_equal_to('a')
+      -- A mixed-element list can satisfy no single binding.
+      expect(pcall(first, {1, 'x'})).to.be_false()
+    end)
+
+    it('should reject a return inconsistent with a binding '
+      .. 'inferred inside ListOf', function()
+      local T = TypeVar('T')
+      local wrapped = make_wrapped(
+        {ListOf(T)}, {T}, function(xs) return 'nope' end)
+      expect(pcall(wrapped, {1, 2})).to.be_false()
+    end)
+
+    it('should bind Dict key and value variables independently',
+        function()
+      local K = TypeVar('K')
+      local V = TypeVar('V')
+      local lookup = make_wrapped(
+        {Dict(K, V), K}, {V}, function(d, k) return d[k] end)
+      expect(lookup({a=1, b=2}, 'a')).to.be_equal_to(1)
+      -- The key argument must be consistent with the key binding.
+      expect(pcall(lookup, {a=1, b=2}, 5)).to.be_false()
+    end)
+
+    it('should leave no active binding scope after a failed call',
+        function()
+      local T = TypeVar('T')
+      local wrapped = make_wrapped(
+        {T, T}, {}, function(a, b) end)
+      expect(pcall(wrapped, 1, 'x')).to.be_false()
+      -- The scope was exited on failure: plain isinstance is back to
+      -- the unbound behavior, and a later call re-binds from scratch.
+      expect(isinstance('anything', T)).to.be_true()
+      expect(pcall(wrapped, 'a', 'b')).to.be_true()
+    end)
+
+    it('should keep bindings isolated across recursive calls',
+        function()
+      local T = TypeVar('T')
+      local echo
+      echo = make_wrapped({T}, {T}, function(x)
+        if x == 3 then
+          -- The inner activation binds T to String while the outer
+          -- call's Integer binding is suspended; both must succeed.
+          expect(echo('inner')).to.be_equal_to('inner')
+        end
+        return x
+      end)
+      expect(echo(3)).to.be_equal_to(3)
+    end)
+
+    it('should keep bindings isolated across coroutines', function()
+      local T = TypeVar('T')
+      local wrapped = make_wrapped({T}, {T}, function(x)
+        coroutine.yield()
+        return x
+      end)
+      -- Each coroutine suspends inside the wrapped function's body,
+      -- between its argument check and its return check; the two
+      -- calls' bindings must not interfere.
+      local co1 = coroutine.create(function() return wrapped(1) end)
+      local co2 = coroutine.create(function() return wrapped('s') end)
+      expect(coroutine.resume(co1)).to.be_true()
+      expect(coroutine.resume(co2)).to.be_true()
+      local ok1, r1 = coroutine.resume(co1)
+      local ok2, r2 = coroutine.resume(co2)
+      expect(ok1).to.be_true()
+      expect(r1).to.be_equal_to(1)
+      expect(ok2).to.be_true()
+      expect(r2).to.be_equal_to('s')
+    end)
+
+    it('should dispatch overloads with generic candidates and keep '
+      .. 'candidate scopes isolated', function()
+      local T = TypeVar('T')
+      local pairwise = Overload{
+        Signature{params={T, T}, returns={String}}
+            .. function(a, b) return 'same' end,
+        Signature{params={Integer, String}, returns={String}}
+            .. function(a, b) return 'mixed' end,
+      }
+      expect(pairwise(1, 2)).to.be_equal_to('same')
+      expect(pairwise('a', 'b')).to.be_equal_to('same')
+      -- The generic candidate rejects (1, 'x'); its partial binding
+      -- must not leak into the second candidate's check.
+      expect(pairwise(1, 'x')).to.be_equal_to('mixed')
+    end)
+
+    it('should correlate params and returns of the winning '
+      .. 'overload candidate', function()
+      local T = TypeVar('T')
+      local bad = Overload{
+        Signature{params={T}, returns={T}}
+            .. function(x) return 'wrong' end,
+      }
+      expect(pcall(bad, 1)).to.be_false()
+      expect(bad('wrong')).to.be_equal_to('wrong')
+    end)
+  end)
+
 end)
 
 if llx.main_file() then
