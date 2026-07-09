@@ -18,7 +18,7 @@ require 'llx.tests.test_functional_combinators'
 require 'llx.tests.test_functional_iterators'
 require 'llx.tests.test_string_utils'
 require 'llx.tests.test_table_utils'
-require 'llx.tests.test_set_utils'
+-- Set utilities removed - see types/test_set.lua for Set class tests
 require 'llx.tests.test_getclass'
 require 'llx.tests.test_hash'
 require 'llx.tests.test_mathx'
@@ -71,7 +71,9 @@ require 'llx.tests.collections.test_ordered_dict'
 require 'llx.tests.types.test_list'
 require 'llx.tests.types.test_list_methods'
 require 'llx.tests.types.test_matchers'
+require 'llx.tests.types.test_set'
 require 'llx.tests.types.test_string_view'
+require 'llx.tests.types.test_table'
 require 'llx.tests.types.test_type_checkers'
 
 -- bytecode/ tests (version-specific)
