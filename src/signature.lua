@@ -18,10 +18,12 @@ local Decorator = decorator.Decorator
 local InvalidArgumentException = exceptions.InvalidArgumentException
 local OverloadResolutionException =
     exceptions.OverloadResolutionException
+local ValueException = exceptions.ValueException
 local is_callable = core.is_callable
 local isinstance = isinstance_module.isinstance
 local enter_type_var_scope = matchers.enter_type_var_scope
 local exit_type_var_scope = matchers.exit_type_var_scope
+local is_rest = matchers.is_rest
 
 local function type_name_of(t)
   -- String type names (and the VARARG '...' marker) are their own
@@ -65,6 +67,13 @@ end
 -- as `retuns={Integer}` into rejected calls far from the mistake,
 -- while an unchecked list is still expressible explicitly as
 -- {'...'}.
+--
+-- A Rest(T) entry (llx.types.matchers) is likewise rejected here, at
+-- declaration time: Rest is the typed-tail marker for Tuple element
+-- lists and carries no __isinstance, so a params/returns position
+-- holding one could never match any value -- every call would fail
+-- far from the mistake (check_returns_exact also rejects it, as the
+-- call-time backstop for lists that bypass this constructor).
 local function check_signature_fields(name, args)
   if type(args) ~= 'table' then
     error(InvalidArgumentException(
@@ -72,10 +81,18 @@ local function check_signature_fields(name, args)
         .. '(params=..., returns=...), got ' .. type(args), 2))
   end
   for _, field in ipairs({'params', 'returns'}) do
-    if type(args[field]) ~= 'table' then
+    local type_list = args[field]
+    if type(type_list) ~= 'table' then
       error(InvalidArgumentException(
           field, name .. ": expected a list of type entries for '"
-          .. field .. "', got " .. type(args[field]), 2))
+          .. field .. "', got " .. type(type_list), 2))
+    end
+    for i = 1, #type_list do
+      if is_rest(type_list[i]) then
+        error(ValueException(
+            name .. ': Rest(T) is only valid inside Tuple; use a '
+            .. "trailing VARARG ('...') for variadic signatures", 2))
+      end
     end
   end
   return args

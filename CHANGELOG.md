@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A `Rest(T)` marker placed in a `Signature`/`Function` `params` or
+  `returns` list, or in a `Callable` parameter or return type list, now
+  raises `ValueException` at declaration/construction time ("Rest(T) is
+  only valid inside Tuple; use a trailing VARARG (`'...'`) for variadic
+  signatures") instead of being silently unsatisfiable. `Rest` has no
+  `__isinstance`, so such a position could never match any value.
+  `check_returns_exact` rejects it too, as the call-time backstop for
+  type lists that bypass those constructors. `Tuple{..., Rest(T)}`
+  is unchanged, and the new `is_rest(value)` predicate is exported
+  from `llx.types.matchers`. (#64)
 - `tostring` of a `Signature`-wrapped `Function` no longer raises
   "invalid value in table for concat" when `params` or `returns`
   contain matcher tables (e.g. `Integer`, `Optional(String)`); entries

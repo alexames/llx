@@ -206,6 +206,26 @@ describe('check_arguments', function()
       expect(err.what:find('must be the last entry', 1, true))
         .to_not.be_nil()
     end)
+
+    it('should error on a Rest(T) marker anywhere in the list',
+        function()
+      -- Rest(T) is the typed-tail marker for Tuple element lists;
+      -- it has no __isinstance, so a position holding one could
+      -- never match. It must fail loudly rather than silently.
+      local Rest = require 'llx.types.matchers' . Rest
+      for _, expected_types in ipairs({
+        {Rest(Integer)},
+        {Integer, Rest(Integer)},
+        {Rest(Integer), Integer},
+      }) do
+        local success, err = pcall(function()
+          check_returns_exact(expected_types, {1, 2}, 2)
+        end)
+        expect(success).to.be_false()
+        expect(err.what:find('Rest(T) is only valid inside Tuple',
+                             1, true)).to_not.be_nil()
+      end
+    end)
   end)
 
   describe('schema', function()

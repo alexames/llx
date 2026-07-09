@@ -259,10 +259,75 @@ local function set_of_type_check(element_type)
   })
 end
 
+-- Marker key identifying Rest(T) typed-tail wrappers, used by Tuple.
+-- A module-local table key cannot be forged (or observed) outside
+-- this module, so nothing else can accidentally look like a Rest.
+-- is_rest (exported below) is the public way to recognize one.
+local rest_mark = {}
+
+local function rest_type_check(element_type)
+  -- Rest(T): the typed variadic-tail marker for Tuple, the spelling
+  -- of mypy's `tuple[T, ...]` tail. Only meaningful as the *last*
+  -- entry of a Tuple element type list, where it declares that every
+  -- value beyond the fixed prefix must satisfy T. It is not a
+  -- standalone matcher (it has no __isinstance), so isinstance
+  -- against a bare Rest(T) is always false.
+  --
+  -- This is deliberately distinct from the bare VARARG ('...')
+  -- marker established by llx.check_arguments: VARARG is a plain
+  -- string (so it can appear in declared type lists without
+  -- colliding with class names) and means "unchecked tail", whereas
+  -- Rest(T) checks the tail. Making VARARG callable to support
+  -- VARARG(T) would change its type and break the string comparisons
+  -- Signature, Callable, and is_subtype rely on.
+  -- Falsy values are rejected outright (not just nil): no value can
+  -- ever satisfy `false` as a type, and a falsy element_type would
+  -- defeat the truthiness tests Tuple applies to the marker.
+  if not element_type then
+    error('Rest: expected an element type', 2)
+  end
+  return setmetatable({
+    [rest_mark] = true,
+
+    -- Expose the tail element type so callers can introspect.
+    element_type = element_type,
+  }, {
+    __tostring = function(self)
+      return '...' .. type_name_of(element_type)
+    end,
+  })
+end
+
+local function is_rest(entry)
+  return type(entry) == 'table' and rawget(entry, rest_mark) == true
+end
+
 -- Cached upvalue for the deferred require of llx.check_arguments
 -- (deferred to avoid a load-time cycle: llx.check_arguments depends,
 -- through llx.getclass, on llx.types and therefore on this module).
 local check_arguments_module = nil
+
+-- Cached upvalue for the deferred require of llx.exceptions
+-- (deferred to avoid load-time cycles; the exception hierarchy is
+-- only needed on the construction-error paths below).
+local exceptions_module = nil
+
+-- Raises ValueException when a Rest(T) marker appears in a declared
+-- type list that is not a Tuple element list. Rest carries no
+-- __isinstance, so a signature position holding one could never
+-- match any value; failing loudly at construction is the same policy
+-- Callable already applies to a non-trailing VARARG. `where` names
+-- the raising matcher in the message.
+local function reject_rest_entries(type_list, where)
+  for i = 1, #type_list do
+    if is_rest(type_list[i]) then
+      exceptions_module = exceptions_module or require 'llx.exceptions'
+      error(exceptions_module.ValueException(
+        where .. ': Rest(T) is only valid inside Tuple; use a '
+        .. "trailing VARARG ('...') for variadic signatures", 3))
+    end
+  end
+end
 
 local function callable_type_check(param_types, return_types, options)
   param_types = param_types or {}
@@ -303,6 +368,13 @@ local function callable_type_check(param_types, return_types, options)
         .. 'the return list', 2)
     end
   end
+  -- Rest(T) is a Tuple-only marker (it has no __isinstance), so a
+  -- parameter or return position holding one is silently
+  -- unsatisfiable; reject it anywhere in either list. A *typed*
+  -- variadic tail for signatures is a separate feature; the bare
+  -- VARARG marker is the supported (unchecked) spelling.
+  reject_rest_entries(param_types, 'Callable')
+  reject_rest_entries(return_types, 'Callable')
 
   local param_names = {}
   for i, t in ipairs(param_types) do param_names[i] = type_name_of(t) end
@@ -574,48 +646,6 @@ local function generator_type_check(contract)
   }, {
     __tostring = function(self) return self.__name end,
   })
-end
-
--- Marker key identifying Rest(T) typed-tail wrappers, used by Tuple.
--- A module-local table key cannot be forged (or observed) outside
--- this module, so nothing else can accidentally look like a Rest.
-local rest_mark = {}
-
-local function rest_type_check(element_type)
-  -- Rest(T): the typed variadic-tail marker for Tuple, the spelling
-  -- of mypy's `tuple[T, ...]` tail. Only meaningful as the *last*
-  -- entry of a Tuple element type list, where it declares that every
-  -- value beyond the fixed prefix must satisfy T. It is not a
-  -- standalone matcher (it has no __isinstance), so isinstance
-  -- against a bare Rest(T) is always false.
-  --
-  -- This is deliberately distinct from the bare VARARG ('...')
-  -- marker established by llx.check_arguments: VARARG is a plain
-  -- string (so it can appear in declared type lists without
-  -- colliding with class names) and means "unchecked tail", whereas
-  -- Rest(T) checks the tail. Making VARARG callable to support
-  -- VARARG(T) would change its type and break the string comparisons
-  -- Signature, Callable, and is_subtype rely on.
-  -- Falsy values are rejected outright (not just nil): no value can
-  -- ever satisfy `false` as a type, and a falsy element_type would
-  -- defeat the truthiness tests Tuple applies to the marker.
-  if not element_type then
-    error('Rest: expected an element type', 2)
-  end
-  return setmetatable({
-    [rest_mark] = true,
-
-    -- Expose the tail element type so callers can introspect.
-    element_type = element_type,
-  }, {
-    __tostring = function(self)
-      return '...' .. type_name_of(element_type)
-    end,
-  })
-end
-
-local function is_rest(entry)
-  return type(entry) == 'table' and rawget(entry, rest_mark) == true
 end
 
 local function tuple_type_check(element_types)
@@ -1516,9 +1546,10 @@ ClassOf=class_of_type_check
 Lazy=lazy_type_check
 resolve_lazy=resolve_lazy_matcher
 TypeVar=type_var_type_check
--- These three share their (local) implementation names, so the
--- exports go through _ENV explicitly (a bare assignment would just
--- write the local back to itself).
+-- These share their (local) implementation names, so the exports go
+-- through _ENV explicitly (a bare assignment would just write the
+-- local back to itself).
+_ENV.is_rest=is_rest
 _ENV.is_type_var=is_type_var
 _ENV.enter_type_var_scope=enter_type_var_scope
 _ENV.exit_type_var_scope=exit_type_var_scope
