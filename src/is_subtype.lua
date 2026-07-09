@@ -69,6 +69,18 @@ local function union_members(t)
   return nil
 end
 
+-- Overload sets (llx.signature.Overload) expose their declaration
+-- list as an `overloads` field on the instance; each member is a
+-- Signature-wrapped Function carrying `params`/`returns`. rawget
+-- keeps class proxies and inherited fields from producing false
+-- positives.
+local function overload_members(t)
+  if type(t) == 'table' then
+    return rawget(t, 'overloads')
+  end
+  return nil
+end
+
 --- Returns true when type `a` is a subtype of type `b`.
 --
 -- A value of type `a` can safely be used wherever a value of type `b`
@@ -225,11 +237,43 @@ end
 -- A non-trailing VARARG makes a signature malformed (its call-time
 -- check raises unconditionally), so it is compatible with nothing.
 --
+-- Overload sets (llx.signature.Overload, recognized by their
+-- `overloads` declaration list) participate with intersection-type
+-- semantics, mirroring mypy's treatment of @overload:
+--
+-- - An overloaded `sub` is compatible with `super` when *any* of its
+--   declarations is: a caller holding the `super` view picks one
+--   compatible declaration and the set dispatches at least as
+--   broadly.
+-- - An overloaded `super` requires `sub` to be compatible with
+--   *every* declaration: `super` promises all of them, so `sub` must
+--   honor each. (Checked first, so an overloaded `sub` must cover
+--   each `super` declaration with some -- not necessarily the same --
+--   declaration of its own.)
+--
 -- @param sub The candidate signature (used where `super` is expected)
 -- @param super The required signature
 -- @return True if `sub` is compatible with `super`, otherwise false
 function signature_compatible(sub, super)
   if type(sub) ~= 'table' or type(super) ~= 'table' then
+    return false
+  end
+  local super_overloads = overload_members(super)
+  if super_overloads then
+    for _, declaration in ipairs(super_overloads) do
+      if not signature_compatible(sub, declaration) then
+        return false
+      end
+    end
+    return true
+  end
+  local sub_overloads = overload_members(sub)
+  if sub_overloads then
+    for _, declaration in ipairs(sub_overloads) do
+      if signature_compatible(declaration, super) then
+        return true
+      end
+    end
     return false
   end
   local sub_params = sub.params or {}

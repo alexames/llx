@@ -7,6 +7,7 @@ return require 'llx.flatten_submodules' {
   require 'llx.exceptions.index_error',
   require 'llx.exceptions.invalid_argument_exception',
   require 'llx.exceptions.not_implemented_exception',
+  require 'llx.exceptions.overload_resolution_exception',
   require 'llx.exceptions.runtime_error',
   require 'llx.exceptions.schema_exception',
   require 'llx.exceptions.type_error',

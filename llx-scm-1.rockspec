@@ -107,6 +107,7 @@ build = {
       ["llx.exceptions.index_error"] = "src/exceptions/index_error.lua",
       ["llx.exceptions.invalid_argument_exception"] = "src/exceptions/invalid_argument_exception.lua",
       ["llx.exceptions.not_implemented_exception"] = "src/exceptions/not_implemented_exception.lua",
+      ["llx.exceptions.overload_resolution_exception"] = "src/exceptions/overload_resolution_exception.lua",
       ["llx.exceptions.runtime_error"] = "src/exceptions/runtime_error.lua",
       ["llx.exceptions.schema_exception"] = "src/exceptions/schema_exception.lua",
       ["llx.exceptions.type_error"] = "src/exceptions/type_error.lua",
