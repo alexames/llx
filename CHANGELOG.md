@@ -19,6 +19,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Note that methods receive `self`, so a method's `params` list must
   declare it (e.g. `params={'MyClass', Integer}`); `params={}` on a
   method now raises on every call. (#46)
+- **Breaking:** `Signature{...}` and `Function{...}` now validate their
+  field table at construction: `params` and `returns` must both be
+  tables, and a missing or non-table field raises
+  `InvalidArgumentException` naming the field instead of crashing later
+  inside the call-time checks with a raw "attempt to get length of a
+  nil value". Declare an empty list explicitly (`params={}`,
+  `returns={}`) or use `{'...'}` for an unchecked variadic list. (#63)
+
+### Fixed
+
+- `tostring` of a `Signature`-wrapped `Function` no longer raises
+  "invalid value in table for concat" when `params` or `returns`
+  contain matcher tables (e.g. `Integer`, `Optional(String)`); entries
+  are now rendered by type name, matching `Overload`'s signature
+  descriptions. (#63)
 
 ### Added
 

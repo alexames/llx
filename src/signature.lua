@@ -34,21 +34,51 @@ local function type_name_of(t)
   return t and (t.__name or tostring(t)) or 'nil'
 end
 
+-- Renders a list of declared type entries as 'Name1, Name2, ...'.
+-- Entries may be type matchers, classes, string type names, or the
+-- VARARG ('...') marker; each is mapped through type_name_of, so
+-- matcher tables never reach table.concat (which would raise on
+-- non-string, non-number elements).
+local function type_name_list(types)
+  local names = {}
+  for i, t in ipairs(types) do
+    names[i] = type_name_of(t)
+  end
+  return table.concat(names, ', ')
+end
+
 -- Compact one-line description of a declared signature, e.g.
 -- '(Integer, Integer) -> (Integer)'. Used by Overload's dispatch
--- failure message and __tostring; entries may be type matchers,
--- classes, string type names, or the VARARG ('...') marker.
+-- failure message and __tostring.
 local function describe_signature(fn)
-  local param_names = {}
-  for i, t in ipairs(fn.params) do
-    param_names[i] = type_name_of(t)
+  return '(' .. type_name_list(fn.params) .. ') -> ('
+      .. type_name_list(fn.returns) .. ')'
+end
+
+-- Shared constructor validation for Function and Signature: the
+-- field table must declare both `params` and `returns` as tables.
+-- A missing field raises here, at the declaration site, instead of
+-- surfacing later as a raw "attempt to get length of a nil value"
+-- inside check_returns_exact. Raising was chosen over normalizing
+-- an absent field to {} because {} already has a meaning ("exactly
+-- zero values"); silently defaulting to it would turn a typo such
+-- as `retuns={Integer}` into rejected calls far from the mistake,
+-- while an unchecked list is still expressible explicitly as
+-- {'...'}.
+local function check_signature_fields(name, args)
+  if type(args) ~= 'table' then
+    error(InvalidArgumentException(
+        1, name .. ': expected a table of signature fields '
+        .. '(params=..., returns=...), got ' .. type(args), 2))
   end
-  local return_names = {}
-  for i, t in ipairs(fn.returns) do
-    return_names[i] = type_name_of(t)
+  for _, field in ipairs({'params', 'returns'}) do
+    if type(args[field]) ~= 'table' then
+      error(InvalidArgumentException(
+          field, name .. ": expected a list of type entries for '"
+          .. field .. "', got " .. type(args[field]), 2))
+    end
   end
-  return '(' .. table.concat(param_names, ', ') .. ') -> ('
-      .. table.concat(return_names, ', ') .. ')'
+  return args
 end
 
 -- The typed-function wrapper produced by the Signature decorator.
@@ -56,7 +86,7 @@ end
 -- recognize wrapped functions and inspect their declared signature.
 Function = class 'Function' {
   __new = function(args)
-    return args
+    return check_signature_fields('Function', args)
   end,
 
   __call = function(self, ...)
@@ -112,13 +142,13 @@ Function = class 'Function' {
   func=function(...) --[[ ... ]] end,
 }]=]
     return function_format_str:format(
-      table.concat(self.params, ', '), table.concat(self.returns, ', '))
+      type_name_list(self.params), type_name_list(self.returns))
   end
 }
 
 Signature = class 'Signature' : extends(Decorator) {
   __new = function(args)
-    return args
+    return check_signature_fields('Signature', args)
   end,
 
   decorate = function(self, t, k, v)
