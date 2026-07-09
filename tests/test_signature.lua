@@ -141,7 +141,8 @@ describe('Signature', function()
     it('should error when the return type is wrong '
       .. '(postcondition fail)', function()
       local MyClass = class 'SigTestPostClass' {
-        ['bad_return' | Signature{params={}, returns={Integer}}] =
+        ['bad_return' | Signature{params={'SigTestPostClass'},
+                                   returns={Integer}}] =
         function(self)
           return 'this is a string'
         end,
@@ -151,9 +152,10 @@ describe('Signature', function()
       expect(success).to.be_false()
     end)
 
-    it('should pass with empty params and returns', function()
+    it('should pass a method with only self declared and no '
+      .. 'returns', function()
       local MyClass = class 'SigTestEmptyClass' {
-        ['noop' | Signature{params={}, returns={}}] =
+        ['noop' | Signature{params={'SigTestEmptyClass'}, returns={}}] =
         function(self)
           -- do nothing
         end,
@@ -163,9 +165,17 @@ describe('Signature', function()
       expect(success).to.be_true()
     end)
 
+    it('should pass with empty params and returns', function()
+      local sig = Signature{params={}, returns={}}
+      local _, _, wrapped = sig:decorate({}, 'f', function() end)
+      local success = pcall(function() wrapped() end)
+      expect(success).to.be_true()
+    end)
+
     it('should check multiple return values', function()
       local MyClass = class 'SigTestMultiRetClass' {
-        ['get_pair' | Signature{params={}, returns={Integer, String}}] =
+        ['get_pair' | Signature{params={'SigTestMultiRetClass'},
+                                 returns={Integer, String}}] =
         function(self)
           return 42, 'hello'
         end,
@@ -178,7 +188,8 @@ describe('Signature', function()
 
     it('should error when second return value has wrong type', function()
       local MyClass = class 'SigTestBadMultiRetClass' {
-        ['get_pair' | Signature{params={}, returns={Integer, String}}] =
+        ['get_pair' | Signature{params={'SigTestBadMultiRetClass'},
+                                 returns={Integer, String}}] =
         function(self)
           return 42, 99  -- second should be String
         end,
@@ -237,6 +248,128 @@ describe('Signature', function()
       expect(str:find('Function')).to_not.be_nil()
       expect(str:find('params')).to_not.be_nil()
       expect(str:find('returns')).to_not.be_nil()
+    end)
+  end)
+
+  describe('Function __call arity enforcement', function()
+    local function make_wrapped(params, returns, func)
+      local sig = Signature{params=params, returns=returns}
+      local _, _, wrapped = sig:decorate({}, 'f', func)
+      return wrapped
+    end
+
+    it('should pass a call with exactly the declared count', function()
+      local wrapped = make_wrapped(
+        {Integer}, {Integer}, function(n) return n + 1 end)
+      local success, result = pcall(function() return wrapped(1) end)
+      expect(success).to.be_true()
+      expect(result).to.be_equal_to(2)
+    end)
+
+    it('should error on a call with extra arguments', function()
+      local wrapped = make_wrapped(
+        {Integer}, {Integer}, function(n) return n end)
+      local success = pcall(function() wrapped(1, 'surprise', {}) end)
+      expect(success).to.be_false()
+    end)
+
+    it('should report the offending index and counts', function()
+      local wrapped = make_wrapped(
+        {Integer}, {Integer}, function(n) return n end)
+      local success, err = pcall(function() wrapped(1, 2) end)
+      expect(success).to.be_false()
+      expect(err.what:find('bad argument #2', 1, true)).to_not.be_nil()
+      expect(err.what:find('expected at most 1 value(s), got 2', 1, true))
+        .to_not.be_nil()
+    end)
+
+    it('should count embedded nil arguments as extra', function()
+      -- #-based counting would see one argument here; select('#')
+      -- style counting sees three.
+      local wrapped = make_wrapped(
+        {Integer}, {Integer}, function(n) return n end)
+      local success = pcall(function() wrapped(1, nil, nil) end)
+      expect(success).to.be_false()
+    end)
+
+    it('should error on extra arguments to a signature-annotated '
+      .. 'method', function()
+      local MyClass = class 'SigTestArityClass' {
+        ['add' | Signature{params={'SigTestArityClass', Integer, Integer},
+                            returns={Integer}}] =
+        function(self, a, b)
+          return a + b
+        end,
+      }
+      local obj = MyClass()
+      local success = pcall(function() obj:add(1, 2, 3) end)
+      expect(success).to.be_false()
+    end)
+
+    it('should error when extra return values are produced', function()
+      local wrapped = make_wrapped(
+        {}, {Integer}, function() return 1, 'extra' end)
+      local success = pcall(function() wrapped() end)
+      expect(success).to.be_false()
+    end)
+
+    it('should not treat missing optional trailing arguments as an '
+      .. 'arity error', function()
+      local Optional = require 'llx.types.matchers' . Optional
+      local wrapped = make_wrapped(
+        {Integer, Optional(Integer)}, {Integer},
+        function(a, b) return a + (b or 0) end)
+      local success, result = pcall(function() return wrapped(4) end)
+      expect(success).to.be_true()
+      expect(result).to.be_equal_to(4)
+    end)
+
+    it('should preserve declared nil return values', function()
+      local Optional = require 'llx.types.matchers' . Optional
+      local wrapped = make_wrapped(
+        {}, {Optional(Integer), Integer}, function() return nil, 5 end)
+      local a, b = wrapped()
+      expect(a).to.be_nil()
+      expect(b).to.be_equal_to(5)
+    end)
+
+    it('should accept plain list tables when the check methods are '
+      .. 'called directly', function()
+      local wrapped = make_wrapped(
+        {Integer}, {Integer}, function(n) return n end)
+      local ok = pcall(function() wrapped:check_preconditions({1}) end)
+      expect(ok).to.be_true()
+      local overfull =
+        pcall(function() wrapped:check_preconditions({1, 2}) end)
+      expect(overfull).to.be_false()
+    end)
+
+    it('should allow extra arguments with a trailing "..." in '
+      .. 'params', function()
+      local wrapped = make_wrapped(
+        {Integer, '...'}, {Integer}, function(n) return n end)
+      local success, result =
+        pcall(function() return wrapped(7, 'x', {}, false) end)
+      expect(success).to.be_true()
+      expect(result).to.be_equal_to(7)
+    end)
+
+    it('should still type-check the fixed prefix of a variadic '
+      .. 'signature', function()
+      local wrapped = make_wrapped(
+        {Integer, '...'}, {Integer}, function(n) return 1 end)
+      local success = pcall(function() wrapped('not_an_int', 'x') end)
+      expect(success).to.be_false()
+    end)
+
+    it('should allow extra return values with a trailing "..." in '
+      .. 'returns', function()
+      local wrapped = make_wrapped(
+        {}, {Integer, '...'}, function() return 1, 'extra', {} end)
+      local success, a, b = pcall(function() return wrapped() end)
+      expect(success).to.be_true()
+      expect(a).to.be_equal_to(1)
+      expect(b).to.be_equal_to('extra')
     end)
   end)
 

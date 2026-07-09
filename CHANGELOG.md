@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `Signature`-wrapped functions now enforce arity. Calls
+  with more arguments than declared in `params`, and results with more
+  values than declared in `returns`, raise `InvalidArgumentException`
+  instead of passing silently. Counts are exact (`table.pack`-based),
+  so embedded `nil`s are included. To declare a variadic signature, add
+  a trailing `'...'` entry to `params` or `returns`: the fixed prefix
+  is still type-checked and any number of extra values is allowed.
+  Note that methods receive `self`, so a method's `params` list must
+  declare it (e.g. `params={'MyClass', Integer}`); `params={}` on a
+  method now raises on every call. (#46)
+
+### Added
+
+- `check_returns_exact(expected_types, values, count)` and the
+  `VARARG` (`'...'`) marker in `llx.check_arguments`, reusable outside
+  the `Signature` wrapper.
+
 ## [1.0.0] - 2026-07-05
 
 First tagged release. Requires Lua 5.3 or later; no external runtime

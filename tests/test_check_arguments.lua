@@ -140,6 +140,74 @@ describe('check_arguments', function()
     end)
   end)
 
+  describe('check_returns_exact', function()
+    local check_returns_exact = check_arguments_module.check_returns_exact
+    local VARARG = check_arguments_module.VARARG
+
+    it('should export the VARARG marker', function()
+      expect(VARARG).to.be_equal_to('...')
+    end)
+
+    it('should pass with exactly the declared count', function()
+      local success = pcall(function()
+        check_returns_exact({Integer, String}, {1, 'a'}, 2)
+      end)
+      expect(success).to.be_true()
+    end)
+
+    it('should pass with fewer values when the types allow nil',
+        function()
+      local Optional = require 'llx.types.matchers' . Optional
+      local success = pcall(function()
+        check_returns_exact({Integer, Optional(Integer)}, {1}, 1)
+      end)
+      expect(success).to.be_true()
+    end)
+
+    it('should error when count exceeds the declared list', function()
+      local success, err = pcall(function()
+        check_returns_exact({Integer}, {1, 'extra'}, 2)
+      end)
+      expect(success).to.be_false()
+      expect(err.what:find('expected at most 1 value(s), got 2', 1, true))
+        .to_not.be_nil()
+    end)
+
+    it('should trust the explicit count over the table length',
+        function()
+      -- {1, nil, nil} has # == 1, but a caller counting with
+      -- select('#', ...) passes 3.
+      local success = pcall(function()
+        check_returns_exact({Integer}, {1, nil, nil}, 3)
+      end)
+      expect(success).to.be_false()
+    end)
+
+    it('should allow any count with a trailing VARARG marker', function()
+      local success = pcall(function()
+        check_returns_exact({Integer, VARARG}, {1, 'a', {}, false}, 4)
+      end)
+      expect(success).to.be_true()
+    end)
+
+    it('should still check the fixed prefix of a VARARG list', function()
+      local success = pcall(function()
+        check_returns_exact({Integer, VARARG}, {'bad', 'a'}, 2)
+      end)
+      expect(success).to.be_false()
+    end)
+
+    it('should error on a VARARG marker before the last entry',
+        function()
+      local success, err = pcall(function()
+        check_returns_exact({Integer, VARARG, Integer}, {1, 2, 3}, 3)
+      end)
+      expect(success).to.be_false()
+      expect(err.what:find('must be the last entry', 1, true))
+        .to_not.be_nil()
+    end)
+  end)
+
   describe('schema', function()
     it('should succeed with number schema and valid number', function()
       local schema = Schema{type=Number}
