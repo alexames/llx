@@ -317,16 +317,20 @@ local function callable_type_check(param_types, return_types, options)
       -- matcher's with the standard variance rules (parameters are
       -- contravariant, returns are covariant), including variadic
       -- declarations (a trailing '...'); see
-      -- llx.is_subtype.signature_compatible. Variance applies in both
-      -- lenient and strict mode: signature_compatible already enforces
-      -- sound arity rules, and strict's extra constraints exist for
-      -- raw functions, where no declared types are available. The
-      -- requires are deferred to avoid load-time cycles (llx.signature
-      -- and llx.is_subtype depend, indirectly, on llx.types) and
-      -- cached in upvalues.
+      -- llx.is_subtype.signature_compatible. Overload sets
+      -- (llx.signature.Overload) are compared the same way:
+      -- signature_compatible accepts the set when any of its
+      -- declarations is compatible with this matcher. Variance applies
+      -- in both lenient and strict mode: signature_compatible already
+      -- enforces sound arity rules, and strict's extra constraints
+      -- exist for raw functions, where no declared types are
+      -- available. The requires are deferred to avoid load-time cycles
+      -- (llx.signature and llx.is_subtype depend, indirectly, on
+      -- llx.types) and cached in upvalues.
       signature_module = signature_module or require 'llx.signature'
       if type(value) == 'table'
-          and isinstance(value, signature_module.Function) then
+          and (isinstance(value, signature_module.Function)
+               or isinstance(value, signature_module.Overload)) then
         subtype_module = subtype_module or require 'llx.is_subtype'
         return subtype_module.signature_compatible(value, self)
       end

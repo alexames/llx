@@ -20,16 +20,18 @@ function Function:__isinstance(value)
   if type(value) == 'function' then
     return true
   end
-  -- Signature-wrapped functions (llx.signature Function instances) are
-  -- callable tables that carry a declared signature; they are accepted
-  -- so that annotating a function with Signature does not make it fail
-  -- type checks it previously passed. Arbitrary tables with a __call
-  -- metamethod are still rejected.
+  -- Signature-wrapped functions (llx.signature Function instances)
+  -- and overload sets (llx.signature Overload instances) are callable
+  -- tables that carry declared signatures; they are accepted so that
+  -- annotating a function with Signature or Overload does not make it
+  -- fail type checks it previously passed. Arbitrary tables with a
+  -- __call metamethod are still rejected.
   if type(value) ~= 'table' then
     return false
   end
   signature_module = signature_module or require 'llx.signature'
   return isinstance(value, signature_module.Function)
+      or isinstance(value, signature_module.Overload)
 end
 
 local metatable = {}
