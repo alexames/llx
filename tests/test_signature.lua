@@ -55,6 +55,66 @@ describe('Signature', function()
     end)
   end)
 
+  describe('construction validation', function()
+    local exceptions = require 'llx.exceptions'
+    local InvalidArgumentException = exceptions.InvalidArgumentException
+    local Function = signature_module.Function
+
+    it('should raise a typed exception when params is missing',
+        function()
+      local ok, err = pcall(function()
+        return Signature{returns={}}
+      end)
+      expect(ok).to.be_false()
+      expect(isinstance(err, InvalidArgumentException)).to.be_true()
+      expect(err.what:find("'params'", 1, true)).to_not.be_nil()
+    end)
+
+    it('should raise a typed exception when returns is missing',
+        function()
+      local ok, err = pcall(function()
+        return Signature{params={Integer}}
+      end)
+      expect(ok).to.be_false()
+      expect(isinstance(err, InvalidArgumentException)).to.be_true()
+      expect(err.what:find("'returns'", 1, true)).to_not.be_nil()
+    end)
+
+    it('should raise a typed exception for an empty declaration',
+        function()
+      local ok, err = pcall(function() return Signature{} end)
+      expect(ok).to.be_false()
+      expect(isinstance(err, InvalidArgumentException)).to.be_true()
+    end)
+
+    it('should raise when Function is constructed without params '
+      .. 'or returns', function()
+      local ok, err = pcall(function()
+        return Function{func=function() end}
+      end)
+      expect(ok).to.be_false()
+      expect(isinstance(err, InvalidArgumentException)).to.be_true()
+      expect(err.what:find('Function', 1, true)).to_not.be_nil()
+    end)
+
+    it('should raise when a field is present but not a table',
+        function()
+      local ok, err = pcall(function()
+        return Signature{params='Integer', returns={}}
+      end)
+      expect(ok).to.be_false()
+      expect(isinstance(err, InvalidArgumentException)).to.be_true()
+      expect(err.what:find("'params'", 1, true)).to_not.be_nil()
+    end)
+
+    it('should accept explicit empty params and returns', function()
+      local ok = pcall(function()
+        return Signature{params={}, returns={}}
+      end)
+      expect(ok).to.be_true()
+    end)
+  end)
+
   describe('Signature decorate method', function()
     it('should wrap a function value into a Function object', function()
       local sig = Signature{params={}, returns={}}
@@ -233,6 +293,31 @@ describe('Signature', function()
       }
       local obj = MyClass()
       expect(obj.f.func).to.be_equal_to(original)
+    end)
+
+    it('should render matcher-typed params and returns in tostring '
+      .. 'by name', function()
+      -- Regression: table.concat over matcher tables used to raise
+      -- "invalid value in table for concat".
+      local Optional = require 'llx.types.matchers' . Optional
+      local optional_string = Optional(String)
+      local sig = Signature{params={Integer, optional_string},
+                            returns={optional_string}}
+      local _, _, wrapped = sig:decorate({}, 'f', function() end)
+      local ok, str = pcall(tostring, wrapped)
+      expect(ok).to.be_true()
+      expect(str:find('Integer', 1, true)).to_not.be_nil()
+      expect(str:find(optional_string.__name, 1, true)).to_not.be_nil()
+    end)
+
+    it('should render mixed string names, matchers, and the '
+      .. 'variadic marker in tostring', function()
+      local sig = Signature{params={'MyClass', Integer, '...'},
+                            returns={'...'}}
+      local _, _, wrapped = sig:decorate({}, 'f', function() end)
+      local str = tostring(wrapped)
+      expect(str:find('MyClass, Integer, ...', 1, true)).to_not.be_nil()
+      expect(str:find('returns={...}', 1, true)).to_not.be_nil()
     end)
 
     it('should have a tostring representation', function()
