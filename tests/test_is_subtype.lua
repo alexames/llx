@@ -6,6 +6,7 @@ local signature = require 'llx.signature'
 local is_subtype = require 'llx.is_subtype' . is_subtype
 local signature_compatible =
     require 'llx.is_subtype' . signature_compatible
+local VARARG = require 'llx.check_arguments' . VARARG
 
 local Any = matchers.Any
 local Union = matchers.Union
@@ -322,6 +323,129 @@ describe('signature_compatible', function()
     end)
   end)
 
+  describe('variadic parameters', function()
+    it('should accept a variadic sub whose checked prefix is '
+      .. 'covered by a fixed super', function()
+      expect(signature_compatible(
+          sig({Integer, VARARG}, {}),
+          sig({Integer, String}, {}))).to.be_true()
+    end)
+
+    it('should apply contravariance on the checked prefix', function()
+      expect(signature_compatible(
+          sig({Animal, VARARG}, {}),
+          sig({Cat, String}, {}))).to.be_true()
+      expect(signature_compatible(
+          sig({Cat, VARARG}, {}),
+          sig({Animal}, {}))).to.be_false()
+    end)
+
+    it('should reject a variadic sub whose checked prefix extends '
+      .. 'past the super parameter list', function()
+      expect(signature_compatible(
+          sig({Integer, String, VARARG}, {}),
+          sig({Integer}, {}))).to.be_false()
+    end)
+
+    it('should reject a fixed sub where a variadic super '
+      .. 'is expected', function()
+      expect(signature_compatible(
+          sig({Integer}, {}),
+          sig({Integer, VARARG}, {}))).to.be_false()
+      expect(signature_compatible(
+          sig({}, {}),
+          sig({VARARG}, {}))).to.be_false()
+    end)
+
+    it('should relate two variadic parameter lists by their '
+      .. 'checked prefixes', function()
+      expect(signature_compatible(
+          sig({Integer, VARARG}, {}),
+          sig({Integer, String, VARARG}, {}))).to.be_true()
+      expect(signature_compatible(
+          sig({Integer, String, VARARG}, {}),
+          sig({Integer, VARARG}, {}))).to.be_false()
+    end)
+
+    it('should accept an accepts-anything sub everywhere', function()
+      expect(signature_compatible(
+          sig({VARARG}, {}),
+          sig({Integer, String}, {}))).to.be_true()
+      expect(signature_compatible(
+          sig({VARARG}, {}),
+          sig({}, {}))).to.be_true()
+      expect(signature_compatible(
+          sig({VARARG}, {}),
+          sig({Integer, VARARG}, {}))).to.be_true()
+    end)
+
+    it('should accept identical variadic signatures', function()
+      expect(signature_compatible(
+          sig({Integer, VARARG}, {Integer}),
+          sig({Integer, VARARG}, {Integer}))).to.be_true()
+    end)
+  end)
+
+  describe('variadic returns', function()
+    it('should reject a variadic sub return list where a fixed '
+      .. 'super is expected', function()
+      expect(signature_compatible(
+          sig({}, {Integer, VARARG}),
+          sig({}, {Integer}))).to.be_false()
+      expect(signature_compatible(
+          sig({}, {VARARG}),
+          sig({}, {}))).to.be_false()
+    end)
+
+    it('should accept fixed sub returns covering a variadic '
+      .. 'super prefix', function()
+      expect(signature_compatible(
+          sig({}, {Integer, String}),
+          sig({}, {Integer, VARARG}))).to.be_true()
+    end)
+
+    it('should reject fixed sub returns shorter than a variadic '
+      .. 'super prefix', function()
+      expect(signature_compatible(
+          sig({}, {}),
+          sig({}, {Integer, VARARG}))).to.be_false()
+    end)
+
+    it('should apply covariance on the promised prefix', function()
+      expect(signature_compatible(
+          sig({}, {Cat, Dog}),
+          sig({}, {Animal, VARARG}))).to.be_true()
+      expect(signature_compatible(
+          sig({}, {Animal, Dog}),
+          sig({}, {Cat, VARARG}))).to.be_false()
+    end)
+
+    it('should relate two variadic return lists by their '
+      .. 'declared prefixes', function()
+      expect(signature_compatible(
+          sig({}, {Integer, String, VARARG}),
+          sig({}, {Integer, VARARG}))).to.be_true()
+      expect(signature_compatible(
+          sig({}, {Integer, VARARG}),
+          sig({}, {Integer, String, VARARG}))).to.be_false()
+    end)
+  end)
+
+  describe('malformed variadic declarations', function()
+    it('should treat a non-trailing VARARG as compatible '
+      .. 'with nothing', function()
+      expect(signature_compatible(
+          sig({VARARG, Integer}, {}),
+          sig({VARARG, Integer}, {}))).to.be_false()
+      expect(signature_compatible(
+          sig({Integer}, {}),
+          sig({VARARG, Integer}, {}))).to.be_false()
+      expect(signature_compatible(
+          sig({}, {VARARG, Integer}),
+          sig({}, {VARARG, Integer}))).to.be_false()
+    end)
+  end)
+
   describe('Callable integration', function()
     local function make_wrapped(params, returns)
       return signature.Function{
@@ -351,6 +475,31 @@ describe('signature_compatible', function()
       local wrapped = make_wrapped({Number}, {Integer})
       local C = Callable({Integer}, {Number})
       expect(C:__isinstance(wrapped)).to.be_true()
+    end)
+
+    it('should match a wrapped variadic function against a fixed '
+      .. 'Callable covering its prefix', function()
+      local wrapped = make_wrapped({String, VARARG}, {})
+      expect(isinstance(wrapped, Callable({String, Integer}, {})))
+        .to.be_true()
+      expect(isinstance(wrapped, Callable({Integer, Integer}, {})))
+        .to.be_false()
+    end)
+
+    it('should match a wrapped variadic function against a '
+      .. 'variadic Callable', function()
+      local wrapped = make_wrapped({String, VARARG}, {})
+      expect(isinstance(wrapped, Callable({String, VARARG}, {})))
+        .to.be_true()
+      expect(isinstance(wrapped, Callable({VARARG}, {})))
+        .to.be_false()
+    end)
+
+    it('should reject a wrapped fixed function against a '
+      .. 'variadic Callable', function()
+      local wrapped = make_wrapped({String}, {})
+      expect(isinstance(wrapped, Callable({String, VARARG}, {})))
+        .to.be_false()
     end)
   end)
 end)

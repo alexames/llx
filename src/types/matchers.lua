@@ -245,11 +245,50 @@ local function set_of_type_check(element_type)
   })
 end
 
+-- Cached upvalue for the deferred require of llx.check_arguments
+-- (deferred to avoid a load-time cycle: llx.check_arguments depends,
+-- through llx.getclass, on llx.types and therefore on this module).
+local check_arguments_module = nil
+
 local function callable_type_check(param_types, return_types, options)
   param_types = param_types or {}
   return_types = return_types or {}
   options = options or {}
   local strict = options.strict == true
+
+  -- A trailing VARARG ('...') entry in param_types declares that the
+  -- callable accepts arbitrary extra arguments beyond the fixed,
+  -- typed prefix, mirroring Signature's call-time semantics (see
+  -- llx.check_arguments). Signature-wrapped values are handled by
+  -- signature_compatible; the fixed prefix count computed here drives
+  -- the raw-function arity checks below. Note that
+  -- Callable({VARARG}, {R}) is not mypy's Callable[..., R] ("do not
+  -- check parameters"): it requires the matched function to itself
+  -- be declared variadic. An any-parameters escape hatch would be a
+  -- separate feature.
+  check_arguments_module =
+      check_arguments_module or require 'llx.check_arguments'
+  local vararg_marker = check_arguments_module.VARARG
+  local params_fixed = #param_types
+  local params_variadic = param_types[params_fixed] == vararg_marker
+  if params_variadic then
+    params_fixed = params_fixed - 1
+  end
+  -- A non-trailing VARARG can never be satisfied (check_returns_exact
+  -- raises for it at call time), so fail loudly at construction
+  -- rather than silently matching nothing.
+  for i = 1, params_fixed do
+    if param_types[i] == vararg_marker then
+      error("Callable: VARARG ('...') must be the last entry in "
+        .. 'the parameter list', 2)
+    end
+  end
+  for i = 1, #return_types - 1 do
+    if return_types[i] == vararg_marker then
+      error("Callable: VARARG ('...') must be the last entry in "
+        .. 'the return list', 2)
+    end
+  end
 
   local param_names = {}
   for i, t in ipairs(param_types) do param_names[i] = type_name_of(t) end
@@ -276,14 +315,15 @@ local function callable_type_check(param_types, return_types, options)
       -- Signature-wrapped functions declare their parameter and return
       -- types, so compare the declared signature against this
       -- matcher's with the standard variance rules (parameters are
-      -- contravariant, returns are covariant); see
+      -- contravariant, returns are covariant), including variadic
+      -- declarations (a trailing '...'); see
       -- llx.is_subtype.signature_compatible. Variance applies in both
-      -- lenient and strict mode: signature_compatible already requires
-      -- exact arity, and strict's extra constraints (exact arity, no
-      -- varargs) exist for raw functions, where no declared types are
-      -- available. The requires are deferred to avoid load-time cycles
-      -- (llx.signature and llx.is_subtype depend, indirectly, on
-      -- llx.types) and cached in upvalues.
+      -- lenient and strict mode: signature_compatible already enforces
+      -- sound arity rules, and strict's extra constraints exist for
+      -- raw functions, where no declared types are available. The
+      -- requires are deferred to avoid load-time cycles (llx.signature
+      -- and llx.is_subtype depend, indirectly, on llx.types) and
+      -- cached in upvalues.
       signature_module = signature_module or require 'llx.signature'
       if type(value) == 'table'
           and isinstance(value, signature_module.Function) then
@@ -295,14 +335,28 @@ local function callable_type_check(param_types, return_types, options)
       -- check is lenient: a vararg function can satisfy any parameter
       -- list, and a function declaring fewer parameters than the
       -- signature simply ignores the extra arguments (idiomatic Lua).
-      -- With options.strict, the declared arity must match exactly and
-      -- varargs are rejected. Note that debug.getinfo reports every C
-      -- function as vararg with nparams == 0, so lenient mode accepts
-      -- any C function and strict mode rejects them all.
+      -- A variadic parameter list (trailing '...') allows arbitrary
+      -- extras, so in lenient mode it removes the upper bound on the
+      -- declared arity and every function is accepted. With
+      -- options.strict, the declared shape must match exactly: for a
+      -- fixed list, exact arity and no varargs; for a variadic list,
+      -- the function must itself be vararg with exactly the fixed
+      -- prefix's parameter count. Note that debug.getinfo reports
+      -- every C function as vararg with nparams == 0, so lenient mode
+      -- accepts any C function and strict mode rejects them all --
+      -- except against Callable({'...'}, ...), whose declared shape a
+      -- C function matches exactly as far as the debug API can tell.
       if type(value) == 'function' then
         local info = debug.getinfo(value, 'u')
         if strict then
+          if params_variadic then
+            return info.isvararg == true
+               and info.nparams == params_fixed
+          end
           return not info.isvararg and info.nparams == #param_types
+        end
+        if params_variadic then
+          return true
         end
         return info.isvararg or info.nparams <= #param_types
       end
