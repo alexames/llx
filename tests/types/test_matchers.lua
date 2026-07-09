@@ -12,6 +12,7 @@ local SetOf = matchers.SetOf
 local Protocol = matchers.Protocol
 local Callable = matchers.Callable
 local Tuple = matchers.Tuple
+local Literal = matchers.Literal
 
 local TupleValue = require 'llx.tuple' . Tuple
 
@@ -925,6 +926,178 @@ describe('Callable', function()
         on_close = function(event) end,
       }, Handlers)).to.be_true()
       expect(isinstance({on_open = 'nope'}, Handlers)).to.be_false()
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Literal
+-- ---------------------------------------------------------------------------
+
+describe('Literal', function()
+  describe('__name', function()
+    it('should expose a Literal{...} name listing the values', function()
+      local L = Literal{'active', 'pending', 'closed'}
+      expect(L.__name)
+        .to.be_equal_to("Literal{'active', 'pending', 'closed'}")
+    end)
+
+    it('should render number and boolean values unquoted', function()
+      local L = Literal{1, 2.5, true}
+      expect(L.__name).to.be_equal_to('Literal{1, 2.5, true}')
+    end)
+
+    it('should be used as the tostring form', function()
+      local L = Literal{'a'}
+      expect(tostring(L)).to.be_equal_to("Literal{'a'}")
+    end)
+  end)
+
+  describe('values field', function()
+    it('should expose the allowed values', function()
+      local values = {'active', 'pending'}
+      local L = Literal(values)
+      expect(L.values).to.be_equal_to(values)
+    end)
+  end)
+
+  describe('construction-time validation', function()
+    it('should reject table values', function()
+      expect(function() Literal{{}} end)
+        .to.throw('Literal: values must be strings, numbers, or '
+          .. 'booleans; got table')
+    end)
+
+    it('should reject a table value mixed with valid values', function()
+      expect(function() Literal{'ok', {}} end).to.throw()
+    end)
+
+    it('should reject function values', function()
+      expect(function() Literal{function() end} end).to.throw()
+    end)
+
+    it('should reject an empty value list', function()
+      expect(function() Literal{} end)
+        .to.throw('Literal: expected at least one value')
+    end)
+
+    it('should reject a non-table argument', function()
+      expect(function() Literal('active') end)
+        .to.throw('Literal: expected a list of allowed values')
+    end)
+  end)
+
+  describe('__isinstance on strings', function()
+    it('should accept each allowed string', function()
+      local Status = Literal{'active', 'pending', 'closed'}
+      expect(Status:__isinstance('active')).to.be_true()
+      expect(Status:__isinstance('pending')).to.be_true()
+      expect(Status:__isinstance('closed')).to.be_true()
+    end)
+
+    it('should reject a string not in the allowed set', function()
+      local Status = Literal{'active', 'pending'}
+      expect(Status:__isinstance('archived')).to.be_false()
+    end)
+
+    it('should reject non-string values', function()
+      local Status = Literal{'active'}
+      expect(Status:__isinstance(42)).to.be_false()
+      expect(Status:__isinstance(true)).to.be_false()
+      expect(Status:__isinstance(nil)).to.be_false()
+      expect(Status:__isinstance({})).to.be_false()
+    end)
+  end)
+
+  describe('__isinstance on numbers', function()
+    it('should accept each allowed number', function()
+      local Level = Literal{1, 2, 3}
+      expect(Level:__isinstance(1)).to.be_true()
+      expect(Level:__isinstance(3)).to.be_true()
+    end)
+
+    it('should reject a number not in the allowed set', function()
+      local Level = Literal{1, 2, 3}
+      expect(Level:__isinstance(4)).to.be_false()
+      expect(Level:__isinstance(1.5)).to.be_false()
+    end)
+
+    it('should reject the string form of an allowed number', function()
+      local Level = Literal{1}
+      expect(Level:__isinstance('1')).to.be_false()
+    end)
+  end)
+
+  describe('__isinstance on booleans', function()
+    it('should accept an allowed boolean', function()
+      local OnlyTrue = Literal{true}
+      expect(OnlyTrue:__isinstance(true)).to.be_true()
+    end)
+
+    it('should reject the other boolean', function()
+      local OnlyTrue = Literal{true}
+      expect(OnlyTrue:__isinstance(false)).to.be_false()
+    end)
+
+    it('should reject nil for Literal{false}', function()
+      local OnlyFalse = Literal{false}
+      expect(OnlyFalse:__isinstance(false)).to.be_true()
+      expect(OnlyFalse:__isinstance(nil)).to.be_false()
+    end)
+  end)
+
+  describe('mixed value types', function()
+    it('should accept values of any allowed scalar type', function()
+      local Mixed = Literal{'auto', 0, false}
+      expect(Mixed:__isinstance('auto')).to.be_true()
+      expect(Mixed:__isinstance(0)).to.be_true()
+      expect(Mixed:__isinstance(false)).to.be_true()
+      expect(Mixed:__isinstance('manual')).to.be_false()
+      expect(Mixed:__isinstance(1)).to.be_false()
+      expect(Mixed:__isinstance(true)).to.be_false()
+    end)
+  end)
+
+  describe('isinstance integration', function()
+    it('should work as an isinstance target', function()
+      local Status = Literal{'active', 'pending'}
+      expect(isinstance('active', Status)).to.be_true()
+      expect(isinstance('archived', Status)).to.be_false()
+    end)
+  end)
+
+  describe('composition', function()
+    it('should compose inside Union', function()
+      local U = Union{Literal{'a'}, Literal{'b'}, Nil}
+      expect(isinstance('a', U)).to.be_true()
+      expect(isinstance('b', U)).to.be_true()
+      expect(isinstance(nil, U)).to.be_true()
+      expect(isinstance('c', U)).to.be_false()
+    end)
+
+    it('should compose inside Protocol as a tag field', function()
+      local Shape = Protocol{
+        kind = Literal{'circle', 'square'},
+        size = Number,
+      }
+      expect(isinstance({kind = 'circle', size = 1.0}, Shape))
+        .to.be_true()
+      expect(isinstance({kind = 'square', size = 2.0}, Shape))
+        .to.be_true()
+      expect(isinstance({kind = 'triangle', size = 3.0}, Shape))
+        .to.be_false()
+    end)
+
+    it('should compose inside Dict', function()
+      local D = Dict(String, Literal{'on', 'off'})
+      expect(isinstance({a = 'on', b = 'off'}, D)).to.be_true()
+      expect(isinstance({a = 'maybe'}, D)).to.be_false()
+    end)
+  end)
+
+  describe('top-level llx namespace', function()
+    it('should be exported as llx.Literal', function()
+      expect(llx.Literal).to.be_equal_to(Literal)
     end)
   end)
 end)

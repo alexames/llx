@@ -300,6 +300,51 @@ local function tuple_type_check(element_types)
   })
 end
 
+local function literal_type_check(value_list)
+  if type(value_list) ~= 'table' then
+    error('Literal: expected a list of allowed values', 2)
+  end
+  local value_names = {}
+  for i, allowed in ipairs(value_list) do
+    -- Only equality-comparable scalar values make sense as literals
+    -- (the same restriction Python's typing.Literal applies). Tables
+    -- are rejected because == on tables is identity (or a custom
+    -- __eq), which is rarely what a literal means.
+    local allowed_type = type(allowed)
+    if allowed_type ~= 'string' and allowed_type ~= 'number'
+        and allowed_type ~= 'boolean' then
+      error('Literal: values must be strings, numbers, or booleans; '
+        .. 'got ' .. allowed_type, 2)
+    end
+    if allowed_type == 'string' then
+      value_names[i] = "'" .. allowed .. "'"
+    else
+      value_names[i] = tostring(allowed)
+    end
+  end
+  if #value_names == 0 then
+    error('Literal: expected at least one value', 2)
+  end
+  local typename = 'Literal{' .. table.concat(value_names, ', ') .. '}'
+  return setmetatable({
+    __name = typename,
+
+    -- Expose the allowed values so callers can introspect.
+    values = value_list,
+
+    __isinstance = function(self, value)
+      for _, allowed in ipairs(value_list) do
+        if value == allowed then
+          return true
+        end
+      end
+      return false
+    end,
+  }, {
+    __tostring = function(self) return self.__name end,
+  })
+end
+
 Any=any_type_check()
 Union=union_type_check
 Optional=optional_type_check
@@ -309,5 +354,6 @@ SetOf=set_of_type_check
 Protocol=protocol_type_check
 Callable=callable_type_check
 Tuple=tuple_type_check
+Literal=literal_type_check
 
 return _M
