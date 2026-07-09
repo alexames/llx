@@ -104,24 +104,61 @@ local function protocol_type_check(fields)
   if type(fields) ~= 'table' then
     error('Protocol: expected a table of {name = type}', 3)
   end
+  -- Optional fields: absent and nil are indistinguishable in Lua, so
+  -- declaring a field as Optional(T) is the optional-field mechanism
+  -- (Python's NotRequired[T] collapses to Optional here). The check
+  -- below passes whether the key is missing or holds a T.
+  --
+  -- The __exact metafield closes the shape (TypedDict-style): in
+  -- exact mode the value may carry only declared fields, so unknown
+  -- (e.g. typo'd) keys are rejected. The __ prefix keeps the flag out
+  -- of the field namespace, matching metafield conventions.
+  local exact = fields.__exact
+  if exact ~= nil and type(exact) ~= 'boolean' then
+    -- A truthy non-boolean would otherwise be silently treated as
+    -- one mode or the other; fail loudly instead.
+    error('Protocol: __exact must be a boolean', 3)
+  end
+  exact = exact == true
+  -- Copy the declared fields, excluding the __exact flag, so the
+  -- exposed shape and the checks below see only real fields.
+  local declared = {}
+  for k, v in pairs(fields) do
+    if k ~= '__exact' then declared[k] = v end
+  end
   -- Capture field names for the type name; sort for stability.
   local field_names = {}
-  for k in pairs(fields) do field_names[#field_names + 1] = k end
+  for k in pairs(declared) do field_names[#field_names + 1] = k end
   table.sort(field_names, function(a, b)
     return tostring(a) < tostring(b)
   end)
+  -- Exactness is part of the matcher's identity, so it is encoded in
+  -- the name (which is_subtype falls back to when comparing matchers).
   local typename = 'Protocol{' .. table.concat(field_names, ', ') .. '}'
+                   .. (exact and ' exact' or '')
   return setmetatable({
     __name = typename,
 
     -- Expose the shape so callers can introspect.
-    fields = fields,
+    fields = declared,
+    exact = exact,
 
     __isinstance = function(self, value)
       if type(value) ~= 'table' then return false end
-      for field_name, expected_type in pairs(fields) do
+      for field_name, expected_type in pairs(declared) do
         if not isinstance(value[field_name], expected_type) then
           return false
+        end
+      end
+      if exact then
+        -- Closed shape: reject any key outside the declared field
+        -- set. Only raw keys are examined (iterating with next
+        -- bypasses __pairs and __index), so metatable-provided
+        -- fields do not count against the shape.
+        for key in next, value do
+          if declared[key] == nil then
+            return false
+          end
         end
       end
       return true

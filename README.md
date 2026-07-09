@@ -200,6 +200,25 @@ local UserShape = matchers.Protocol{
   age = llx.Integer,
 }
 
+-- Optional fields: absent and nil are indistinguishable in Lua, so
+-- Optional(T) is the optional-field mechanism (Python's NotRequired[T]
+-- collapses to Optional here). The shape below accepts values with or
+-- without an email field.
+local Contact = matchers.Protocol{
+  name = llx.String,
+  email = matchers.Optional(llx.String),
+}
+
+-- Closed shapes: __exact = true rejects keys not named in the shape
+-- (TypedDict-style; catches typo'd or extra fields). Only raw keys
+-- count; metatable-provided fields are ignored. The default Protocol
+-- stays open/structural.
+local Point = matchers.Protocol{
+  x = llx.Number,
+  y = llx.Number,
+  __exact = true,
+}
+
 -- Schema with constraints
 local Schema = llx.Schema
 local AgeSchema = Schema{
