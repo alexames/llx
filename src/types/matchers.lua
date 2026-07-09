@@ -14,6 +14,7 @@ local Table = require 'llx.types.table' . Table
 local Thread = require 'llx.types.thread' . Thread
 local Userdata = require 'llx.types.userdata' . Userdata
 local isinstance = require 'llx.isinstance' . isinstance
+local Set = require 'llx.types.set' . Set
 
 local is_callable = core.is_callable
 
@@ -135,6 +136,61 @@ local function dict_type_check(key_type, value_type)
   })
 end
 
+local function list_of_type_check(element_type)
+  local typename = 'ListOf<' .. type_name_of(element_type) .. '>'
+  return setmetatable({
+    __name = typename,
+
+    -- Expose the element type so callers can introspect.
+    element_type = element_type,
+
+    __isinstance = function(self, value)
+      -- Accept any array-like table: plain array tables and
+      -- llx.List instances alike (List stores its elements in the
+      -- array part, so ipairs works on both). Nominal checking is
+      -- already available via isinstance(value, List). Like Dict,
+      -- the check walks every element, so each isinstance call is
+      -- O(n) in the length of the list.
+      if type(value) ~= 'table' then return false end
+      for _, element in ipairs(value) do
+        if not isinstance(element, element_type) then
+          return false
+        end
+      end
+      return true
+    end,
+  }, {
+    __tostring = function(self) return self.__name end,
+  })
+end
+
+local function set_of_type_check(element_type)
+  local typename = 'SetOf<' .. type_name_of(element_type) .. '>'
+  return setmetatable({
+    __name = typename,
+
+    -- Expose the element type so callers can introspect.
+    element_type = element_type,
+
+    __isinstance = function(self, value)
+      -- Require an actual llx.Set instance; a plain table used as a
+      -- raw key-set can already be expressed as Dict(T, Boolean).
+      -- Iterating a Set (via its __pairs metamethod) yields
+      -- element -> true, so the elements are the keys. Like Dict,
+      -- each isinstance call is O(n) in the size of the set.
+      if not isinstance(value, Set) then return false end
+      for element in pairs(value) do
+        if not isinstance(element, element_type) then
+          return false
+        end
+      end
+      return true
+    end,
+  }, {
+    __tostring = function(self) return self.__name end,
+  })
+end
+
 local function callable_type_check(param_types, return_types, options)
   param_types = param_types or {}
   return_types = return_types or {}
@@ -248,6 +304,8 @@ Any=any_type_check()
 Union=union_type_check
 Optional=optional_type_check
 Dict=dict_type_check
+ListOf=list_of_type_check
+SetOf=set_of_type_check
 Protocol=protocol_type_check
 Callable=callable_type_check
 Tuple=tuple_type_check

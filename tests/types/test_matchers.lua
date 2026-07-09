@@ -7,6 +7,8 @@ local Any = matchers.Any
 local Union = matchers.Union
 local Optional = matchers.Optional
 local Dict = matchers.Dict
+local ListOf = matchers.ListOf
+local SetOf = matchers.SetOf
 local Protocol = matchers.Protocol
 local Callable = matchers.Callable
 local Tuple = matchers.Tuple
@@ -303,6 +305,187 @@ describe('Dict', function()
       expect(D.__name:find('Dict')).to_not.be_nil()
       expect(D.__name:find('String')).to_not.be_nil()
       expect(D.__name:find('Integer')).to_not.be_nil()
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- ListOf
+-- ---------------------------------------------------------------------------
+
+describe('ListOf', function()
+  describe('__name', function()
+    it('should expose a ListOf<T> name', function()
+      local L = ListOf(Integer)
+      expect(L.__name).to.be_equal_to('ListOf<Integer>')
+    end)
+
+    it('should be used as the tostring form', function()
+      local L = ListOf(String)
+      expect(tostring(L)).to.be_equal_to('ListOf<String>')
+    end)
+  end)
+
+  describe('element_type field', function()
+    it('should expose the element type', function()
+      local L = ListOf(Integer)
+      expect(L.element_type).to.be_equal_to(Integer)
+    end)
+  end)
+
+  describe('__isinstance on plain tables', function()
+    it('should accept an empty table', function()
+      local L = ListOf(Integer)
+      expect(L:__isinstance({})).to.be_true()
+    end)
+
+    it('should accept a homogeneous array', function()
+      local L = ListOf(Integer)
+      expect(L:__isinstance({1, 2, 3})).to.be_true()
+    end)
+
+    it('should reject an array with a single bad element', function()
+      local L = ListOf(Integer)
+      expect(L:__isinstance({1, 'two', 3})).to.be_false()
+    end)
+
+    it('should reject an array whose last element is bad', function()
+      local L = ListOf(Integer)
+      expect(L:__isinstance({1, 2, 3.5})).to.be_false()
+    end)
+
+    it('should reject non-table values', function()
+      local L = ListOf(Integer)
+      expect(L:__isinstance(42)).to.be_false()
+      expect(L:__isinstance('x')).to.be_false()
+      expect(L:__isinstance(nil)).to.be_false()
+      expect(L:__isinstance(true)).to.be_false()
+    end)
+
+    it('should ignore non-array keys (only ipairs elements '
+      .. 'are checked)', function()
+      local L = ListOf(Integer)
+      expect(L:__isinstance({1, 2, extra = 'ignored'})).to.be_true()
+    end)
+  end)
+
+  describe('__isinstance on llx.List values', function()
+    it('should accept a homogeneous List instance', function()
+      local L = ListOf(Integer)
+      expect(L:__isinstance(llx.List{1, 2, 3})).to.be_true()
+    end)
+
+    it('should accept an empty List instance', function()
+      local L = ListOf(Integer)
+      expect(L:__isinstance(llx.List{})).to.be_true()
+    end)
+
+    it('should reject a List instance with a bad element', function()
+      local L = ListOf(Integer)
+      expect(L:__isinstance(llx.List{1, 'two'})).to.be_false()
+    end)
+  end)
+
+  describe('nested composition', function()
+    it('should compose as ListOf(ListOf(Integer))', function()
+      local L = ListOf(ListOf(Integer))
+      expect(L:__isinstance({{1, 2}, {3}})).to.be_true()
+      expect(L:__isinstance({{1, 2}, {'x'}})).to.be_false()
+      expect(L:__isinstance({{}, {}})).to.be_true()
+    end)
+
+    it('should compose as Dict(String, ListOf(Number))', function()
+      local D = Dict(String, ListOf(Number))
+      expect(D:__isinstance({a = {1, 2.5}, b = {}})).to.be_true()
+      expect(D:__isinstance({a = {1, 'x'}})).to.be_false()
+    end)
+  end)
+
+  describe('isinstance integration', function()
+    it('should work as an isinstance target', function()
+      local L = ListOf(String)
+      expect(isinstance({'a', 'b'}, L)).to.be_true()
+      expect(isinstance({'a', 1}, L)).to.be_false()
+      expect(isinstance('not a table', L)).to.be_false()
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- SetOf
+-- ---------------------------------------------------------------------------
+
+describe('SetOf', function()
+  describe('__name', function()
+    it('should expose a SetOf<T> name', function()
+      local S = SetOf(Integer)
+      expect(S.__name).to.be_equal_to('SetOf<Integer>')
+    end)
+
+    it('should be used as the tostring form', function()
+      local S = SetOf(String)
+      expect(tostring(S)).to.be_equal_to('SetOf<String>')
+    end)
+  end)
+
+  describe('element_type field', function()
+    it('should expose the element type', function()
+      local S = SetOf(String)
+      expect(S.element_type).to.be_equal_to(String)
+    end)
+  end)
+
+  describe('__isinstance', function()
+    it('should accept an empty Set', function()
+      local S = SetOf(Integer)
+      expect(S:__isinstance(llx.Set{})).to.be_true()
+    end)
+
+    it('should accept a homogeneous Set', function()
+      local S = SetOf(Integer)
+      expect(S:__isinstance(llx.Set{1, 2, 3})).to.be_true()
+    end)
+
+    it('should reject a Set with a single bad element', function()
+      local S = SetOf(Integer)
+      expect(S:__isinstance(llx.Set{1, 'two', 3})).to.be_false()
+    end)
+
+    it('should reject a plain table, even a set-shaped one', function()
+      local S = SetOf(Integer)
+      expect(S:__isinstance({[1] = true, [2] = true})).to.be_false()
+      expect(S:__isinstance({})).to.be_false()
+    end)
+
+    it('should reject non-table values', function()
+      local S = SetOf(Integer)
+      expect(S:__isinstance(42)).to.be_false()
+      expect(S:__isinstance('x')).to.be_false()
+      expect(S:__isinstance(nil)).to.be_false()
+      expect(S:__isinstance(true)).to.be_false()
+    end)
+  end)
+
+  describe('nested composition', function()
+    it('should compose as ListOf(SetOf(Integer))', function()
+      local L = ListOf(SetOf(Integer))
+      expect(L:__isinstance({llx.Set{1}, llx.Set{2, 3}})).to.be_true()
+      expect(L:__isinstance({llx.Set{1}, llx.Set{'x'}})).to.be_false()
+    end)
+
+    it('should compose as Dict(String, SetOf(String))', function()
+      local D = Dict(String, SetOf(String))
+      expect(D:__isinstance({tags = llx.Set{'a', 'b'}})).to.be_true()
+      expect(D:__isinstance({tags = llx.Set{1}})).to.be_false()
+    end)
+  end)
+
+  describe('isinstance integration', function()
+    it('should work as an isinstance target', function()
+      local S = SetOf(String)
+      expect(isinstance(llx.Set{'a', 'b'}, S)).to.be_true()
+      expect(isinstance(llx.Set{'a', 1}, S)).to.be_false()
+      expect(isinstance({'a'}, S)).to.be_false()
     end)
   end)
 end)
