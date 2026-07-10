@@ -12,18 +12,23 @@
 ---@field isinstance fun(value: any, type_checker: any): boolean
 ---@field is_subtype fun(a: any, b: any): boolean
 ---@field signature_compatible fun(sub: table, super: table): boolean
+---@field generator_compatible fun(sub: table, super: table): boolean
 ---@field Schema fun(schema: table): llx.Schema
 ---@field matches_schema fun(schema: llx.Schema, value: any, nothrow?: boolean): boolean, llx.Exception?
 ---@field enum fun(name: string): fun(t: table): table
 ---@field repr fun(value: any): string
 ---@field tointeger fun(value: any): integer?
 ---@field tostringf fun(formatter: any, ...: any): string
----@field strict any
----@field string_view fun(s: string, start?: integer, len?: integer): llx.StringView
+---@field lock_global_table fun(): table
 ---@field cast fun(value: any, type_checker: any): any
 ---@field try_cast fun(value: any, type_checker: any): llx.Result
 ---@field check_arguments fun(...): nil
+---@field check_returns fun(expected_types: table, return_values: table): nil
+---@field check_returns_exact fun(expected_types: table, return_values: table, count?: integer): nil
+---@field VARARG string
 ---@field getclass fun(value: any): table?
+---@field describe_value fun(value: any): string
+---@field is_class_object fun(value: any): boolean
 ---@field main_file fun(): boolean
 -- Type checkers (flattened from llx.types)
 ---@field Boolean any
@@ -37,13 +42,29 @@
 ---@field Userdata any
 ---@field Function any
 ---@field Any any
+---@field Never any
 ---@field Union fun(types: table): any
 ---@field Optional fun(t: any): any
 ---@field Dict fun(key_type: any, value_type: any): any
+---@field ListOf fun(element_type: any): any
+---@field SetOf fun(element_type: any): any
 ---@field Protocol fun(fields: table<string, any>): any
+---@field Callable fun(param_types: table, return_types?: table, options?: table): any
+---@field Iterator fun(...: any): any
+---@field Generator fun(contract?: table): any
+---@field Literal fun(values: table): any
+---@field NewType fun(name: string, base_type: any): any
+---@field ClassOf fun(class_object?: table): any
+---@field TypeVar fun(name: string, opts?: table): any
+---@field is_type_var fun(value: any): boolean
+---@field enter_type_var_scope fun(scope?: table): table
+---@field exit_type_var_scope fun()
 ---@field Rest fun(element_type: any): any
+---@field is_rest fun(value: any): boolean
 ---@field Lazy fun(thunk: fun(): any): any
 ---@field resolve_lazy fun(t: any): any
+-- Note: the Tuple *matcher* is not flattened (llx.Tuple is the value
+-- class); reach it via require 'llx.types.matchers'.
 -- Value-type classes (flattened from llx.types, llx.string_view,
 -- llx.seq, llx.tuple, llx.hash_table)
 ---@field List llx.List
@@ -86,8 +107,10 @@
 ---@field pretty llx.pretty
 ---@field property any
 ---@field proxy any
+---@field signature any
 ---@field truthy any
 ---@field type_check_decorator any
+---@field typed_iterators any
 ---@field bytecode any
 local llx = {}
 

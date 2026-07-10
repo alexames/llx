@@ -68,6 +68,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   string catcher in `try`/`catch` (`catch('TypeError', ...)` --
   pass the exception class itself), a non-type `type_switch` case,
   or a non-type `Schema` `type` field. (#67)
+- `signature_compatible` (and therefore the `Callable` matcher) now
+  understands variadic declarations: a trailing `'...'` in a
+  parameter or return list participates soundly in the variance
+  rules. On the parameter side a variadic function can stand in for
+  a fixed signature that covers its checked prefix, but a fixed
+  function cannot stand in for a variadic one; the return side
+  mirrors this (a fixed return list satisfies a variadic
+  expectation, while a variadic return list cannot satisfy a fixed
+  one). (#52)
 - Argument and return mismatch messages now describe class instances
   and class objects explicitly: "Integer expected, got an instance of
   Animal" (previously the bare class name "Animal", ambiguous between
@@ -81,6 +90,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `isinstance(wrapped, llx.Function)` (the `types.Function` type
+  singleton) now accepts `Signature`-wrapped functions. Annotating a
+  function with `Signature` replaces it with a callable table, so
+  `Protocol` shapes and `check_arguments` declarations expecting
+  `Function` previously rejected signature-annotated members.
+  Arbitrary tables with a `__call` metamethod are still rejected.
+  (#34)
+- `tostring(llx.Boolean)` now returns `'Boolean'` instead of a raw
+  table address: the type singleton declared `__tostring` (and
+  `__call`) but never installed them in a metatable, which broke any
+  matcher embedding `Boolean` in its construction-time name (e.g.
+  `Union{Integer, Boolean}`). (#54)
+- Matcher type names no longer conflate string-typed entries: the
+  matchers' internal name rendering previously sent string type names
+  (including the `'...'` marker) through the extended string
+  library's `__name`, displaying them all as `String`, which could
+  conflate distinct `Callable` matcher names under `is_subtype`'s
+  name-equality fallback. (#55)
 - The aggregate test runner `lua test.lua` now works from a source
   checkout. It previously required `llx.tests`, which the rockspec
   never installs and nothing mapped to the local `tests/` tree, so
@@ -149,6 +176,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `check_returns_exact(expected_types, values, count)` and the
   `VARARG` (`'...'`) marker in `llx.check_arguments`, reusable outside
   the `Signature` wrapper.
+- `Callable(params, returns, opts)` matcher: the runtime analog of
+  Python's `Callable[[A, B], R]`. Signature-wrapped functions are
+  matched against their declared types with the standard variance
+  rules (parameters contravariant, returns covariant); raw functions
+  fall back to arity checking, lenient by default and exact with
+  `{strict = true}`. (#25)
+- `is_subtype(a, b)` and `signature_compatible(sub, super)` in the
+  new `llx.is_subtype` module, both flattened to the root: the
+  type-level subtype relation (reflexivity, `Any` as top type,
+  numeric widening, union member/whole rules, and transitive class
+  inheritance) and the function-signature variance relation built on
+  it. (#26)
+- `Tuple` matcher for fixed-shape positional tables, the runtime
+  analog of `tuple[A, B]`. Reachable via
+  `require('llx.types.matchers').Tuple` only: the root-level
+  `llx.Tuple` name is owned by the value class. (#27)
+- `ListOf(T)` and `SetOf(T)` matchers for homogeneous `llx.List` (or
+  list-shaped table) and `llx.Set` contents. (#28)
+- `Literal{...}` matcher accepting an explicit list of scalar values
+  (strings, numbers, booleans), the runtime analog of
+  `typing.Literal`. (#29)
+- `Never` matcher: the bottom type that matches no value, useful as
+  an explicit "unreachable" annotation and as the identity for
+  `Union`. (#30)
+- `Protocol` optional fields and closed shapes: wrap a field type in
+  `Optional(T)` to make the key optional, and set `__exact = true`
+  to reject keys not named in the shape (TypedDict-style). (#31)
+- `NewType(name, base)` branded types, the runtime analog of Python's
+  `NewType`: the constructor validates against the base type and
+  brands the value; brands are distinct from each other and from the
+  raw base, while `is_subtype(Brand, base)` still holds. Wrappers
+  forward operators to the underlying value; unwrap with `:get()`.
+  (#32)
+- `cast(value, T)` and `try_cast(value, T)` checked casts in the new
+  `llx.cast` module, flattened to the root: `cast` returns the value
+  unchanged or raises `TypeError`; `try_cast` returns
+  `Ok(value)`/`Err(TypeError)` via `llx.result`. (#33)
+- `TypeVar(name, opts)` generic type variables with per-call,
+  first-witness binding inside `Signature`/`Overload`-checked calls;
+  `opts.bound` constrains admissible values. Outside a checked call a
+  TypeVar matches anything satisfying its bound. (#49)
+- `ClassOf(C)` matcher for class objects themselves (the runtime
+  analog of `type[C]`): matches `C` or any transitive subclass, never
+  an instance; `ClassOf()` matches any class. (#50)
+- `Rest(T)` markers and variadic `Tuple` shapes: `Tuple{A, Rest(T)}`
+  types a homogeneous checked tail (the analog of `tuple[T, ...]`),
+  and a trailing `'...'` declares an unchecked tail, mirroring the
+  signature convention. (#51)
+- `Overload{...}`: an ordered overload set of signature-bound
+  functions with first-match-wins dispatch, the runtime analog of
+  `@overload`. Built on the new binding operator
+  `Signature{...} .. fn`, which wraps a function outside the
+  class-decorator syntax. When no candidate accepts a call, the new
+  `OverloadResolutionException` (an `ExceptionGroup`) lists every
+  candidate with its rejection reason. `Callable` and
+  `signature_compatible` treat an overload set as compatible when any
+  declaration is. (#53)
+- `Lazy(thunk)` matcher for recursive and forward type references:
+  the thunk resolves on first use and the result is cached;
+  self-referential resolution chains raise instead of overflowing the
+  stack. `resolve_lazy(matcher)` forces one explicitly, `is_subtype`
+  sees through Lazy, and `Schema` `type` fields accept Lazy matchers
+  so schemas can be recursive. (#54)
+- Typed iterators and coroutine generators: `Iterator(T, ...)` and
+  `Generator{yields=, accepts=, returns=}` matchers (the runtime
+  analogs of `Iterator[T]` and `Generator[Y, S, R]`), plus the new
+  `llx.typed_iterators` module whose `Yields{...} .. fn` and
+  `Generates{...} .. body` wrappers opt in to per-step boundary
+  checking of yields, sends, and returns. The generator variance
+  relation `generator_compatible(sub, super)` (yields/returns
+  covariant, accepts contravariant) is exported from
+  `llx.is_subtype`. (#55)
 
 ## [1.0.0] - 2026-07-05
 

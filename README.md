@@ -200,6 +200,31 @@ local UserShape = matchers.Protocol{
   age = llx.Integer,
 }
 
+-- Exact values, homogeneous containers, fixed-shape tuples.
+local Direction = matchers.Literal{'north', 'south', 'east', 'west'}
+llx.isinstance('north', Direction)         --> true
+llx.isinstance('up', Direction)            --> false
+
+local Ints = matchers.ListOf(llx.Integer)  -- List or list-shaped table
+local Tags = matchers.SetOf(llx.String)    -- llx.Set instances only
+llx.isinstance({1, 2, 3}, Ints)            --> true
+llx.isinstance(llx.Set{'a', 'b'}, Tags)    --> true
+
+-- The Tuple *matcher* types fixed positional shapes (plain array
+-- tables and llx.Tuple values alike). It shares its name with the
+-- llx.Tuple value class, which owns the top-level name, so the
+-- matcher is only reachable via llx.types.matchers.
+local Pair = matchers.Tuple{llx.String, llx.Integer}
+llx.isinstance({'age', 30}, Pair)          --> true
+
+-- Variadic tails: Rest(T) is a checked homogeneous tail (the analog
+-- of tuple[T, ...]); a bare trailing '...' is an unchecked tail.
+local Row = matchers.Tuple{llx.String, matchers.Rest(llx.Number)}
+llx.isinstance({'temps', 20.5, 21.0}, Row) --> true
+
+-- Never is the bottom type: it matches nothing (Any matches all).
+llx.isinstance(42, matchers.Never)         --> false
+
 -- Optional fields: absent and nil are indistinguishable in Lua, so
 -- Optional(T) is the optional-field mechanism (Python's NotRequired[T]
 -- collapses to Optional here). The shape below accepts values with or
@@ -232,7 +257,7 @@ local id = UserId(42)
 llx.isinstance(id, UserId)   --> true
 llx.isinstance(id, OrderId)  --> false
 llx.isinstance(42, UserId)   --> false (raw values are unbranded)
-id + 1                       --> 43
+print(id + 1)                --> 43
 id:get()                     --> 42
 
 -- Class objects: ClassOf(C) matches a class itself (the runtime
@@ -265,6 +290,18 @@ llx.isinstance({name = 'llx', tags = {'lua', 'types'}}, Json) --> true
 -- overflowing the stack. is_subtype sees through Lazy by forcing
 -- it; resolve_lazy(matcher) forces one explicitly.
 
+-- Checked casts: cast returns the value unchanged or raises
+-- TypeError; try_cast returns Ok(value) / Err(TypeError) instead.
+local count = llx.cast(42, llx.Integer)    --> 42
+local res = llx.try_cast('x', llx.Integer)
+res:is_err()                               --> true
+
+-- Type-level relations: is_subtype(A, B) asks whether a value of
+-- type A can be used where B is expected.
+llx.is_subtype(llx.Integer, llx.Number)    --> true
+llx.is_subtype(llx.Integer, NumberOrString) --> true
+llx.is_subtype(llx.Number, llx.Integer)    --> false
+
 -- Schema with constraints
 local Schema = llx.Schema
 local AgeSchema = Schema{
@@ -289,6 +326,98 @@ local EvenInt = Schema{
   type = llx.Integer,
   predicate = function(n) return n % 2 == 0 end,
 }
+```
+
+### Typed functions, overloads, and typed iterators
+
+Opt-in runtime enforcement of function signatures, with a
+variance-aware `Callable` matcher, generics via `TypeVar`, overload
+dispatch, and typed iterators/generators. `llx.signature` and
+`llx.typed_iterators` are named submodules on the root.
+[examples/09_typed_functions.lua](examples/09_typed_functions.lua) is
+a runnable tour of signatures, `Callable`, and the variance rules.
+
+```lua
+local matchers = require 'llx.types.matchers'
+local Signature = llx.signature.Signature
+local Overload = llx.signature.Overload
+
+-- Signature declares argument and return types on a method via the
+-- `'name' | Signature{...}` decorator. Types *and* arity are
+-- enforced: wrong types, extra arguments, and extra return values
+-- all raise. Methods receive self, so the receiving class is
+-- declared first (by name, as a string).
+local Greeter = llx.class 'Greeter' {
+  ['greet' | Signature{params={'Greeter', llx.String, llx.Integer},
+                       returns={llx.String}}] =
+  function(self, name, times)
+    return string.rep('hi ' .. name .. '! ', times)
+  end,
+}
+Greeter():greet('ada', 2)         --> hi ada! hi ada!
+-- Greeter():greet('ada', 'two') --> raises: Integer expected
+-- A trailing '...' in params or returns makes the signature
+-- variadic: the fixed prefix is checked, the tail is unchecked.
+
+-- Outside a class, bind a signature with the .. operator.
+local halve = Signature{params={llx.Number}, returns={llx.Number}}
+    .. function(n) return n / 2 end
+halve(9)                          --> 4.5
+
+-- Callable is the *type* of functions, the runtime analog of
+-- Callable[[A, B], R]. Signature-wrapped functions match by their
+-- declared types under the variance rules (parameters
+-- contravariant, returns covariant); raw functions fall back to a
+-- lenient arity check ({strict = true} for exact arity).
+local NumToNum = matchers.Callable({llx.Number}, {llx.Number})
+llx.isinstance(halve, NumToNum)   --> true
+
+-- signature_compatible is the underlying variance relation: a
+-- handler accepting more and returning something more specific is
+-- usable where a narrower one is expected.
+llx.signature_compatible(
+  {params = {llx.Number}, returns = {llx.Integer}},
+  {params = {llx.Integer}, returns = {llx.Number}})  --> true
+
+-- TypeVar: generic type variables with per-call binding. Every
+-- position naming T within one checked call must be consistent.
+local T = matchers.TypeVar('T')
+local first = Signature{params={matchers.ListOf(T)}, returns={T}}
+    .. function(xs) return xs[1] end
+first({1, 2, 3})                  --> 1 (T bound to Integer)
+
+-- Overload: several signatures on one callable value, dispatched
+-- first-match-wins (declare the most specific first). When no
+-- candidate accepts a call, OverloadResolutionException lists every
+-- candidate with its rejection reason.
+local describe = Overload{
+  Signature{params={llx.Integer}, returns={llx.String}}
+      .. function(n) return 'int ' .. n end,
+  Signature{params={llx.String}, returns={llx.String}}
+      .. function(s) return 'str ' .. s end,
+}
+describe(42)                      --> int 42
+describe('x')                     --> str x
+
+-- Typed iterators: Iterator/Generator are the matchers; the
+-- Yields/Generates wrappers in llx.typed_iterators opt in to
+-- per-step checking of yields, sends, and returns.
+local i = 0
+local count3 = llx.typed_iterators.Yields{llx.Integer} .. function()
+  i = i + 1
+  if i <= 3 then return i end
+end
+for v in count3 do print(v) end   --> 1  2  3
+llx.isinstance(count3, matchers.Iterator(llx.Integer))  --> true
+
+-- Generates{yields=, accepts=, returns=} is the typed sibling of
+-- coroutine.wrap: yields out, explicit sends in, and final returns
+-- are all checked at the boundary.
+local gen = llx.typed_iterators.Generates{yields = {llx.Integer}}
+    .. function(n)
+  for j = 1, n do coroutine.yield(j) end
+end
+for v in gen(2) do print(v) end   --> 1  2
 ```
 
 ### Structured exceptions
@@ -534,8 +663,11 @@ llx uses two patterns for sub-module exposure:
   `llx.StringView`. These are the most-used named types.
 - **Named sub-modules** like `llx.functional`, `llx.mathx`,
   `llx.bisect`, `llx.path`, `llx.pretty`, `llx.contextlib`,
-  `llx.exceptions`, `llx.flow_control`. These hold related functions
-  rather than a single class.
+  `llx.exceptions`, `llx.flow_control`, `llx.signature`,
+  `llx.typed_iterators`. These hold related functions rather than a
+  single class. (`llx.signature` stays a namespace rather than being
+  flattened because `llx.signature.Function` would collide with the
+  root-level `Function` type from `llx.types`.)
 
 ### Callback shapes
 
