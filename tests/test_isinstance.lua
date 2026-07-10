@@ -147,16 +147,49 @@ describe('isinstance', function()
     end)
   end)
 
-  describe('with types lacking __isinstance', function()
-    it('should return false when the type table has no __isinstance', function()
-      local fake_type = {}
-      expect(isinstance('hello', fake_type)).to.be_false()
+  describe('with non-matcher type arguments', function()
+    -- The type argument must be a matcher or class carrying
+    -- __isinstance; anything else raises a clear
+    -- InvalidArgumentException naming argument #2 instead of failing
+    -- with an obscure index error (numbers, nil) or silently
+    -- returning false (strings, tables without __isinstance).
+    local InvalidArgumentException =
+        llx.exceptions.InvalidArgumentException
+
+    local function expect_bad_type_error(value, bad_type)
+      local ok, err = pcall(isinstance, value, bad_type)
+      expect(ok).to.be_false()
+      expect(isinstance(err, InvalidArgumentException)).to.be_true()
+      expect(err.what:find('bad argument #2', 1, true)).to_not.be_nil()
+      expect(err.what:find(
+          'expected a type matcher or class with __isinstance',
+          1, true)).to_not.be_nil()
+    end
+
+    it('should raise when the type table has no __isinstance', function()
+      expect_bad_type_error('hello', {})
     end)
 
-    it('should return false for a number against a type '
-      .. 'with no __isinstance', function()
-      local fake_type = { __name = 'FakeType' }
-      expect(isinstance(42, fake_type)).to.be_false()
+    it('should raise for a type table with a name '
+      .. 'but no __isinstance', function()
+      expect_bad_type_error(42, { __name = 'FakeType' })
+    end)
+
+    it('should raise for a string type argument, naming it', function()
+      local ok, err = pcall(isinstance, 42, 'MyClass')
+      expect(ok).to.be_false()
+      expect(err.what:find("got string 'MyClass'", 1, true))
+          .to_not.be_nil()
+    end)
+
+    it('should raise for a number type argument, naming it', function()
+      local ok, err = pcall(isinstance, 42, 5)
+      expect(ok).to.be_false()
+      expect(err.what:find('got number 5', 1, true)).to_not.be_nil()
+    end)
+
+    it('should raise for a nil type argument', function()
+      expect_bad_type_error(42, nil)
     end)
   end)
 

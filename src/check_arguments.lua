@@ -19,6 +19,26 @@ local ValueException = exceptions.ValueException
 local isinstance = isinstance_module.isinstance
 local Table = table_module.Table
 
+-- Describes the offending value for a mismatch message. Primitives
+-- and plain tables report their class per llx.getclass ('Number',
+-- 'Table', ...), while class objects and class instances are called
+-- out explicitly ('the class Animal', 'an instance of Animal'): a
+-- bare class name would be ambiguous between the class itself and an
+-- instance of it. The class-object check must come first --
+-- getclass(class_object) is the class object itself, so the instance
+-- branch would otherwise claim it.
+local function describe_actual(value)
+  if getclass_module.is_class_object(value) then
+    return getclass_module.describe_value(value)
+  end
+  local value_class = getclass(value)
+  if getclass_module.is_class_object(value_class) then
+    return 'an instance of '
+        .. (value_class.__name or tostring(value_class))
+  end
+  return value_class
+end
+
 local function check_argument(index, value, expected_type)
   if expected_type == nil then
     error(InvalidArgumentException(1, Table, getclass(value), 2))
@@ -34,7 +54,7 @@ local function check_argument(index, value, expected_type)
       error(InvalidArgumentException(index, exception.what, 4))
     else
       error(InvalidArgumentTypeException(
-          index, expected_type, getclass(value), 4))
+          index, expected_type, describe_actual(value), 4))
     end
   end
 end

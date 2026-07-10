@@ -289,7 +289,11 @@ Overload = class 'Overload' {
     for i, fn in ipairs(self.overloads) do
       candidates[i] = describe_signature(fn)
     end
-    error(OverloadResolutionException(candidates, failures, 2))
+    -- Level 3 anchors the traceback at the user's call site: level 2
+    -- names the constructing function (this Overload.__call frame,
+    -- which is dispatch machinery, not the caller's mistake), so one
+    -- more level up blames the call that no candidate accepted.
+    error(OverloadResolutionException(candidates, failures, 3))
   end,
 
   __tostring = function(self)
