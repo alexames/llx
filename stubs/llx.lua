@@ -59,6 +59,8 @@
 ---@field ClassOf fun(class_object?: table): any
 ---@field TypeVar fun(name: string, opts?: table): any
 ---@field is_type_var fun(value: any): boolean
+---@field ParamSpec fun(name: string): any
+---@field is_param_spec fun(value: any): boolean
 ---@field enter_type_var_scope fun(scope?: table): table
 ---@field exit_type_var_scope fun()
 ---@field Rest fun(element_type: any): any

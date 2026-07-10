@@ -705,6 +705,21 @@ local function is_any_params(value)
      and rawget(value, any_params_mark) == true
 end
 
+-- Marker key identifying ParamSpec sentinels below. A module-local
+-- table key cannot be forged (or observed) outside this module, so
+-- nothing else can accidentally look like a ParamSpec. is_param_spec
+-- (exported below) is the public way to recognize one. The marker and
+-- predicate are declared here, above reject_markers, so the composite
+-- constructors can reject a stray ParamSpec the same way they reject
+-- a stray AnyParams; the ParamSpec factory itself is defined near
+-- TypeVar (its sibling generics construct) further down.
+local param_spec_mark = {}
+
+local function is_param_spec(value)
+  return type(value) == 'table'
+     and rawget(value, param_spec_mark) == true
+end
+
 -- Raises ValueException when `entry` -- a single declared type
 -- position (a Union member, Optional's inner type, a Dict key or
 -- value type, a ListOf/SetOf element type, a Protocol field type, or
@@ -734,6 +749,13 @@ function reject_markers(entry, where, level)
       .. '(Callable(AnyParams, returns)); it is not valid as a '
       .. 'type list entry', level))
   end
+  if is_param_spec(entry) then
+    exceptions_module = exceptions_module or require 'llx.exceptions'
+    error(exceptions_module.ValueException(
+      where .. ': ParamSpec replaces the whole parameter list '
+      .. '(Callable(P, returns)); it is not valid as a type list '
+      .. 'entry', level))
+  end
 end
 
 -- Applies reject_markers to every entry of a declared type list
@@ -760,6 +782,15 @@ local function callable_type_check(param_types, return_types, options)
   -- is params-only: a return list cannot be unchecked this way
   -- (declare a trailing VARARG for an unchecked return tail).
   local params_any = is_any_params(param_types)
+  -- A ParamSpec (Callable(P, {R})) also stands *in place of* the
+  -- whole parameter list, capturing "the same parameters as some
+  -- other signature" for the type-level relation (see
+  -- llx.is_subtype.signature_compatible). Like AnyParams it admits no
+  -- per-parameter entries, so the list validation below is skipped
+  -- for it too, and at the value level it is treated as unchecked
+  -- parameters (ParamSpec is a type-level-only construct in this
+  -- first iteration; see the __isinstance note below).
+  local params_spec = is_param_spec(param_types)
   if is_any_params(return_types) then
     exceptions_module = exceptions_module or require 'llx.exceptions'
     error(exceptions_module.ValueException(
@@ -773,6 +804,14 @@ local function callable_type_check(param_types, return_types, options)
   if params_any and strict then
     error('Callable: strict has no effect with AnyParams (there is '
       .. 'no declared parameter shape to enforce)', 2)
+  end
+  -- strict tightens the raw-function arity check against a declared
+  -- parameter shape; a ParamSpec carries no concrete shape at
+  -- construction (it is captured later, at the type level), so the
+  -- combination has nothing to enforce. Fail loudly, as for AnyParams.
+  if params_spec and strict then
+    error('Callable: strict has no effect with a ParamSpec (there '
+      .. 'is no declared parameter shape to enforce)', 2)
   end
 
   -- A trailing VARARG ('...') entry in param_types declares that the
@@ -790,7 +829,7 @@ local function callable_type_check(param_types, return_types, options)
   local vararg_marker = check_arguments_module.VARARG
   local params_fixed = 0
   local params_variadic = false
-  if not params_any then
+  if not params_any and not params_spec then
     params_fixed = #param_types
     params_variadic = param_types[params_fixed] == vararg_marker
     if params_variadic then
@@ -822,8 +861,10 @@ local function callable_type_check(param_types, return_types, options)
   -- unsatisfiable; reject it anywhere in either list. A *typed*
   -- variadic tail for signatures is a separate feature; the bare
   -- VARARG marker is the supported (unchecked) spelling. AnyParams
-  -- entries are rejected for the same silently-unsatisfiable reason.
-  if not params_any then
+  -- and ParamSpec entries are rejected for the same
+  -- silently-unsatisfiable reason. A ParamSpec *in place of* the
+  -- whole list carries no entries, so its validation is skipped too.
+  if not params_any and not params_spec then
     reject_marker_entries(param_types, 'Callable')
   end
   reject_marker_entries(return_types, 'Callable')
@@ -838,9 +879,18 @@ local function callable_type_check(param_types, return_types, options)
   -- makes the spelling unforgeable through entry names: every
   -- concrete parameter list renders inside '(...)', so no list entry
   -- (e.g. the string type name '*') can collide with it.
+  -- A ParamSpec parameter list renders as a bare '**Name' -- again
+  -- unparenthesized, so it cannot collide with a concrete list (which
+  -- always renders inside '(...)') and stays distinct from AnyParams'
+  -- '*'. Two distinct ParamSpecs sharing a name render alike, the
+  -- same name-collision caveat as TypeVar; is_subtype compares
+  -- Callables structurally, so it never relies on this name for
+  -- ParamSpec identity.
   local param_list_name
   if params_any then
     param_list_name = '*'
+  elseif params_spec then
+    param_list_name = '**' .. type_name_of(param_types)
   else
     local param_names = {}
     for i, t in ipairs(param_types) do
@@ -915,8 +965,20 @@ local function callable_type_check(param_types, return_types, options)
       -- With AnyParams no parameter shape is declared at all, so
       -- every function is accepted outright (strict is rejected at
       -- construction in that form).
+      --
+      -- A ParamSpec parameter list is treated the same way at the
+      -- value level: this first iteration keeps ParamSpec a
+      -- type-level-only construct (its capture/substitution lives
+      -- entirely in signature_compatible), so a raw function -- which
+      -- carries no declared parameter types to relate to a captured
+      -- list -- places no checkable constraint and is accepted,
+      -- gradually, exactly as under AnyParams. A *declared*
+      -- (Signature/Overload) value above still goes through the sound
+      -- type-level relation, where a top-level ParamSpec on the
+      -- matcher (super) side stays universal and matches only an
+      -- identical ParamSpec.
       if type(value) == 'function' then
-        if params_any then
+        if params_any or params_spec then
           return true
         end
         local info = debug.getinfo(value, 'u')
@@ -2308,6 +2370,70 @@ local function type_var_type_check(name, opts)
   return var
 end
 
+local function param_spec_type_check(name)
+  -- ParamSpec(name): a parameter-list variable, the runtime analog of
+  -- Python's typing.ParamSpec. Passed *in place of* a Callable's
+  -- parameter type list -- Callable(P, {R}) -- it captures "the same
+  -- parameter list as some other signature", so forwarding wrappers
+  -- (decorators, tracing/memoization combinators) that preserve a
+  -- wrapped function's parameters can be typed without erasing them
+  -- to AnyParams or freezing them to one concrete shape. Its canonical
+  -- use is the decorator shape
+  --
+  --   local P, T = ParamSpec('P'), TypeVar('T')
+  --   Callable({Callable(P, {T})}, {Callable(P, {T})})
+  --
+  -- which llx.is_subtype.signature_compatible relates to a concrete
+  --   Callable({Callable({Integer}, {String})},
+  --            {Callable({Integer}, {String})})
+  -- by instantiating P := {Integer} (and T := String) on the first
+  -- occurrence and substituting it at every later one. See the
+  -- generic signatures section of signature_compatible for the exact
+  -- unification rules (they mirror TypeVar: only a candidate-side
+  -- ParamSpec instantiates; a super-side one stays universal).
+  --
+  -- Deliberate, documented scope of this first iteration:
+  --
+  -- - Type-level only. ParamSpec carries information for the
+  --   is_subtype/signature_compatible relation over *declared* types;
+  --   it is not enforced at call time. A Signature/Function rejects it
+  --   (that wrapper enforces types on every call, which a deferred
+  --   whole-list capture cannot express), and at the value level a
+  --   Callable(P, {R}) treats parameters as unchecked for raw
+  --   functions, exactly as AnyParams does.
+  -- - Whole-list only. Like AnyParams, a ParamSpec stands in for the
+  --   *entire* parameter list; it is rejected as a list entry, so
+  --   leading fixed parameters (mypy's Concatenate,
+  --   Callable(Concatenate(int, P), R)) cannot be spelled and are a
+  --   future extension.
+  -- - No P.args/P.kwargs projection (out of scope; Lua has no keyword
+  --   arguments).
+  -- - A captured list is stored verbatim, including a trailing VARARG
+  --   ('...') tail or AnyParams-ness, and re-split on substitution.
+  --   That trailing-tail boundary is the composition point for a
+  --   future TypeVarTuple/Unpack analog (#104), which would bind the
+  --   variadic tail a ParamSpec here captures wholesale.
+  --
+  -- Like AnyParams and Rest, a ParamSpec is not itself a type matcher
+  -- (it has no __isinstance), so using it as one raises the standard
+  -- non-matcher error; it is only valid in place of a Callable's
+  -- parameter list. Two distinct ParamSpecs sharing a name are
+  -- independent variables (identity, never name, decides), the same
+  -- convention as TypeVar.
+  if type(name) ~= 'string' then
+    error('ParamSpec: expected a string name, got ' .. type(name), 2)
+  end
+  return setmetatable({
+    [param_spec_mark] = true,
+
+    __name = name,
+  }, {
+    __tostring = function(self)
+      return self.__name
+    end,
+  })
+end
+
 Any=any_type_check()
 Never=never_type_check()
 Union=union_type_check
@@ -2327,12 +2453,14 @@ ClassOf=class_of_type_check
 Lazy=lazy_type_check
 resolve_lazy=resolve_lazy_matcher
 TypeVar=type_var_type_check
+ParamSpec=param_spec_type_check
 AnyParams=any_params_sentinel
 -- These share their (local) implementation names, so the exports go
 -- through _ENV explicitly (a bare assignment would just write the
 -- local back to itself).
 _ENV.is_rest=is_rest
 _ENV.is_any_params=is_any_params
+_ENV.is_param_spec=is_param_spec
 _ENV.is_type_var=is_type_var
 _ENV.matcher_kind=matcher_kind
 _ENV.enter_type_var_scope=enter_type_var_scope

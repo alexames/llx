@@ -1412,6 +1412,159 @@ describe('signature_compatible', function()
         .to.be_true()
     end)
   end)
+
+  describe('ParamSpec unification in signature_compatible', function()
+    -- A ParamSpec stands in place of a whole parameter list and
+    -- unifies by the TypeVar rules one level up: a candidate-side
+    -- ParamSpec captures its counterpart's entire list on first
+    -- occurrence and substitutes it later; a super-side one stays
+    -- universal. See the generic signatures section of
+    -- signature_compatible.
+    local ParamSpec = matchers.ParamSpec
+    local TypeVar = matchers.TypeVar
+
+    it('should accept the canonical decorator shape', function()
+      local P = ParamSpec('P')
+      local T = TypeVar('T')
+      expect(signature_compatible(
+          {params = {Callable(P, {T})}, returns = {Callable(P, {T})}},
+          {params = {Callable({Integer}, {String})},
+           returns = {Callable({Integer}, {String})}}))
+        .to.be_true()
+    end)
+
+    it('should reject a mismatched inner return', function()
+      local P = ParamSpec('P')
+      local T = TypeVar('T')
+      expect(signature_compatible(
+          {params = {Callable(P, {T})}, returns = {Callable(P, {T})}},
+          {params = {Callable({Integer}, {String})},
+           returns = {Callable({Integer}, {Integer})}}))
+        .to.be_false()
+    end)
+
+    it('should reject a mismatched inner parameter', function()
+      local P = ParamSpec('P')
+      local T = TypeVar('T')
+      expect(signature_compatible(
+          {params = {Callable(P, {T})}, returns = {Callable(P, {T})}},
+          {params = {Callable({String}, {String})},
+           returns = {Callable({Integer}, {String})}}))
+        .to.be_false()
+    end)
+
+    it('should require consistency across two occurrences', function()
+      local P = ParamSpec('P')
+      -- First occurrence captures P := {Integer}; the second must
+      -- agree.
+      expect(signature_compatible(
+          {params = {Callable(P, {}), Callable(P, {})}, returns = {}},
+          {params = {Callable({Integer}, {}),
+                     Callable({Integer}, {})}, returns = {}}))
+        .to.be_true()
+      expect(signature_compatible(
+          {params = {Callable(P, {}), Callable(P, {})}, returns = {}},
+          {params = {Callable({Integer}, {}),
+                     Callable({String}, {})}, returns = {}}))
+        .to.be_false()
+    end)
+
+    it('should never instantiate the super side\'s ParamSpec',
+        function()
+      local P = ParamSpec('P')
+      -- A concrete wrapper is not compatible with a generic one: the
+      -- super-side ParamSpec promises to work for every parameter
+      -- list, which no single capture witnesses.
+      expect(signature_compatible(
+          {params = {Callable({Integer}, {})}, returns = {}},
+          {params = {Callable(P, {})}, returns = {}}))
+        .to.be_false()
+    end)
+
+    it('should relate a generic wrapper to itself', function()
+      local P = ParamSpec('P')
+      local T = TypeVar('T')
+      -- P (and T) occur on both sides, so both stay universal and the
+      -- comparison reduces to identity.
+      local generic =
+          {params = {Callable(P, {T})}, returns = {Callable(P, {T})}}
+      expect(signature_compatible(generic, generic)).to.be_true()
+    end)
+
+    it('should capture a variadic tail verbatim', function()
+      local P = ParamSpec('P')
+      -- P := {Integer, '...'}; the covariant occurrence then checks
+      -- that captured variadic list, which stands where the concrete
+      -- one is expected.
+      expect(signature_compatible(
+          {params = {Callable(P, {})}, returns = {Callable(P, {})}},
+          {params = {Callable({Integer, VARARG}, {})},
+           returns = {Callable({Integer, VARARG}, {})}}))
+        .to.be_true()
+      -- A capture of a fixed list cannot satisfy a variadic super in
+      -- the covariant position (super promises to accept extras).
+      expect(signature_compatible(
+          {params = {Callable(P, {})}, returns = {Callable(P, {})}},
+          {params = {Callable({Integer}, {})},
+           returns = {Callable({Integer, VARARG}, {})}}))
+        .to.be_false()
+    end)
+
+    it('should capture AnyParams-ness', function()
+      local P = ParamSpec('P')
+      expect(signature_compatible(
+          {params = {Callable(P, {})}, returns = {Callable(P, {})}},
+          {params = {Callable(AnyParams, {})},
+           returns = {Callable(AnyParams, {})}}))
+        .to.be_true()
+    end)
+
+    it('should capture per overload declaration', function()
+      local P = ParamSpec('P')
+      -- Each declaration of an overloaded super is a separate
+      -- comparison: P captures {Integer} for one and {String} for the
+      -- other.
+      expect(signature_compatible(
+          {params = {Callable(P, {})}, returns = {Callable(P, {})}},
+          {overloads = {
+            {params = {Callable({Integer}, {})},
+             returns = {Callable({Integer}, {})}},
+            {params = {Callable({String}, {})},
+             returns = {Callable({String}, {})}},
+          }})).to.be_true()
+    end)
+
+    it('should roll back a failed union branch\'s capture', function()
+      local P = ParamSpec('P')
+      -- The first union member captures P := {String} from its first
+      -- element and then fails its second; without rollback that stale
+      -- capture would also fail the second member (which needs
+      -- P := {Integer}), so the whole comparison would wrongly reject.
+      expect(signature_compatible(
+          {params = {Union{
+             Tuple{Callable(P, {}), Callable({String}, {})},
+             Tuple{Callable({String}, {}), Callable(P, {})}}},
+           returns = {Callable(P, {})}},
+          {params = {Tuple{Callable({String}, {}),
+                           Callable({Integer}, {})}},
+           returns = {Callable({Integer}, {})}})).to.be_true()
+    end)
+
+    it('should relate generic and concrete Callable matchers',
+        function()
+      local P = ParamSpec('P')
+      local T = TypeVar('T')
+      expect(is_subtype(
+          Callable({Callable(P, {T})}, {Callable(P, {T})}),
+          Callable({Callable({Integer}, {String})},
+                   {Callable({Integer}, {String})}))).to.be_true()
+      expect(is_subtype(
+          Callable({Callable({Integer}, {String})},
+                   {Callable({Integer}, {String})}),
+          Callable({Callable(P, {T})}, {Callable(P, {T})})))
+        .to.be_false()
+    end)
+  end)
 end)
 
 describe('generator_compatible', function()
