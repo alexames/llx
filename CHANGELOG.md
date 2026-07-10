@@ -9,6 +9,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `is_subtype` now compares parameterized matchers of the same kind
+  structurally instead of by spelled name, extending the #73 Tuple
+  work to the remaining containers. `ListOf` and `SetOf` elements
+  are covariant (`ListOf(Integer)` is now a subtype of
+  `ListOf(Number)`); `Dict` values are covariant while keys are
+  invariant -- a key type occupies both an output position
+  (iteration yields keys) and an input position (lookups take a
+  key), so neither widening direction is sound, the same rule mypy
+  applies to `Mapping`'s key parameter; two unions always compare
+  member-wise; and two `Callable` matchers compare by
+  `signature_compatible` (so `Callable({Integer}, {R})` is now a
+  subtype of `Callable(AnyParams, {R})`), except that a lenient
+  Callable is never a subtype of a strict one (strict narrows which
+  raw functions the matcher accepts at the value level) and a
+  Callable declaring AnyParams is a subtype only of another
+  AnyParams Callable (its value set spans every parameter shape;
+  `signature_compatible`'s AnyParams-as-sub direction is documented
+  as gradual, not sound). Structural verdicts are final -- these
+  pairs never fall back to name equality -- so distinct same-named
+  classes (and TypeVars) are no longer conflated one wrapper up inside
+  `Union{C}`, `ListOf(C)`, `SetOf(C)`, `Dict(K, V)`, or Callable
+  parameter/return lists. Matchers without a structural rule
+  (`Iterator`, `Generator`, `Protocol`, `NewType`, `ClassOf`) still
+  compare by name. As with Tuples, structurally comparing two
+  *separately constructed* recursive containers is self-dependent
+  and now raises the cyclic-comparison error (previously the unique
+  Lazy placeholder names made such comparisons return false);
+  compare recursive types by identity (the same matcher object on
+  both sides). (#94)
+- `isinstance` against a degenerate self-referential union -- one
+  whose member walk reaches the same union with the same value
+  again, e.g. `local A; A = Union{Lazy(function() return A end)}`
+  -- now raises a clear "cyclic type check" error instead of
+  recursing without bound (previously a stack overflow at check
+  time). The guard is pair-based, mirroring the occurs check
+  `is_subtype` gained in #73: recursion that descends into *parts*
+  of the value (JSON-style recursive unions over `ListOf`/`Dict`
+  members) checks different values against the union and is
+  unaffected, while a value that contains itself exactly where the
+  type recurses is genuinely self-dependent and raises too. (#94)
+
 - **Breaking:** `is_subtype` no longer treats two distinct llx
   classes that share a non-anonymous `__name` as equal (and
   therefore as mutual subtypes). Classes carry identity, so they now

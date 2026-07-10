@@ -15,6 +15,8 @@ local Never = matchers.Never
 local Union = matchers.Union
 local Optional = matchers.Optional
 local Dict = matchers.Dict
+local ListOf = matchers.ListOf
+local SetOf = matchers.SetOf
 local Callable = matchers.Callable
 local AnyParams = matchers.AnyParams
 local Tuple = matchers.Tuple
@@ -24,6 +26,7 @@ local Lazy = matchers.Lazy
 local class = llx.class
 local Float = llx.Float
 local Integer = llx.Integer
+local Nil = llx.Nil
 local Number = llx.Number
 local String = llx.String
 local isinstance = llx.isinstance
@@ -345,6 +348,228 @@ describe('is_subtype', function()
     end)
   end)
 
+  describe('ListOf structural rules', function()
+    it('should compare element types covariantly', function()
+      expect(is_subtype(ListOf(Integer), ListOf(Number))).to.be_true()
+      expect(is_subtype(ListOf(Number), ListOf(Integer))).to.be_false()
+      expect(is_subtype(ListOf(Cat), ListOf(Animal))).to.be_true()
+      expect(is_subtype(ListOf(Animal), ListOf(Cat))).to.be_false()
+    end)
+
+    it('should accept separately constructed identical '
+      .. 'matchers', function()
+      expect(is_subtype(ListOf(Integer), ListOf(Integer))).to.be_true()
+      expect(is_subtype(ListOf(Animal), ListOf(Animal))).to.be_true()
+    end)
+
+    it('should recurse through nested containers', function()
+      expect(is_subtype(ListOf(ListOf(Integer)),
+                        ListOf(ListOf(Number)))).to.be_true()
+      expect(is_subtype(ListOf(ListOf(Number)),
+                        ListOf(ListOf(Integer)))).to.be_false()
+      expect(is_subtype(ListOf(Union{Integer, Float}),
+                        ListOf(Number))).to.be_true()
+    end)
+
+    it('should let the structural verdict beat name '
+      .. 'equality', function()
+      -- Two ListOfs over distinct same-named classes spell the same
+      -- __name; structure (class identity) decides, not the name.
+      local C1 = class 'ListCollide' { }
+      local C2 = class 'ListCollide' { }
+      expect(is_subtype(ListOf(C1), ListOf(C1))).to.be_true()
+      expect(is_subtype(ListOf(C1), ListOf(C2))).to.be_false()
+    end)
+
+    it('should keep ListOf and SetOf unrelated', function()
+      expect(is_subtype(ListOf(Integer), SetOf(Integer))).to.be_false()
+      expect(is_subtype(SetOf(Integer), ListOf(Integer))).to.be_false()
+    end)
+
+    it('should relate ListOf to Any and Union normally', function()
+      expect(is_subtype(ListOf(Integer), Any)).to.be_true()
+      expect(is_subtype(ListOf(Integer),
+                        Union{ListOf(Number), String})).to.be_true()
+      expect(is_subtype(ListOf(Integer),
+                        Union{ListOf(String), String})).to.be_false()
+    end)
+  end)
+
+  describe('SetOf structural rules', function()
+    it('should compare element types covariantly', function()
+      expect(is_subtype(SetOf(Integer), SetOf(Number))).to.be_true()
+      expect(is_subtype(SetOf(Number), SetOf(Integer))).to.be_false()
+      expect(is_subtype(SetOf(Cat), SetOf(Animal))).to.be_true()
+      expect(is_subtype(SetOf(Kitten), SetOf(Animal))).to.be_true()
+      expect(is_subtype(SetOf(Animal), SetOf(Cat))).to.be_false()
+    end)
+
+    it('should recurse through nested containers', function()
+      expect(is_subtype(SetOf(Tuple{Integer}),
+                        SetOf(Tuple{Number}))).to.be_true()
+      expect(is_subtype(SetOf(Tuple{Number}),
+                        SetOf(Tuple{Integer}))).to.be_false()
+    end)
+
+    it('should let the structural verdict beat name '
+      .. 'equality', function()
+      local C1 = class 'SetCollide' { }
+      local C2 = class 'SetCollide' { }
+      expect(is_subtype(SetOf(C1), SetOf(C1))).to.be_true()
+      expect(is_subtype(SetOf(C1), SetOf(C2))).to.be_false()
+    end)
+  end)
+
+  describe('Dict structural rules', function()
+    it('should compare value types covariantly', function()
+      expect(is_subtype(Dict(String, Integer),
+                        Dict(String, Number))).to.be_true()
+      expect(is_subtype(Dict(String, Number),
+                        Dict(String, Integer))).to.be_false()
+      expect(is_subtype(Dict(String, Cat),
+                        Dict(String, Animal))).to.be_true()
+    end)
+
+    it('should keep key types invariant', function()
+      -- A key type occupies both an output position (iteration
+      -- yields keys) and an input position (lookups take a key), so
+      -- neither widening nor narrowing it is sound.
+      expect(is_subtype(Dict(Integer, String),
+                        Dict(Number, String))).to.be_false()
+      expect(is_subtype(Dict(Number, String),
+                        Dict(Integer, String))).to.be_false()
+      expect(is_subtype(Dict(Cat, String),
+                        Dict(Animal, String))).to.be_false()
+    end)
+
+    it('should decide key invariance structurally, not '
+      .. 'by name', function()
+      -- Mutual subtypes count as the same key type even when the
+      -- spelled names differ.
+      expect(is_subtype(Dict(Union{Integer, String}, Nil),
+                        Dict(Union{String, Integer}, Nil))).to.be_true()
+    end)
+
+    it('should recurse through nested containers', function()
+      expect(is_subtype(Dict(String, ListOf(Integer)),
+                        Dict(String, ListOf(Number)))).to.be_true()
+      expect(is_subtype(Dict(String, ListOf(Number)),
+                        Dict(String, ListOf(Integer)))).to.be_false()
+    end)
+
+    it('should let the structural verdict beat name '
+      .. 'equality', function()
+      local C1 = class 'DictCollide' { }
+      local C2 = class 'DictCollide' { }
+      expect(is_subtype(Dict(String, C1),
+                        Dict(String, C1))).to.be_true()
+      expect(is_subtype(Dict(String, C1),
+                        Dict(String, C2))).to.be_false()
+      expect(is_subtype(Dict(C1, String),
+                        Dict(C2, String))).to.be_false()
+    end)
+  end)
+
+  describe('Union structural rules', function()
+    it('should let the structural verdict beat name '
+      .. 'equality', function()
+      -- Two unions over distinct same-named classes spell the same
+      -- __name; membership (class identity) decides, not the name.
+      local C1 = class 'UnionCollide' { }
+      local C2 = class 'UnionCollide' { }
+      expect(is_subtype(Union{C1}, Union{C1})).to.be_true()
+      expect(is_subtype(Union{C1}, Union{C2})).to.be_false()
+      expect(is_subtype(Union{C1, String},
+                        Union{C2, String})).to.be_false()
+    end)
+
+    it('should ignore member order', function()
+      expect(is_subtype(Union{Integer, String},
+                        Union{String, Integer})).to.be_true()
+      expect(is_subtype(Union{String, Integer},
+                        Union{Integer, String})).to.be_true()
+    end)
+
+    it('should recurse through container members', function()
+      local C1 = class 'UnionListCollide' { }
+      local C2 = class 'UnionListCollide' { }
+      expect(is_subtype(Union{ListOf(C1)}, Union{ListOf(C1)}))
+        .to.be_true()
+      expect(is_subtype(Union{ListOf(C1)}, Union{ListOf(C2)}))
+        .to.be_false()
+      expect(is_subtype(Union{ListOf(Integer)},
+                        Union{ListOf(Number), String})).to.be_true()
+    end)
+  end)
+
+  describe('Callable structural rules', function()
+    it('should compare two Callables by signature '
+      .. 'compatibility', function()
+      expect(is_subtype(Callable({Animal}, {Cat}),
+                        Callable({Cat}, {Animal}))).to.be_true()
+      expect(is_subtype(Callable({Cat}, {Animal}),
+                        Callable({Animal}, {Cat}))).to.be_false()
+      expect(is_subtype(Callable({Integer}, {Integer}),
+                        Callable({Integer}, {Number}))).to.be_true()
+    end)
+
+    it('should accept a fixed parameter list under an AnyParams '
+      .. 'supertype', function()
+      -- The relation signature_compatible already accepted; the
+      -- name fallback used to miss it.
+      expect(is_subtype(Callable({Integer}, {String}),
+                        Callable(AnyParams, {String}))).to.be_true()
+      expect(is_subtype(Callable({Integer}, {Integer}),
+                        Callable(AnyParams, {String}))).to.be_false()
+      -- The reverse is not sound: the AnyParams matcher's values
+      -- span every parameter shape.
+      expect(is_subtype(Callable(AnyParams, {String}),
+                        Callable({Integer}, {String}))).to.be_false()
+    end)
+
+    it('should apply the variadic signature rules', function()
+      expect(is_subtype(Callable({Integer, VARARG}, {}),
+                        Callable({Integer, String}, {}))).to.be_true()
+      expect(is_subtype(Callable({Integer}, {}),
+                        Callable({Integer, VARARG}, {}))).to.be_false()
+      expect(is_subtype(Callable({Integer, Integer}, {}),
+                        Callable({Integer}, {}))).to.be_false()
+    end)
+
+    it('should recurse through nested containers', function()
+      expect(is_subtype(Callable({}, {ListOf(Integer)}),
+                        Callable({}, {ListOf(Number)}))).to.be_true()
+      expect(is_subtype(Callable({}, {ListOf(Number)}),
+                        Callable({}, {ListOf(Integer)}))).to.be_false()
+    end)
+
+    it('should let the structural verdict beat name '
+      .. 'equality', function()
+      local C1 = class 'CallableCollide' { }
+      local C2 = class 'CallableCollide' { }
+      expect(is_subtype(Callable({C1}, {}), Callable({C1}, {})))
+        .to.be_true()
+      expect(is_subtype(Callable({C1}, {}), Callable({C2}, {})))
+        .to.be_false()
+      expect(is_subtype(Callable({}, {C1}), Callable({}, {C2})))
+        .to.be_false()
+    end)
+
+    it('should let a strict Callable stand where a lenient one '
+      .. 'is expected, but not the reverse', function()
+      -- strict only narrows which raw functions are accepted, so a
+      -- strict matcher's values are a subset of its lenient
+      -- counterpart's.
+      local lenient = Callable({Integer}, {String})
+      local strict = Callable({Integer}, {String}, {strict = true})
+      expect(is_subtype(strict, lenient)).to.be_true()
+      expect(is_subtype(lenient, strict)).to.be_false()
+      expect(is_subtype(strict,
+                        Callable({Integer}, {String},
+                                 {strict = true}))).to.be_true()
+    end)
+  end)
+
   describe('name-collision identity for classes', function()
     it('should keep distinct classes sharing a name '
       .. 'unrelated', function()
@@ -373,12 +598,17 @@ describe('is_subtype', function()
       expect(is_subtype(C1, 'StringNamed')).to.be_true()
     end)
 
-    it('should keep name equality for parameterized '
-      .. 'matchers', function()
-      -- Separately constructed matchers rely on the name rule by
-      -- design; only llx classes carry identity.
+    it('should keep separately constructed identical matchers '
+      .. 'equal', function()
+      -- Matchers carry no identity, so separately constructed
+      -- identical instances must compare equal: structurally for
+      -- the structurally compared kinds (Dict here), by the name
+      -- rule for the rest (Iterator, NewType).
       expect(is_subtype(Dict(String, Integer),
                         Dict(String, Integer))).to.be_true()
+      local Iterator = matchers.Iterator
+      expect(is_subtype(Iterator(Integer), Iterator(Integer)))
+        .to.be_true()
       local NewType = matchers.NewType
       local N1 = NewType('SameBrand', Integer)
       local N2 = NewType('SameBrand', Integer)
@@ -428,7 +658,6 @@ describe('is_subtype', function()
 
     it('should still resolve recursive types with a base '
       .. 'case', function()
-      local ListOf = matchers.ListOf
       local T
       T = Union{Integer, ListOf(Lazy(function() return T end))}
       expect(is_subtype(Integer, T)).to.be_true()
@@ -445,6 +674,54 @@ describe('is_subtype', function()
       expect(is_subtype(T1, T1)).to.be_true()
       -- Deciding T1 <= T2 structurally depends on itself; compare
       -- recursive types by identity instead.
+      expect(function() return is_subtype(T1, T2) end).to.throw()
+    end)
+
+    it('should stay reflexive for recursive containers but raise '
+      .. 'on structural comparison of distinct ones', function()
+      local L1
+      L1 = ListOf(Lazy(function() return L1 end))
+      local L2
+      L2 = ListOf(Lazy(function() return L2 end))
+      expect(is_subtype(L1, L1)).to.be_true()
+      expect(function() return is_subtype(L1, L2) end).to.throw()
+      local D1
+      D1 = Dict(String, Lazy(function() return D1 end))
+      local D2
+      D2 = Dict(String, Lazy(function() return D2 end))
+      expect(is_subtype(D1, D1)).to.be_true()
+      expect(function() return is_subtype(D1, D2) end).to.throw()
+    end)
+
+    it('should stay reflexive for recursive callables but raise '
+      .. 'on structural comparison of distinct ones', function()
+      local C1
+      C1 = Callable({Lazy(function() return C1 end)}, {})
+      local C2
+      C2 = Callable({Lazy(function() return C2 end)}, {})
+      expect(is_subtype(C1, C1)).to.be_true()
+      -- The guard is threaded through signature_compatible, so the
+      -- self-dependent comparison raises the clear cyclic error
+      -- instead of overflowing the stack.
+      expect(function() return is_subtype(C1, C2) end).to.throw()
+      local ok, err = pcall(is_subtype, C1, C2)
+      expect(ok).to.be_false()
+      expect(string.find(tostring(err),
+          'cyclic type comparison', 1, true) ~= nil).to.be_true()
+    end)
+
+    it('should raise on structural comparison of distinct '
+      .. 'recursive unions routed through containers', function()
+      -- Each side has a base case, so the member walks terminate at
+      -- the value level; the *type-level* comparison of the two
+      -- distinct recursive types is still self-dependent (T1 <= T2
+      -- via their ListOf members depends on T1 <= T2). Compare
+      -- recursive types by identity instead.
+      local T1
+      T1 = Union{Integer, ListOf(Lazy(function() return T1 end))}
+      local T2
+      T2 = Union{Integer, ListOf(Lazy(function() return T2 end))}
+      expect(is_subtype(T1, T1)).to.be_true()
       expect(function() return is_subtype(T1, T2) end).to.throw()
     end)
   end)
@@ -783,19 +1060,25 @@ describe('signature_compatible', function()
         .to.be_true()
     end)
 
-    it('should keep AnyParams and variadic Callables distinct '
-      .. 'in is_subtype', function()
+    it('should keep an AnyParams Callable below only AnyParams '
+      .. 'supertypes', function()
       -- Callable({VARARG}, {R}) means "must be variadic";
-      -- Callable(AnyParams, {R}) means "parameters unchecked". The
-      -- matchers render differently, so the name fallback never
-      -- conflates them, while separately constructed AnyParams
-      -- matchers still compare equal.
+      -- Callable(AnyParams, {R}) means "parameters unchecked". Two
+      -- Callables compare structurally, but AnyParams as the
+      -- *subtype* is guarded: its values span every parameter
+      -- shape (signature_compatible's AnyParams-as-sub direction
+      -- is gradual, not sound), so it stands only under another
+      -- AnyParams matcher. The other direction is the sound
+      -- subset: every variadic-form value satisfies the AnyParams
+      -- form.
       local any_form = Callable(AnyParams, {String})
       local vararg_form = Callable({VARARG}, {String})
       expect(is_subtype(any_form, vararg_form)).to.be_false()
-      expect(is_subtype(vararg_form, any_form)).to.be_false()
+      expect(is_subtype(vararg_form, any_form)).to.be_true()
       expect(is_subtype(any_form, Callable(AnyParams, {String})))
         .to.be_true()
+      expect(is_subtype(any_form, Callable(AnyParams, {Integer})))
+        .to.be_false()
     end)
   end)
 

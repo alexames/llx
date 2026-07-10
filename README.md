@@ -291,6 +291,8 @@ llx.isinstance({name = 'llx', tags = {'lua', 'types'}}, Json) --> true
 -- it, and raises a clear "cyclic type comparison" error when a
 -- comparison depends on itself (a type containing itself as a
 -- direct member, e.g. a Lazy union containing only itself);
+-- isinstance raises the matching "cyclic type check" error when a
+-- degenerate union re-checks the same value against itself.
 -- resolve_lazy(matcher) forces one explicitly.
 
 -- Checked casts: cast returns the value unchanged or raises
@@ -301,11 +303,17 @@ res:is_err()                               --> true
 
 -- Type-level relations: is_subtype(A, B) asks whether a value of
 -- type A can be used where B is expected. Any is the top type and
--- Never the bottom type; Tuple matchers compare structurally
--- (element-wise covariantly, with fixed/variadic arity rules);
--- distinct classes sharing a name stay distinct (classes compare
--- by identity plus hierarchy, while separately constructed
--- parameterized matchers still compare equal by name).
+-- Never the bottom type; parameterized matchers compare
+-- structurally -- Tuple, ListOf, and SetOf element-wise covariantly
+-- (Tuple with fixed/variadic arity rules), Dict with covariant
+-- values but invariant keys (a key is both read back by iteration
+-- and taken by lookups, so neither widening direction is sound),
+-- unions member-wise, and two Callables by the signature variance
+-- rules (parameters contravariant, returns covariant). Distinct
+-- classes sharing a name stay distinct, through containers too
+-- (classes compare by identity plus hierarchy); matchers without a
+-- structural rule (Iterator, Protocol, NewType, ...) still compare
+-- equal by name when constructed separately.
 llx.is_subtype(llx.Integer, llx.Number)    --> true
 llx.is_subtype(llx.Integer, NumberOrString) --> true
 llx.is_subtype(llx.Number, llx.Integer)    --> false
@@ -313,6 +321,11 @@ llx.is_subtype(matchers.Never, llx.String) --> true
 llx.is_subtype(matchers.Tuple{llx.Integer, llx.Integer},
                matchers.Tuple{llx.Integer, matchers.Rest(llx.Integer)})
                                            --> true
+llx.is_subtype(matchers.ListOf(llx.Integer),
+               matchers.ListOf(llx.Number))--> true
+llx.is_subtype(matchers.Dict(llx.Integer, llx.String),
+               matchers.Dict(llx.Number, llx.String))
+                                           --> false (keys invariant)
 
 -- Schema with constraints
 local Schema = llx.Schema
