@@ -233,32 +233,123 @@ end
 local reject_markers
 local reject_marker_entries
 
+-- Marker key under which a parameterized container matcher records
+-- its kind ('ListOf', 'SetOf', 'Dict', or 'Callable'). llx.is_subtype
+-- needs to tell the kinds apart to apply the right structural rule,
+-- and the introspection fields alone cannot always do it (ListOf and
+-- SetOf both expose exactly element_type). A module-local table key
+-- cannot be forged (or observed) outside this module, so nothing
+-- else can accidentally look like one of these matchers;
+-- matcher_kind (exported below) is the public way to read the kind.
+local matcher_kind_mark = {}
+
+-- Returns the container kind of a parameterized matcher built by
+-- this module ('ListOf', 'SetOf', 'Dict', or 'Callable'), or nil for
+-- everything else. Tuples and unions are recognized by their
+-- introspection fields instead (element_types/fixed_count and
+-- type_list, which are unambiguous), so they carry no mark.
+local function matcher_kind(value)
+  if type(value) == 'table' then
+    return rawget(value, matcher_kind_mark)
+  end
+  return nil
+end
+
+-- Bookkeeping for the union member walk below: maps each union
+-- matcher currently checking a value to the set of values it is
+-- checking (see union_type_check). Entries are removed on the way
+-- out -- including on error, via pcall -- so the table is empty
+-- between top-level isinstance calls. Unlike is_subtype's per-call
+-- guard table this state is module-level (the __isinstance protocol
+-- has nowhere to thread a parameter through), so its marks span the
+-- member matcher calls; a member matcher that yielded across
+-- coroutines mid-check could therefore interleave two checks of
+-- the same pair, but matchers are synchronous by convention (the
+-- TypeVar scope stack above relies on the same property).
+local active_union_checks = {}
+
+-- nil and NaN cannot be table keys, so sentinels stand in for them
+-- in the per-union visited sets. All NaNs share one sentinel, which
+-- can only ever conflate values that already compare unequal to
+-- themselves.
+local nil_value_key = {}
+local nan_value_key = {}
+
+local function union_value_key(value)
+  if value == nil then
+    return nil_value_key
+  end
+  if value ~= value then
+    return nan_value_key
+  end
+  return value
+end
+
 local function union_type_check(type_list)
   reject_marker_entries(type_list, 'Union')
   local expected_typenames = '{' .. Table.concat(type_list, ',') .. '}'
   local typename = 'Union' .. expected_typenames
+
+  local function members_match(value)
+    -- Each member is a speculative branch: a member that binds a
+    -- TypeVar from part of the value and then rejects it must not
+    -- leave that stale binding constraining the rest of the call
+    -- (which would make union member order observable). The
+    -- savepoint rolls the innermost binding scope back after every
+    -- failed branch; a successful branch keeps its bindings, as
+    -- usual for first-match-wins dispatch. With no active scope
+    -- the savepoint is nil and costs nothing.
+    for _, type_checker in ipairs(type_list) do
+      local savepoint = save_type_var_bindings()
+      if isinstance(value, type_checker) then
+        return true
+      end
+      restore_type_var_bindings(savepoint)
+    end
+    return false
+  end
+
   return setmetatable({
     __name = typename,
 
     type_list = type_list,
 
     __isinstance = function(self, value)
-      -- Each member is a speculative branch: a member that binds a
-      -- TypeVar from part of the value and then rejects it must not
-      -- leave that stale binding constraining the rest of the call
-      -- (which would make union member order observable). The
-      -- savepoint rolls the innermost binding scope back after every
-      -- failed branch; a successful branch keeps its bindings, as
-      -- usual for first-match-wins dispatch. With no active scope
-      -- the savepoint is nil and costs nothing.
-      for _, type_checker in ipairs(type_list) do
-        local savepoint = save_type_var_bindings()
-        if isinstance(value, type_checker) then
-          return true
-        end
-        restore_type_var_bindings(savepoint)
+      -- Cycle guard, the isinstance analog of is_subtype's
+      -- pair-based occurs check: a degenerate self-referential union
+      -- (one whose member walk reaches this same union again through
+      -- Lazy -- or through a container member holding the value
+      -- itself) re-enters this check with the same (union, value)
+      -- pair, so its outcome would depend on itself. Re-entering can
+      -- never produce new information, so it raises a clear error
+      -- instead of recursing without bound. Recursion that descends
+      -- into *parts* of the value (a JSON-style union over ListOf
+      -- and Dict members) checks different values against this
+      -- union, so it never trips the guard. The pair is unmarked on
+      -- the way out -- via pcall, so an error raised by a member
+      -- matcher cannot leak marks into later checks.
+      local seen = active_union_checks[self]
+      local key = union_value_key(value)
+      if seen ~= nil and seen[key] then
+        error('isinstance: cyclic type check: deciding whether a '
+          .. 'value is an instance of ' .. tostring(self)
+          .. ' depends on itself (a recursive type that contains '
+          .. 'itself as a direct member?)', 0)
       end
-      return false
+      if seen == nil then
+        seen = {}
+        active_union_checks[self] = seen
+      end
+      seen[key] = true
+      local ok, result = pcall(members_match, value)
+      seen[key] = nil
+      if next(seen) == nil then
+        active_union_checks[self] = nil
+      end
+      if not ok then
+        error(result, 0)
+      end
+      return result
     end,
 
     __validate = function(self, schema, path, level, check_field)
@@ -392,6 +483,8 @@ local function dict_type_check(key_type, value_type)
   end
 
   return setmetatable({
+    [matcher_kind_mark] = 'Dict',
+
     __name = typename,
 
     key_type = key_type,
@@ -427,6 +520,8 @@ local function list_of_type_check(element_type)
   reject_markers(element_type, 'ListOf')
   local typename = 'ListOf<' .. type_name_of(element_type) .. '>'
   return setmetatable({
+    [matcher_kind_mark] = 'ListOf',
+
     __name = typename,
 
     -- Expose the element type so callers can introspect.
@@ -484,6 +579,8 @@ local function set_of_type_check(element_type)
   end
 
   return setmetatable({
+    [matcher_kind_mark] = 'SetOf',
+
     __name = typename,
 
     -- Expose the element type so callers can introspect.
@@ -733,13 +830,14 @@ local function callable_type_check(param_types, return_types, options)
 
   -- The AnyParams parameter list renders as a bare, unparenthesized
   -- '*' -- deliberately distinct from the variadic list's '(...)':
-  -- is_subtype falls back to name equality when comparing matchers,
-  -- and the two forms are different types (one checks that the
-  -- function is variadic, the other checks nothing). Dropping the
-  -- parentheses also makes the spelling unforgeable through entry
-  -- names: every concrete parameter list renders inside '(...)', so
-  -- no list entry (e.g. the string type name '*') can collide with
-  -- it.
+  -- the two forms are different types (one checks that the function
+  -- is variadic, the other checks nothing), and while is_subtype
+  -- compares two Callables structurally, everything else -- error
+  -- messages, Union names, name equality against matchers with no
+  -- structural rule -- sees the name. Dropping the parentheses also
+  -- makes the spelling unforgeable through entry names: every
+  -- concrete parameter list renders inside '(...)', so no list entry
+  -- (e.g. the string type name '*') can collide with it.
   local param_list_name
   if params_any then
     param_list_name = '*'
@@ -752,8 +850,10 @@ local function callable_type_check(param_types, return_types, options)
   end
   local return_names = {}
   for i, t in ipairs(return_types) do return_names[i] = type_name_of(t) end
-  -- Strictness is part of the matcher's identity, so it is encoded in
-  -- the name (which is_subtype falls back to when comparing matchers).
+  -- Strictness is part of the matcher's identity, so it is encoded
+  -- in the name (is_subtype compares Callables structurally --
+  -- including their strict flags -- but everything else sees the
+  -- name).
   local typename = 'Callable<' .. param_list_name
                    .. ' -> (' .. table.concat(return_names, ', ') .. ')>'
                    .. (strict and ' strict' or '')
@@ -762,6 +862,8 @@ local function callable_type_check(param_types, return_types, options)
   local subtype_module = nil
 
   return setmetatable({
+    [matcher_kind_mark] = 'Callable',
+
     __name = typename,
 
     -- Expose the signature so other matchers can introspect.
@@ -1659,9 +1761,10 @@ local function lazy_type_check(thunk)
   -- non-recursive member (e.g. `local A; A = Union{Lazy(-> A)}`) is
   -- an uninhabitable type with no base case; it cannot be detected
   -- at resolution time. is_subtype detects the resulting
-  -- self-dependent comparison and raises a clear error; isinstance
-  -- against such a type still diverges at check time, like any
-  -- other unbounded recursion in user code.
+  -- self-dependent comparison and raises a clear error, and the
+  -- union member walk applies the same pair-based occurs check at
+  -- the value level, so isinstance against such a type raises a
+  -- clear "cyclic type check" error instead of diverging.
   --
   -- Errors raised by the thunk itself propagate and are not cached:
   -- a later check retries resolution.
@@ -2064,11 +2167,15 @@ local function type_var_type_check(name, opts)
   --   Callable matcher -- conservatively rejects a generic signature
   --   against a concrete one. ParamSpec/TypeVarTuple analogs are
   --   follow-ups.
-  -- - Like NewType, the matcher's __name is the given name, and
-  --   is_subtype compares *containers* by name: two ListOf(T)s built
-  --   from distinct TypeVars both named 'T' compare equal at the
-  --   type level (bare TypeVars are protected by the identity rule
-  --   above). Keep TypeVar names unique where that matters.
+  -- - Like NewType, the matcher's __name is the given name. Matchers
+  --   with structural is_subtype rules (Tuple, Union, ListOf, SetOf,
+  --   Dict, Callable) compare their element types recursively, so
+  --   the TypeVar identity rule reaches through them: two ListOf(T)s
+  --   built from distinct TypeVars both named 'T' are unrelated at
+  --   the type level. Matchers that still compare by name (Iterator,
+  --   Generator, Protocol, ...) embed only the name, so distinct
+  --   TypeVars are conflated one level up inside them. Keep TypeVar
+  --   names unique where that matters.
   if type(name) ~= 'string' then
     error('TypeVar: expected a string name, got ' .. type(name), 2)
   end
@@ -2189,6 +2296,7 @@ AnyParams=any_params_sentinel
 _ENV.is_rest=is_rest
 _ENV.is_any_params=is_any_params
 _ENV.is_type_var=is_type_var
+_ENV.matcher_kind=matcher_kind
 _ENV.enter_type_var_scope=enter_type_var_scope
 _ENV.exit_type_var_scope=exit_type_var_scope
 

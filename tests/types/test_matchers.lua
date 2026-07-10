@@ -282,6 +282,104 @@ describe('Union', function()
       expect(isinstance(true, StringOrNumber)).to.be_false()
     end)
   end)
+
+  describe('cycle guard', function()
+    -- The isinstance analog of is_subtype's pair-based occurs
+    -- check: a degenerate self-referential union (a Lazy union
+    -- whose member walk reaches the same union with the same value
+    -- again) raises a clear error instead of recursing without
+    -- bound (previously a stack overflow at check time).
+    it('should raise on a degenerate self-referential union',
+        function()
+      local A
+      A = Union{Lazy(function() return A end)}
+      expect(function() isinstance(1, A) end).to.throw()
+      local ok, err = pcall(isinstance, 1, A)
+      expect(ok).to.be_false()
+      expect(string.find(tostring(err),
+          'cyclic type check', 1, true) ~= nil).to.be_true()
+    end)
+
+    it('should guard nil and NaN values too', function()
+      local A
+      A = Union{Lazy(function() return A end)}
+      expect(function() isinstance(nil, A) end).to.throw()
+      expect(function() isinstance(0/0, A) end).to.throw()
+    end)
+
+    it('should raise on mutually recursive degenerate unions',
+        function()
+      local A, B
+      A = Union{Lazy(function() return B end)}
+      B = Union{Lazy(function() return A end)}
+      expect(function() isinstance(1, A) end).to.throw()
+      expect(function() isinstance(1, B) end).to.throw()
+    end)
+
+    it('should raise when the walk reaches a direct self-member, '
+      .. 'even beside a base case', function()
+      local A
+      A = Union{Integer, Lazy(function() return A end)}
+      -- The Integer member decides before the self member is
+      -- reached; a walk that does reach the self member depends on
+      -- itself and raises, mirroring is_subtype.
+      expect(isinstance(1, A)).to.be_true()
+      expect(function() isinstance('x', A) end).to.throw()
+    end)
+
+    it('should not trip on recursion that descends into the '
+      .. 'value', function()
+      -- Container members check *parts* of the value against the
+      -- union, so the (union, value) pair changes at every level
+      -- and the guard stays silent.
+      local T
+      T = Union{Integer, ListOf(Lazy(function() return T end))}
+      expect(isinstance(1, T)).to.be_true()
+      expect(isinstance({1, {2, {3}}}, T)).to.be_true()
+      expect(isinstance('x', T)).to.be_false()
+      expect(isinstance({1, {'x'}}, T)).to.be_false()
+    end)
+
+    it('should raise on a self-referential value reached through '
+      .. 'a container member', function()
+      -- The value contains itself where the type recurses, so the
+      -- check re-enters the same (union, value) pair: genuinely
+      -- self-dependent, previously a stack overflow.
+      local T
+      T = Union{Integer, ListOf(Lazy(function() return T end))}
+      local value = {}
+      value[1] = value
+      expect(function() isinstance(value, T) end).to.throw()
+    end)
+
+    it('should unmark pairs on the way out, including on error',
+        function()
+      local A
+      A = Union{Lazy(function() return A end)}
+      expect(function() isinstance(1, A) end).to.throw()
+      -- The failed check must not leak marks into later checks:
+      -- the same degenerate check raises the same error again, and
+      -- unrelated checks are unaffected.
+      expect(function() isinstance(1, A) end).to.throw()
+      expect(isinstance(1, Union{Integer})).to.be_true()
+      -- An error raised by a member matcher propagates and unmarks
+      -- too: the retry raises the member's error, not a spurious
+      -- cyclic one.
+      local raising = setmetatable({
+        __name = 'Raising',
+        __isinstance = function() error('member exploded', 0) end,
+      }, {__tostring = function() return 'Raising' end})
+      local U = Union{raising}
+      local ok, err = pcall(isinstance, 1, U)
+      expect(ok).to.be_false()
+      expect(string.find(tostring(err), 'member exploded', 1, true)
+          ~= nil).to.be_true()
+      local ok2, err2 = pcall(isinstance, 1, U)
+      expect(ok2).to.be_false()
+      expect(string.find(tostring(err2), 'member exploded', 1, true)
+          ~= nil).to.be_true()
+    end)
+  end)
 end)
 
 -- ---------------------------------------------------------------------------
@@ -1571,13 +1669,26 @@ describe('Callable', function()
       expect(Callable({B}, {}):__isinstance(wrapped)).to.be_false()
     end)
 
-    it('should distinguish strict and lenient Callable '
-      .. 'parameters by name', function()
+    it('should relate strict and lenient Callable parameters '
+      .. 'structurally', function()
+      -- Two Callable matchers compare structurally in is_subtype: a
+      -- strict Callable's values are a subset of its lenient
+      -- counterpart's (strict only narrows the raw-function
+      -- fallback), so strict <= lenient but not the reverse. Under
+      -- parameter contravariance, a wrapper accepting the lenient
+      -- form therefore also serves where the strict form is
+      -- promised, while a wrapper demanding the strict form does
+      -- not serve where the lenient form is promised.
       local Lenient = Callable({Integer}, {Integer})
       local Strict = Callable({Integer}, {Integer}, {strict = true})
       local wrapped = make_wrapped({Lenient}, {})
       expect(Callable({Lenient}, {}):__isinstance(wrapped)).to.be_true()
-      expect(Callable({Strict}, {}):__isinstance(wrapped)).to.be_false()
+      expect(Callable({Strict}, {}):__isinstance(wrapped)).to.be_true()
+      local strict_taking = make_wrapped({Strict}, {})
+      expect(Callable({Strict}, {}):__isinstance(strict_taking))
+        .to.be_true()
+      expect(Callable({Lenient}, {}):__isinstance(strict_taking))
+        .to.be_false()
     end)
 
     it('should accept a variadic wrapper where its checked prefix '

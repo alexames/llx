@@ -26,6 +26,7 @@ local Never = matchers.Never
 local VARARG = check_arguments.VARARG
 local is_any_params = matchers.is_any_params
 local is_type_var = matchers.is_type_var
+local matcher_kind = matchers.matcher_kind
 local resolve_lazy = matchers.resolve_lazy
 
 local _ENV, _M = environment.create_module_environment()
@@ -44,11 +45,15 @@ local anonymous_class_name = '<anonymous class>'
 -- llx classes carry identity (their __is_llx_class marker), so the
 -- table-to-table name fallback never applies when either side is a
 -- class: two distinct classes that happen to share a __name are
--- distinct types, not mutual subtypes. Parameterized matchers
--- (Dict(String, Integer) and friends) have no identity -- separately
--- constructed instances are meant to compare equal -- so they keep
--- the name rule, as do string type names (a bare string cannot carry
--- identity at all, so it matches classes and matchers by name alike).
+-- distinct types, not mutual subtypes. Parameterized matchers have
+-- no identity -- separately constructed instances are meant to
+-- compare equal -- so those without a structural rule in
+-- subtype_rules below (Iterator, Generator, Protocol, NewType, ...)
+-- keep the name rule, as do string type names (a bare string cannot
+-- carry identity at all, so it matches classes and matchers by name
+-- alike). Same-kind pairs of the structurally compared matchers
+-- (Tuple, Union, ListOf, SetOf, Dict, Callable) never reach this
+-- fallback.
 local function type_equal(a, b)
   if rawequal(a, b) then return true end
   local a_type, b_type = type(a), type(b)
@@ -108,9 +113,11 @@ local function is_tuple(t)
      and rawget(t, 'fixed_count') ~= nil
 end
 
--- Forward declaration: the recursion below must thread the
--- cycle-guard bookkeeping through every nested comparison.
+-- Forward declarations: the recursion below must thread the
+-- cycle-guard bookkeeping through every nested comparison,
+-- including the signature relation the Callable rule delegates to.
 local is_subtype_impl
+local signature_compatible_impl
 
 -- Structural subtyping between two Tuple matchers. Elements compare
 -- covariantly: a tuple is a positional value container, so a tuple
@@ -193,6 +200,105 @@ local function subtype_rules(a, b, in_progress)
   if is_tuple(a) and is_tuple(b) then
     return rawequal(a, b) or tuple_subtype(a, b, in_progress)
   end
+  -- Parameterized matchers of the same kind (ListOf, SetOf, Dict,
+  -- Callable -- told apart by the kind mark their constructors
+  -- record; see llx.types.matchers.matcher_kind) likewise compare
+  -- structurally, taking precedence over the name fallback for the
+  -- same reasons as Tuples, and the structural verdict -- either
+  -- way -- is final. Matchers of *different* kinds fall through to
+  -- the rules below (their spelled names never collide, so the
+  -- fallback keeps, say, ListOf(T) and SetOf(T) unrelated). rawequal
+  -- keeps the relation reflexive for recursive matchers without a
+  -- self-dependent element walk.
+  local a_kind = matcher_kind(a)
+  if a_kind ~= nil and a_kind == matcher_kind(b) then
+    if rawequal(a, b) then
+      return true
+    end
+    if a_kind == 'ListOf' or a_kind == 'SetOf' then
+      -- Elements are covariant: like a tuple's slots, the element
+      -- position describes values the container's holder observes,
+      -- so a container of narrower elements can stand in wherever a
+      -- container of wider ones is expected. This treats containers
+      -- as value containers (reads); a checker that tracked aliased
+      -- mutation would need invariant elements, as mypy's mutable
+      -- list does, so covariance here is a deliberate, gradual
+      -- choice consistent with the Tuple rule.
+      return is_subtype_impl(rawget(a, 'element_type'),
+                             rawget(b, 'element_type'), in_progress)
+    end
+    if a_kind == 'Dict' then
+      -- Values are covariant, like ListOf elements. Keys are
+      -- invariant (mutual subtypes): a key type occupies both an
+      -- output position (iteration yields the keys) and an input
+      -- position (lookups take a key), and a type used both ways
+      -- admits no variance in either direction -- the same
+      -- both-positions argument that makes mypy's Mapping[K, V]
+      -- invariant in K. Invariance is checked as mutual is_subtype
+      -- rather than name equality so it stays structural:
+      -- Dict(Union{A, B}, V) and Dict(Union{B, A}, V) are mutual
+      -- subtypes, while Dicts keyed by distinct same-named classes
+      -- are not.
+      return is_subtype_impl(rawget(a, 'key_type'),
+                             rawget(b, 'key_type'), in_progress)
+         and is_subtype_impl(rawget(b, 'key_type'),
+                             rawget(a, 'key_type'), in_progress)
+         and is_subtype_impl(rawget(a, 'value_type'),
+                             rawget(b, 'value_type'), in_progress)
+    end
+    -- Callable: the signature relation decides (parameters
+    -- contravariant, returns covariant, with the variadic and
+    -- AnyParams rules documented on signature_compatible below),
+    -- with the cycle guard threaded through so recursive Callables
+    -- trip it instead of overflowing the stack -- except two
+    -- matcher-level guards where the matchers' value sets diverge
+    -- from the call relation:
+    --
+    -- - strict tightens only the raw-function fallback of the
+    --   value-level check, so a strict Callable -- whose values are
+    --   a subset of its lenient counterpart's -- can stand where a
+    --   lenient one is expected, but a lenient one, which admits
+    --   raw functions of shapes strict rejects, cannot stand where
+    --   strict is expected.
+    -- - AnyParams as the *subtype*'s parameter list: that matcher
+    --   accepts declared functions of every parameter shape
+    --   (signature_compatible's AnyParams-as-sub direction is
+    --   documented as gradual, not sound), so it can stand only
+    --   where the supertype also declares AnyParams. The sound
+    --   direction -- a concrete parameter list under an AnyParams
+    --   supertype, which constrains nothing -- is exactly what
+    --   signature_compatible accepts.
+    if rawget(b, 'strict') and not rawget(a, 'strict') then
+      return false
+    end
+    if is_any_params(rawget(a, 'params'))
+        and not is_any_params(rawget(b, 'params')) then
+      return false
+    end
+    return signature_compatible_impl(a, b, in_progress)
+  end
+  -- Two unions also compare member-wise ahead of the name fallback:
+  -- a union's name embeds only its members' *names*, so distinct
+  -- same-named member types (classes, most visibly) would otherwise
+  -- be conflated one wrapper up. The rule is the general union rule
+  -- below specialized to a union b -- every a member must be a
+  -- subtype of b, each decided against b's member list by the
+  -- recursion -- and its verdict is final, like the structural
+  -- rules above. rawequal keeps the relation reflexive for
+  -- recursive unions without a self-dependent member walk.
+  local a_members = union_members(a)
+  local b_members = union_members(b)
+  if a_members ~= nil and b_members ~= nil then
+    if rawequal(a, b) then
+      return true
+    end
+    for _, member in ipairs(a_members) do
+      if not is_subtype_impl(member, b, in_progress) then
+        return false
+      end
+    end
+    return true
+  end
   if type_equal(a, b) then
     return true
   end
@@ -203,7 +309,6 @@ local function subtype_rules(a, b, in_progress)
   -- A union is a subtype of b when every member is. An empty union
   -- is vacuously a subtype of everything (it is an uninhabited,
   -- Never-like type).
-  local a_members = union_members(a)
   if a_members then
     for _, member in ipairs(a_members) do
       if not is_subtype_impl(member, b, in_progress) then
@@ -213,7 +318,6 @@ local function subtype_rules(a, b, in_progress)
     return true
   end
   -- a is a subtype of a union when it is a subtype of any member.
-  local b_members = union_members(b)
   if b_members then
     for _, member in ipairs(b_members) do
       if is_subtype_impl(a, member, in_progress) then
@@ -293,7 +397,9 @@ end
 --   and nothing but `Never` itself (and an uninhabited union, which
 --   the union rule accepts vacuously) is a subtype of `Never`.
 -- - `Union`: a union is a subtype of `b` when every member is; `a` is
---   a subtype of a union when it is a subtype of any member.
+--   a subtype of a union when it is a subtype of any member. Two
+--   unions always compare member-wise (never by name), so distinct
+--   same-named member types are not conflated one wrapper up.
 -- - Numeric widening: `Integer` and `Float` are subtypes of `Number`,
 --   mirroring the value level where both satisfy `Number`.
 -- - Classes: the transitive `__superclasses` chain is walked, so a
@@ -303,6 +409,25 @@ end
 --   return-list rules of `signature_compatible` (see tuple_subtype
 --   above). The structural verdict is final: two Tuples never fall
 --   back to name equality.
+-- - `ListOf`/`SetOf`: two matchers of the same kind compare
+--   structurally with covariant element types --
+--   `ListOf(Integer)` is a subtype of `ListOf(Number)` -- and the
+--   structural verdict is final, as for Tuples. The two kinds stay
+--   unrelated to each other.
+-- - `Dict`: values compare covariantly; keys are invariant (mutual
+--   subtypes), because a key type occupies both an output position
+--   (iteration yields keys) and an input position (lookups take a
+--   key), the same rule mypy applies to Mapping's key parameter.
+--   The structural verdict is final.
+-- - `Callable`: two Callable matchers compare by
+--   `signature_compatible` (parameters contravariant, returns
+--   covariant, with its variadic and AnyParams rules), except that
+--   a lenient Callable is never a subtype of a strict one (strict
+--   narrows which raw functions are accepted at the value level),
+--   and a Callable declaring AnyParams is a subtype only of
+--   another AnyParams Callable (its value set spans every
+--   parameter shape; the sound direction, a concrete list under an
+--   AnyParams supertype, holds). The structural verdict is final.
 -- - `Lazy`: deferred references are forced (resolving and caching
 --   the underlying matcher) before comparison, so a Lazy compares
 --   exactly as the matcher it resolves to.
@@ -310,31 +435,35 @@ end
 --   `Any`; every other comparison involving a TypeVar is false.
 --   Generic signatures are thereby conservatively excluded from
 --   `signature_compatible` in this iteration (see the matcher's
---   documentation in llx.types.matchers).
+--   documentation in llx.types.matchers). The structural rules
+--   above reach through containers, so containers parameterized by
+--   distinct TypeVars are related only where the identity rule
+--   allows.
 --
--- Caveats: distinct *matchers* sharing a non-anonymous `__name`
--- compare as equal (and therefore as mutual subtypes) -- by design,
--- so separately constructed parameterized matchers such as
--- Dict(String, Integer) compare equal. llx classes carry identity,
--- so the name fallback never applies when either side is a class:
--- two distinct classes sharing a `__name` are unrelated. A container
--- matcher's name embeds only its element types' *names*, though, so
--- same-named classes are still conflated one level up inside
--- non-Tuple containers (Union{C}, ListOf(C), ...), whose comparison
--- remains name-based. String type names participate in name equality
--- only -- a string cannot be resolved to a type, so it gets neither
--- the class-hierarchy walk nor numeric widening on the subtype side.
+-- Caveats: matchers with no structural rule (Iterator, Generator,
+-- Protocol, NewType, ClassOf, ...) still compare by non-anonymous
+-- `__name` equality -- by design for separately constructed
+-- matchers, which carry no identity -- so distinct same-named
+-- element types are still conflated one level up inside *those*
+-- matchers' names. llx classes themselves carry identity, so the
+-- name fallback never applies when either side is a class: two
+-- distinct classes sharing a `__name` are unrelated. String type
+-- names participate in name equality only -- a string cannot be
+-- resolved to a type, so it gets neither the class-hierarchy walk
+-- nor numeric widening on the subtype side.
 --
 -- A comparison whose outcome depends on itself raises an error
 -- instead of recursing without bound. That happens when a type
 -- contains itself as a direct member through Lazy (e.g. a Lazy
 -- union containing only itself) and the comparison reaches that
 -- member; every such comparison previously overflowed the stack.
--- Recursion routed through a container matcher -- a leaf of this
--- relation -- never re-enters, so JSON-style recursive unions are
--- unaffected. Compare separately constructed recursive types by
+-- The structural rules recurse into container element types, so
+-- comparing two *separately constructed* recursive containers is
+-- self-dependent and raises too; compare recursive types by
 -- identity (the same matcher object on both sides) rather than by
--- structure.
+-- structure. Reflexive comparisons of a recursive type with itself
+-- are decided by identity before any element walk, so they are
+-- unaffected.
 --
 -- @param a The candidate subtype (a type matcher, class, or name)
 -- @param b The candidate supertype (a type matcher, class, or name)
@@ -441,13 +570,25 @@ end
 -- @param super The required signature
 -- @return True if `sub` is compatible with `super`, otherwise false
 function signature_compatible(sub, super)
+  return signature_compatible_impl(sub, super, {})
+end
+
+-- The relation proper, with the cycle-guard bookkeeping threaded
+-- through every nested type comparison: the public entry point
+-- above starts a fresh top-level table, while is_subtype's Callable
+-- rule passes its own in-progress table through, so a comparison
+-- routed into recursive Callables trips the guard (raising the
+-- clear cyclic-comparison error) instead of recursing without
+-- bound.
+function signature_compatible_impl(sub, super, in_progress)
   if type(sub) ~= 'table' or type(super) ~= 'table' then
     return false
   end
   local super_overloads = overload_members(super)
   if super_overloads then
     for _, declaration in ipairs(super_overloads) do
-      if not signature_compatible(sub, declaration) then
+      if not signature_compatible_impl(sub, declaration, in_progress)
+      then
         return false
       end
     end
@@ -456,7 +597,8 @@ function signature_compatible(sub, super)
   local sub_overloads = overload_members(sub)
   if sub_overloads then
     for _, declaration in ipairs(sub_overloads) do
-      if signature_compatible(declaration, super) then
+      if signature_compatible_impl(declaration, super, in_progress)
+      then
         return true
       end
     end
@@ -537,7 +679,8 @@ function signature_compatible(sub, super)
   -- super parameters beyond them land in sub's unchecked tail.
   if not params_any then
     for i = 1, sub_params_fixed do
-      if not is_subtype(super_params[i], sub_params[i]) then
+      if not is_subtype_impl(super_params[i], sub_params[i],
+                             in_progress) then
         return false
       end
     end
@@ -545,7 +688,8 @@ function signature_compatible(sub, super)
   -- Returns are covariant over the positions super promises; any sub
   -- returns beyond them land in super's unchecked tail.
   for i = 1, super_returns_fixed do
-    if not is_subtype(sub_returns[i], super_returns[i]) then
+    if not is_subtype_impl(sub_returns[i], super_returns[i],
+                           in_progress) then
       return false
     end
   end
