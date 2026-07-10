@@ -11,10 +11,14 @@ local generator_compatible =
 local VARARG = require 'llx.check_arguments' . VARARG
 
 local Any = matchers.Any
+local Never = matchers.Never
 local Union = matchers.Union
 local Optional = matchers.Optional
 local Dict = matchers.Dict
 local Callable = matchers.Callable
+local Tuple = matchers.Tuple
+local Rest = matchers.Rest
+local Lazy = matchers.Lazy
 
 local class = llx.class
 local Float = llx.Float
@@ -209,6 +213,238 @@ describe('is_subtype', function()
       expect(is_subtype(UserId, Union{UserId, String})).to.be_true()
       expect(is_subtype(UserId, Union{Integer, String})).to.be_true()
       expect(is_subtype(UserId, Union{String})).to.be_false()
+    end)
+  end)
+
+  describe('Never as bottom type', function()
+    it('should treat Never as a subtype of every type', function()
+      expect(is_subtype(Never, Integer)).to.be_true()
+      expect(is_subtype(Never, String)).to.be_true()
+      expect(is_subtype(Never, Animal)).to.be_true()
+      expect(is_subtype(Never, Any)).to.be_true()
+      expect(is_subtype(Never, Union{Integer, String})).to.be_true()
+      expect(is_subtype(Never, Never)).to.be_true()
+    end)
+
+    it('should not treat other types as subtypes of Never', function()
+      expect(is_subtype(Integer, Never)).to.be_false()
+      expect(is_subtype(Any, Never)).to.be_false()
+      expect(is_subtype(Animal, Never)).to.be_false()
+      expect(is_subtype(Union{Integer}, Never)).to.be_false()
+    end)
+
+    it('should accept uninhabited unions as subtypes '
+      .. 'of Never', function()
+      expect(is_subtype(Union{}, Never)).to.be_true()
+      expect(is_subtype(Union{Never}, Never)).to.be_true()
+      expect(is_subtype(Union{Never, Integer}, Never)).to.be_false()
+    end)
+
+    it('should keep TypeVars excluded even against Never', function()
+      -- TypeVar exclusion takes precedence: type variables stay out
+      -- of the variance relation entirely (see the TypeVar tests
+      -- below), so not even Never relates to one.
+      local T = matchers.TypeVar('T')
+      expect(is_subtype(Never, T)).to.be_false()
+      expect(is_subtype(T, Never)).to.be_false()
+    end)
+  end)
+
+  describe('Tuple structural rules', function()
+    it('should compare fixed tuples element-wise '
+      .. 'covariantly', function()
+      expect(is_subtype(Tuple{Integer}, Tuple{Number})).to.be_true()
+      expect(is_subtype(Tuple{Number}, Tuple{Integer})).to.be_false()
+      expect(is_subtype(Tuple{Cat, Integer},
+                        Tuple{Animal, Number})).to.be_true()
+      expect(is_subtype(Tuple{Animal, Integer},
+                        Tuple{Cat, Number})).to.be_false()
+    end)
+
+    it('should accept separately constructed identical '
+      .. 'tuples', function()
+      expect(is_subtype(Tuple{Integer, String},
+                        Tuple{Integer, String})).to.be_true()
+      expect(is_subtype(Tuple{Rest(Integer)},
+                        Tuple{Rest(Integer)})).to.be_true()
+    end)
+
+    it('should require equal arity between fixed tuples', function()
+      expect(is_subtype(Tuple{Integer},
+                        Tuple{Integer, Integer})).to.be_false()
+      expect(is_subtype(Tuple{Integer, Integer},
+                        Tuple{Integer})).to.be_false()
+    end)
+
+    it('should accept a fixed tuple under a Rest-variadic '
+      .. 'tuple', function()
+      expect(is_subtype(Tuple{Integer, Integer},
+                        Tuple{Integer, Rest(Integer)})).to.be_true()
+      expect(is_subtype(Tuple{Integer, Integer},
+                        Tuple{Rest(Integer)})).to.be_true()
+      expect(is_subtype(Tuple{}, Tuple{Rest(Integer)})).to.be_true()
+      expect(is_subtype(Tuple{Integer, String},
+                        Tuple{Rest(Integer)})).to.be_false()
+    end)
+
+    it('should reject a fixed tuple shorter than a variadic '
+      .. 'prefix', function()
+      expect(is_subtype(
+          Tuple{Integer},
+          Tuple{Integer, Integer, Rest(Integer)})).to.be_false()
+    end)
+
+    it('should compare Rest tails covariantly', function()
+      expect(is_subtype(Tuple{Rest(Integer)},
+                        Tuple{Rest(Number)})).to.be_true()
+      expect(is_subtype(Tuple{Rest(Number)},
+                        Tuple{Rest(Integer)})).to.be_false()
+      expect(is_subtype(Tuple{String, Rest(Cat)},
+                        Tuple{String, Rest(Animal)})).to.be_true()
+    end)
+
+    it('should not accept a variadic tuple where a fixed one '
+      .. 'is expected', function()
+      expect(is_subtype(Tuple{Rest(Integer)},
+                        Tuple{Integer})).to.be_false()
+      expect(is_subtype(Tuple{Integer, VARARG},
+                        Tuple{Integer})).to.be_false()
+    end)
+
+    it('should treat an unchecked tail as a tail of Any', function()
+      expect(is_subtype(Tuple{Integer}, Tuple{VARARG})).to.be_true()
+      expect(is_subtype(Tuple{Rest(Integer)},
+                        Tuple{VARARG})).to.be_true()
+      expect(is_subtype(Tuple{Integer, VARARG},
+                        Tuple{Integer, VARARG})).to.be_true()
+      -- The unchecked tail admits anything, so only a tail that
+      -- admits Any can stand above it.
+      expect(is_subtype(Tuple{Integer, VARARG},
+                        Tuple{Rest(Integer)})).to.be_false()
+      expect(is_subtype(Tuple{Integer, VARARG},
+                        Tuple{Rest(Any)})).to.be_true()
+    end)
+
+    it('should let the structural verdict beat name '
+      .. 'equality', function()
+      -- Two tuples over distinct same-named classes spell the same
+      -- __name; structure (class identity) decides, not the name.
+      local C1 = class 'TupleCollide' { }
+      local C2 = class 'TupleCollide' { }
+      expect(is_subtype(Tuple{C1}, Tuple{C1})).to.be_true()
+      expect(is_subtype(Tuple{C1}, Tuple{C2})).to.be_false()
+    end)
+
+    it('should relate tuples to Any and Union normally', function()
+      expect(is_subtype(Tuple{Integer}, Any)).to.be_true()
+      expect(is_subtype(Tuple{Integer},
+                        Union{Tuple{Number}, String})).to.be_true()
+      expect(is_subtype(Tuple{Integer},
+                        Union{Tuple{String}, String})).to.be_false()
+    end)
+  end)
+
+  describe('name-collision identity for classes', function()
+    it('should keep distinct classes sharing a name '
+      .. 'unrelated', function()
+      local A1 = class 'SameName' { }
+      local A2 = class 'SameName' { }
+      expect(is_subtype(A1, A1)).to.be_true()
+      expect(is_subtype(A2, A2)).to.be_true()
+      expect(is_subtype(A1, A2)).to.be_false()
+      expect(is_subtype(A2, A1)).to.be_false()
+    end)
+
+    it('should relate a subclass to its own base only', function()
+      local B1 = class 'SameBase' { }
+      local B2 = class 'SameBase' { }
+      local Derived = class 'Derived' : extends(B1) { }
+      expect(is_subtype(Derived, B1)).to.be_true()
+      expect(is_subtype(Derived, B2)).to.be_false()
+    end)
+
+    it('should still match string names against classes '
+      .. 'by name', function()
+      local C1 = class 'StringNamed' { }
+      local C2 = class 'StringNamed' { }
+      expect(is_subtype('StringNamed', C1)).to.be_true()
+      expect(is_subtype('StringNamed', C2)).to.be_true()
+      expect(is_subtype(C1, 'StringNamed')).to.be_true()
+    end)
+
+    it('should keep name equality for parameterized '
+      .. 'matchers', function()
+      -- Separately constructed matchers rely on the name rule by
+      -- design; only llx classes carry identity.
+      expect(is_subtype(Dict(String, Integer),
+                        Dict(String, Integer))).to.be_true()
+      local NewType = matchers.NewType
+      local N1 = NewType('SameBrand', Integer)
+      local N2 = NewType('SameBrand', Integer)
+      expect(is_subtype(N1, N2)).to.be_true()
+    end)
+  end)
+
+  describe('recursive comparison cycle guard', function()
+    it('should raise on a recursive union with no base '
+      .. 'case', function()
+      local A
+      A = Union{Lazy(function() return A end)}
+      expect(function() return is_subtype(A, Integer) end)
+        .to.throw()
+      expect(function() return is_subtype(Integer, A) end)
+        .to.throw()
+    end)
+
+    it('should name the cycle in the error message', function()
+      local A
+      A = Union{Lazy(function() return A end)}
+      local ok, err = pcall(is_subtype, A, Integer)
+      expect(ok).to.be_false()
+      expect(string.find(tostring(err),
+          'cyclic type comparison', 1, true) ~= nil).to.be_true()
+    end)
+
+    it('should raise on mutually recursive unions with no base '
+      .. 'case', function()
+      local A, B
+      A = Union{Lazy(function() return B end)}
+      B = Union{Lazy(function() return A end)}
+      expect(function() return is_subtype(A, Integer) end)
+        .to.throw()
+    end)
+
+    it('should raise when the walk reaches a direct self-member, '
+      .. 'even beside a base case', function()
+      local A
+      A = Union{Integer, Lazy(function() return A end)}
+      -- The Integer member decides Integer <= A before the self
+      -- member is reached; a walk that does reach the self member
+      -- depends on itself and raises.
+      expect(is_subtype(Integer, A)).to.be_true()
+      expect(function() return is_subtype(A, Number) end).to.throw()
+    end)
+
+    it('should still resolve recursive types with a base '
+      .. 'case', function()
+      local ListOf = matchers.ListOf
+      local T
+      T = Union{Integer, ListOf(Lazy(function() return T end))}
+      expect(is_subtype(Integer, T)).to.be_true()
+      expect(is_subtype(T, T)).to.be_true()
+      expect(is_subtype(T, Integer)).to.be_false()
+    end)
+
+    it('should stay reflexive for recursive tuples but raise on '
+      .. 'structural comparison of distinct ones', function()
+      local T1
+      T1 = Tuple{Integer, Rest(Lazy(function() return T1 end))}
+      local T2
+      T2 = Tuple{Integer, Rest(Lazy(function() return T2 end))}
+      expect(is_subtype(T1, T1)).to.be_true()
+      -- Deciding T1 <= T2 structurally depends on itself; compare
+      -- recursive types by identity instead.
+      expect(function() return is_subtype(T1, T2) end).to.throw()
     end)
   end)
 end)
