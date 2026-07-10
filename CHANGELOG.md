@@ -159,6 +159,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The unit framework's `expect(fn).to_not.throw(expected)` no longer
+  silently ignores its expected-message argument. It previously
+  negated only the did-it-throw boolean, so any thrown error failed
+  the assertion and the message was never compared, making
+  message-specific negative assertions impossible to express. It now
+  means "does not throw an error equal to `expected`": not throwing
+  passes, throwing a different error passes, and throwing that exact
+  error fails. String messages are compared after stripping the
+  leading `file:line:` position prefix (sharing #66's stripping
+  logic); non-string errors compare by raw equality. Bare
+  `to_not.throw()` still fails on any error. (#90)
 - `isinstance(wrapped, llx.Function)` (the `types.Function` type
   singleton) now accepts `Signature`-wrapped functions. Annotating a
   function with `Signature` replaces it with a callable table, so

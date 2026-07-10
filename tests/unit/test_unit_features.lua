@@ -95,6 +95,55 @@ describe('throw message prefix stripping', function()
   end)
 end)
 
+-- Test to_not.throw with an expected message (issue #90):
+-- not throwing passes, throwing a different message passes,
+-- throwing that exact (position-stripped) message fails.
+describe('to_not.throw with expected message', function()
+  it('passes when the function does not throw', function()
+    expect(function() return 1 end).to_not.throw('boom')
+  end)
+
+  it('passes when a different message is thrown', function()
+    expect(function() error('other') end).to_not.throw('boom')
+  end)
+
+  it('fails when the expected message is thrown', function()
+    local ok = pcall(function()
+      expect(function() error('boom') end).to_not.throw('boom')
+    end)
+    expect(ok).to.be_false()
+  end)
+
+  it('strips the position prefix before comparing', function()
+    local ok = pcall(function()
+      expect(function()
+        error('src/foo.lua:12: boom', 0)
+      end).to_not.throw('boom')
+    end)
+    expect(ok).to.be_false()
+  end)
+
+  it('passes for a non-string error and a string message', function()
+    expect(function()
+      error({code = 42})
+    end).to_not.throw('boom')
+  end)
+
+  it('passes when a different exception object is thrown', function()
+    expect(function()
+      error({code = 42})
+    end).to_not.throw({code = 42})
+  end)
+
+  it('fails when the expected exception object is thrown', function()
+    local exception = {code = 42}
+    local ok = pcall(function()
+      expect(function() error(exception) end).to_not.throw(exception)
+    end)
+    expect(ok).to.be_false()
+  end)
+end)
+
 -- Test expect.extend (custom matchers)
 describe('expect.extend', function()
   test_api.expect_extend('be_divisible_by', function(divisor)
