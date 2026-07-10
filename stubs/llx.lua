@@ -61,6 +61,10 @@
 ---@field is_type_var fun(value: any): boolean
 ---@field ParamSpec fun(name: string): any
 ---@field is_param_spec fun(value: any): boolean
+---@field TypeVarTuple fun(name: string): any
+---@field is_type_var_tuple fun(value: any): boolean
+---@field Unpack fun(type_var_tuple: any): any
+---@field is_unpack fun(value: any): boolean
 ---@field enter_type_var_scope fun(scope?: table): table
 ---@field exit_type_var_scope fun()
 ---@field Rest fun(element_type: any): any

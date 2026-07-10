@@ -465,6 +465,32 @@ llx.is_subtype(decorator,
       {matchers.Callable({llx.Integer}, {llx.String})},
       {matchers.Callable({llx.Integer}, {llx.String})})) --> true
 
+-- TypeVarTuple / Unpack: a variadic type variable (the analog of
+-- Python's typing.TypeVarTuple). Where a TypeVar binds one type, a
+-- TypeVarTuple binds a *sequence*, spliced into a list through
+-- Unpack(Ts), so a Tuple or signature generic over arity can be
+-- declared. At the value level a spliced Tuple checks its fixed prefix
+-- and suffix and leaves the middle run free.
+local Ts = matchers.TypeVarTuple('Ts')
+llx.isinstance({'a', 1, 2}, matchers.Tuple{llx.String, matchers.Unpack(Ts)})
+                                                             --> true
+-- At the type level a candidate-side Unpack captures its counterpart's
+-- spanned sub-sequence and substitutes it at later occurrences, so a
+-- params/returns pair correlates through Ts. Only the candidate side
+-- unifies; a super-side Unpack stays universal (an empty span binds Ts
+-- to the empty sequence). TypeVarTuple is type-level-only in this
+-- release: like ParamSpec it carries information for
+-- is_subtype/Callable but has no call-time meaning, so a Signature
+-- rejects an Unpack. (At most one Unpack per list; it cannot combine
+-- with a trailing VARARG/Rest tail, and capturing from a variadic
+-- counterpart is refused. Length arithmetic, multiple Unpacks, and
+-- Unpack inside Dict/SetOf are not yet supported.)
+llx.signature_compatible(
+  {params = {matchers.Unpack(Ts)},
+   returns = {matchers.Tuple{matchers.Unpack(Ts)}}},
+  {params = {llx.Integer, llx.String},
+   returns = {matchers.Tuple{llx.Integer, llx.String}}})    --> true
+
 -- Overload: several signatures on one callable value, dispatched
 -- first-match-wins (declare the most specific first). When no
 -- candidate accepts a call, OverloadResolutionException lists every

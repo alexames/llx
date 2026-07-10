@@ -113,6 +113,20 @@ function check_returns_exact(expected_types, return_values, count)
           'Rest(T) is only valid inside Tuple; use a trailing '
           .. "VARARG ('...') for variadic signatures", 2))
     end
+    -- Unpack(Ts) and a bare TypeVarTuple are type-level-only markers
+    -- with no call-time meaning; reject them as the backstop for lists
+    -- that bypass the Signature constructor (which already rejects
+    -- them), the same policy as Rest(T) above.
+    if matchers_module.is_unpack(expected_type) then
+      error(ValueException(
+          'Unpack(Ts) is a type-level-only marker with no call-time '
+          .. 'meaning; use Tuple/Callable at the type level', 2))
+    end
+    if matchers_module.is_type_var_tuple(expected_type) then
+      error(ValueException(
+          'TypeVarTuple is only valid wrapped in Unpack(Ts) inside a '
+          .. 'Tuple or Callable', 2))
+    end
     check_argument(i, return_values[i], expected_type)
   end
   if not variadic and count > expected_count then

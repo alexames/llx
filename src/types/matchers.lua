@@ -720,6 +720,37 @@ local function is_param_spec(value)
      and rawget(value, param_spec_mark) == true
 end
 
+-- Marker key identifying TypeVarTuple sentinels below. A module-local
+-- table key cannot be forged (or observed) outside this module, so
+-- nothing else can accidentally look like a TypeVarTuple.
+-- is_type_var_tuple (exported below) is the public way to recognize
+-- one. Declared here, above reject_markers, so the composite
+-- constructors can reject a stray TypeVarTuple -- it is only
+-- meaningful wrapped in Unpack -- the same way they reject a stray
+-- ParamSpec. The factory itself is defined near TypeVar (its sibling
+-- generics construct) further down.
+local type_var_tuple_mark = {}
+
+local function is_type_var_tuple(value)
+  return type(value) == 'table'
+     and rawget(value, type_var_tuple_mark) == true
+end
+
+-- Marker key identifying Unpack splice markers below. Module-local and
+-- unforgeable like the marks above. is_unpack (exported below) is the
+-- public way to recognize one. An Unpack wraps a TypeVarTuple and is
+-- legal only as a *list entry* (Tuple elements, Callable params or
+-- returns); the composite constructors that forbid it reject it
+-- through reject_markers, while Tuple and Callable handle it specially
+-- (validating placement and binding its variable at the type level;
+-- see llx.is_subtype).
+local unpack_mark = {}
+
+local function is_unpack(value)
+  return type(value) == 'table'
+     and rawget(value, unpack_mark) == true
+end
+
 -- Raises ValueException when `entry` -- a single declared type
 -- position (a Union member, Optional's inner type, a Dict key or
 -- value type, a ListOf/SetOf element type, a Protocol field type, or
@@ -756,6 +787,19 @@ function reject_markers(entry, where, level)
       .. '(Callable(P, returns)); it is not valid as a type list '
       .. 'entry', level))
   end
+  if is_type_var_tuple(entry) then
+    exceptions_module = exceptions_module or require 'llx.exceptions'
+    error(exceptions_module.ValueException(
+      where .. ': TypeVarTuple is only valid wrapped in Unpack(Ts) '
+      .. 'as a Tuple, Callable params, or Callable returns list '
+      .. 'entry', level))
+  end
+  if is_unpack(entry) then
+    exceptions_module = exceptions_module or require 'llx.exceptions'
+    error(exceptions_module.ValueException(
+      where .. ': Unpack(Ts) is only valid as a Tuple, Callable '
+      .. 'params, or Callable returns list entry', level))
+  end
 end
 
 -- Applies reject_markers to every entry of a declared type list
@@ -767,6 +811,60 @@ function reject_marker_entries(type_list, where)
   for i = 1, #type_list do
     reject_markers(type_list[i], where, 4)
   end
+end
+
+-- Like reject_marker_entries but permits Unpack(Ts) entries: the
+-- splice marker is legal in a Tuple element list and in a Callable's
+-- parameter and return lists, where its variable binds a spanned
+-- sub-sequence at the type level (see llx.is_subtype). Every other
+-- stray marker -- including a bare TypeVarTuple, which must be wrapped
+-- in Unpack -- is still rejected. Single-occurrence and
+-- tail-combination rules for the Unpack itself are enforced by the
+-- caller (validate_unpack_placement below).
+local function reject_marker_entries_allow_unpack(type_list, where)
+  for i = 1, #type_list do
+    if not is_unpack(type_list[i]) then
+      reject_markers(type_list[i], where, 4)
+    end
+  end
+end
+
+-- Validates Unpack(Ts) placement in a list that permits it (a Tuple
+-- element list or a Callable parameter/return list): at most one
+-- Unpack per list in this first iteration (mypy's single-TypeVarTuple
+-- rule), and never combined with a trailing VARARG ('...') or Rest(T)
+-- tail -- two unbounded-length regions in one list have no
+-- unambiguous split. A single Unpack anywhere is allowed: a fixed
+-- prefix and suffix may surround it, and the positions it spans bind
+-- its variable. Returns the index of the Unpack entry, or nil. `level`
+-- anchors the raised exception at the constructor's own call site.
+local function validate_unpack_placement(type_list, where, level)
+  check_arguments_module =
+      check_arguments_module or require 'llx.check_arguments'
+  local vararg_marker = check_arguments_module.VARARG
+  local unpack_index = nil
+  for i = 1, #type_list do
+    if is_unpack(type_list[i]) then
+      if unpack_index ~= nil then
+        exceptions_module =
+            exceptions_module or require 'llx.exceptions'
+        error(exceptions_module.ValueException(
+          where .. ': at most one Unpack(Ts) is allowed per list '
+          .. '(the first iteration forbids multiple Unpacks)', level))
+      end
+      unpack_index = i
+    end
+  end
+  if unpack_index ~= nil then
+    local last = type_list[#type_list]
+    if last == vararg_marker or is_rest(last) then
+      exceptions_module = exceptions_module or require 'llx.exceptions'
+      error(exceptions_module.ValueException(
+        where .. ': Unpack(Ts) cannot be combined with a trailing '
+        .. "VARARG ('...') or Rest(T) tail in the same list", level))
+    end
+  end
+  return unpack_index
 end
 
 local function callable_type_check(param_types, return_types, options)
@@ -812,6 +910,24 @@ local function callable_type_check(param_types, return_types, options)
   if params_spec and strict then
     error('Callable: strict has no effect with a ParamSpec (there '
       .. 'is no declared parameter shape to enforce)', 2)
+  end
+  -- An Unpack(Ts) somewhere in the parameter list splices a variadic
+  -- generic sequence of unknown length into it, so there is no
+  -- concrete arity to enforce against a raw function; strict has
+  -- nothing to tighten. Fail loudly, as for AnyParams and ParamSpec.
+  -- (params_unpack is finalized below, after placement validation.)
+  local params_unpack = false
+  if not params_any and not params_spec then
+    for i = 1, #param_types do
+      if is_unpack(param_types[i]) then
+        params_unpack = true
+        break
+      end
+    end
+  end
+  if params_unpack and strict then
+    error('Callable: strict has no effect with an Unpack(Ts) '
+      .. 'parameter list (its spanned arity is unbounded)', 2)
   end
 
   -- A trailing VARARG ('...') entry in param_types declares that the
@@ -864,10 +980,16 @@ local function callable_type_check(param_types, return_types, options)
   -- and ParamSpec entries are rejected for the same
   -- silently-unsatisfiable reason. A ParamSpec *in place of* the
   -- whole list carries no entries, so its validation is skipped too.
+  -- Unpack(Ts) is permitted in either list (it splices a variadic
+  -- generic into it; see llx.is_subtype), so it is not rejected here;
+  -- validate_unpack_placement enforces its single-occurrence and
+  -- no-trailing-tail rules instead.
   if not params_any and not params_spec then
-    reject_marker_entries(param_types, 'Callable')
+    reject_marker_entries_allow_unpack(param_types, 'Callable')
+    validate_unpack_placement(param_types, 'Callable', 2)
   end
-  reject_marker_entries(return_types, 'Callable')
+  reject_marker_entries_allow_unpack(return_types, 'Callable')
+  validate_unpack_placement(return_types, 'Callable', 2)
 
   -- The AnyParams parameter list renders as a bare, unparenthesized
   -- '*' -- deliberately distinct from the variadic list's '(...)':
@@ -977,8 +1099,14 @@ local function callable_type_check(param_types, return_types, options)
       -- type-level relation, where a top-level ParamSpec on the
       -- matcher (super) side stays universal and matches only an
       -- identical ParamSpec.
+      --
+      -- An Unpack(Ts) in the parameter list is likewise type-level
+      -- only in this first iteration (its sequence binding lives in
+      -- signature_compatible): the spanned region has unbounded,
+      -- unconstrained arity for a raw function, so -- like AnyParams
+      -- and ParamSpec -- every raw function is accepted gradually.
       if type(value) == 'function' then
-        if params_any or params_spec then
+        if params_any or params_spec or params_unpack then
           return true
         end
         local info = debug.getinfo(value, 'u')
@@ -1059,7 +1187,8 @@ local function iterator_type_check(...)
   local last = yield_types[yield_count]
   if yield_count > 0 and type(last) == 'table'
       and last.__isinstance == nil
-      and not is_rest(last) and not is_any_params(last) then
+      and not is_rest(last) and not is_any_params(last)
+      and not is_unpack(last) then
     -- An empty table is neither a usable yield type (it could never
     -- match) nor a meaningful options table; silently discarding it
     -- would hide the mistake, so it fails loudly.
@@ -1307,6 +1436,70 @@ local function generator_type_check(contract)
   })
 end
 
+-- Builds a Tuple matcher whose element list contains an Unpack(Ts)
+-- splice at `unpack_index` (validated by the caller). Separate from
+-- the plain Tuple path because the arity is variable: the fixed
+-- prefix (positions before the splice) and fixed suffix (positions
+-- after it) are checked, and the spanned middle is a free sequence.
+local function tuple_unpack_type_check(element_types, unpack_index)
+  local declared_count = #element_types
+  local unpack_var = element_types[unpack_index].type_var_tuple
+  local prefix_count = unpack_index - 1
+  local suffix_count = declared_count - unpack_index
+  -- Name: the fixed prefix, the '*Ts' splice, then the fixed suffix,
+  -- each rendered through type_name_of (the Unpack renders as '*Ts').
+  local element_names = {}
+  for i = 1, declared_count do
+    element_names[i] = type_name_of(element_types[i])
+  end
+  local typename = 'Tuple<' .. table.concat(element_names, ', ') .. '>'
+  return setmetatable({
+    __name = typename,
+
+    -- Expose the declared list plus the Unpack-derived shape:
+    -- unpack_index locates the splice, unpack_var names the bound
+    -- sequence variable, and prefix_count/suffix_count are the fixed
+    -- positions before and after it. fixed_count (the prefix length)
+    -- and variadic=false keep the introspection contract the plain
+    -- Tuple exposes; llx.is_subtype routes Unpack tuples through its
+    -- own structural rule.
+    element_types = element_types,
+    fixed_count = prefix_count,
+    variadic = false,
+    rest_type = nil,
+    unpack_index = unpack_index,
+    unpack_var = unpack_var,
+    prefix_count = prefix_count,
+    suffix_count = suffix_count,
+
+    __isinstance = function(self, value)
+      -- Value level (type-level-only first iteration): the spanned
+      -- region is a free sequence of unconstrained length, so only
+      -- the fixed prefix (from the front) and fixed suffix (from the
+      -- back) are checked and the middle run is accepted unchecked. A
+      -- proper sequence is required (# gives the length), like the
+      -- plain Tuple above.
+      if type(value) ~= 'table' then return false end
+      local length = #value
+      if length < prefix_count + suffix_count then return false end
+      for i = 1, prefix_count do
+        if not isinstance(value[i], element_types[i]) then
+          return false
+        end
+      end
+      for j = 1, suffix_count do
+        if not isinstance(value[length - suffix_count + j],
+                          element_types[unpack_index + j]) then
+          return false
+        end
+      end
+      return true
+    end,
+  }, {
+    __tostring = function(self) return self.__name end,
+  })
+end
+
 local function tuple_type_check(element_types)
   if type(element_types) ~= 'table' then
     error('Tuple: expected a list of element types', 2)
@@ -1325,6 +1518,30 @@ local function tuple_type_check(element_types)
   check_arguments_module =
       check_arguments_module or require 'llx.check_arguments'
   local vararg_marker = check_arguments_module.VARARG
+  -- A bare TypeVarTuple is only meaningful wrapped in Unpack(Ts);
+  -- reject it anywhere (it carries no __isinstance, so a position
+  -- holding one could never match). Unpack itself is validated below.
+  for i = 1, #element_types do
+    if is_type_var_tuple(element_types[i]) then
+      exceptions_module = exceptions_module or require 'llx.exceptions'
+      error(exceptions_module.ValueException(
+        'Tuple: TypeVarTuple is only valid wrapped in Unpack(Ts)', 2))
+    end
+  end
+  -- An Unpack(Ts) entry splices a variadic generic type sequence into
+  -- the tuple: the positions it spans bind Ts at the type level (see
+  -- llx.is_subtype), and at the value level the spanned region is an
+  -- unchecked run of unconstrained length (Ts is a free sequence
+  -- variable), with the fixed prefix and suffix around it still
+  -- checked positionally. It cannot share the list with a trailing
+  -- VARARG/Rest tail (two unbounded-length regions with no
+  -- unambiguous split); validate_unpack_placement enforces both that
+  -- and the single-Unpack rule.
+  local unpack_index =
+      validate_unpack_placement(element_types, 'Tuple', 2)
+  if unpack_index ~= nil then
+    return tuple_unpack_type_check(element_types, unpack_index)
+  end
   local declared_count = #element_types
   local last_entry = element_types[declared_count]
   local unchecked_tail = last_entry == vararg_marker
@@ -2434,6 +2651,85 @@ local function param_spec_type_check(name)
   })
 end
 
+local function type_var_tuple_type_check(name)
+  -- TypeVarTuple(name): a variadic type variable, the runtime analog
+  -- of Python's typing.TypeVarTuple. Where a TypeVar binds one type, a
+  -- TypeVarTuple binds a *sequence* of types, so a signature or Tuple
+  -- generic over arity can be declared. It is never used bare: it is
+  -- spliced into a list through Unpack(Ts) --
+  --
+  --   local Ts = TypeVarTuple('Ts')
+  --   local ArgsTuple = Tuple{Unpack(Ts)}      -- a tuple of any shape
+  --   Callable({Unpack(Ts)}, {Tuple{Unpack(Ts)}})  -- an args packer
+  --
+  -- Deliberate, documented scope of this first iteration (soundness
+  -- over permissiveness, matching TypeVar/ParamSpec):
+  --
+  -- - Type-level only. Like ParamSpec, a TypeVarTuple carries
+  --   information for the is_subtype/signature_compatible relation over
+  --   *declared* types; it has no call-time witness protocol. A
+  --   Signature/Function rejects an Unpack (a per-call sequence witness
+  --   is out of scope), and at the value level a Tuple/Callable holding
+  --   an Unpack treats its spanned region as a free, unchecked run of
+  --   unconstrained length (Ts unconstrained), the sequence analog of a
+  --   free TypeVar matching any value.
+  -- - At most one Unpack per list, and never combined with a trailing
+  --   VARARG ('...') or Rest(T) tail (two unbounded-length regions have
+  --   no unambiguous split). A single Unpack may sit anywhere, with a
+  --   fixed prefix and suffix around it.
+  -- - An Unpack meeting a variadic (Rest/VARARG) counterpart region has
+  --   no finite concrete sequence to capture, so unification refuses it
+  --   (see llx.is_subtype); an empty spanned region binds Ts to the
+  --   empty sequence.
+  -- - Non-goals (future extensions): arithmetic over sequence lengths,
+  --   multiple Unpacks per list, and Unpack inside Dict/SetOf.
+  --
+  -- Like ParamSpec, a TypeVarTuple is not itself a type matcher (no
+  -- __isinstance), so using one -- or a bare, unwrapped TypeVarTuple as
+  -- a list entry -- raises the standard non-matcher/rejection error.
+  -- Two TypeVarTuples sharing a name are independent variables
+  -- (identity, never name, decides), the same convention as TypeVar.
+  if type(name) ~= 'string' then
+    error('TypeVarTuple: expected a string name, got '
+      .. type(name), 2)
+  end
+  return setmetatable({
+    [type_var_tuple_mark] = true,
+
+    __name = name,
+  }, {
+    __tostring = function(self)
+      return self.__name
+    end,
+  })
+end
+
+local function unpack_type_check(type_var_tuple)
+  -- Unpack(Ts): the splice marker that places a TypeVarTuple into a
+  -- list (Tuple elements, Callable params or returns). It is only ever
+  -- a list entry -- the constructors that accept it validate placement
+  -- and the type-level relation binds Ts to the positions it spans;
+  -- everywhere else reject_markers rejects it. Like Rest and AnyParams
+  -- it is not a matcher (no __isinstance).
+  if not is_type_var_tuple(type_var_tuple) then
+    error('Unpack: expected a TypeVarTuple (from TypeVarTuple(name))',
+      2)
+  end
+  return setmetatable({
+    [unpack_mark] = true,
+
+    -- Expose the wrapped variable so callers -- and llx.is_subtype --
+    -- can introspect and unify it.
+    type_var_tuple = type_var_tuple,
+
+    __name = '*' .. type_var_tuple.__name,
+  }, {
+    __tostring = function(self)
+      return self.__name
+    end,
+  })
+end
+
 Any=any_type_check()
 Never=never_type_check()
 Union=union_type_check
@@ -2454,6 +2750,8 @@ Lazy=lazy_type_check
 resolve_lazy=resolve_lazy_matcher
 TypeVar=type_var_type_check
 ParamSpec=param_spec_type_check
+TypeVarTuple=type_var_tuple_type_check
+Unpack=unpack_type_check
 AnyParams=any_params_sentinel
 -- These share their (local) implementation names, so the exports go
 -- through _ENV explicitly (a bare assignment would just write the
@@ -2462,6 +2760,8 @@ _ENV.is_rest=is_rest
 _ENV.is_any_params=is_any_params
 _ENV.is_param_spec=is_param_spec
 _ENV.is_type_var=is_type_var
+_ENV.is_type_var_tuple=is_type_var_tuple
+_ENV.is_unpack=is_unpack
 _ENV.matcher_kind=matcher_kind
 _ENV.enter_type_var_scope=enter_type_var_scope
 _ENV.exit_type_var_scope=exit_type_var_scope

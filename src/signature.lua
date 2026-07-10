@@ -26,6 +26,8 @@ local exit_type_var_scope = matchers.exit_type_var_scope
 local is_any_params = matchers.is_any_params
 local is_param_spec = matchers.is_param_spec
 local is_rest = matchers.is_rest
+local is_type_var_tuple = matchers.is_type_var_tuple
+local is_unpack = matchers.is_unpack
 
 local function type_name_of(t)
   -- String type names (and the VARARG '...' marker) are their own
@@ -132,6 +134,22 @@ local function check_signature_fields(name, args)
         error(ValueException(
             name .. ': ParamSpec is a type-level, Callable-only '
             .. 'marker; it is not valid as a type list entry', 2))
+      end
+      -- Unpack(Ts) and a bare TypeVarTuple are type-level-only
+      -- variadic-generic markers (llx.types.matchers): they carry no
+      -- call-time meaning (per-call sequence witnessing is out of
+      -- scope in this first iteration), so a Signature rejects them,
+      -- exactly as it rejects a ParamSpec. Use Tuple/Callable at the
+      -- type level, or a trailing VARARG ('...') for an unchecked tail.
+      if is_unpack(type_list[i]) then
+        error(ValueException(
+            name .. ': Unpack(Ts) is a type-level, Tuple/Callable-only '
+            .. 'marker; it has no call-time meaning', 2))
+      end
+      if is_type_var_tuple(type_list[i]) then
+        error(ValueException(
+            name .. ': TypeVarTuple is only valid wrapped in '
+            .. 'Unpack(Ts) inside a Tuple or Callable', 2))
       end
     end
   end

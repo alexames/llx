@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `TypeVarTuple('Ts')` (exported as `llx.TypeVarTuple`, with the
+  `llx.is_type_var_tuple` predicate) and its splice marker
+  `Unpack(Ts)` (exported as `llx.Unpack`, with `llx.is_unpack`): a
+  variadic type variable, the runtime analog of Python's
+  `typing.TypeVarTuple`. Where a `TypeVar` binds one type a
+  `TypeVarTuple` binds a *sequence*, spliced into a list through
+  `Unpack(Ts)`, so a `Tuple` or signature generic over arity can be
+  declared -- `Tuple{Unpack(Ts)}` is a tuple of any shape,
+  `Callable({Unpack(Ts)}, {Tuple{Unpack(Ts)}})` an args-packing
+  helper. An `Unpack` is legal only as a list entry (`Tuple` elements,
+  `Callable` params or returns); at most one per list, and never
+  combined with a trailing `VARARG`/`Rest(T)` tail (a fixed prefix and
+  suffix may surround it). At the value level a spliced `Tuple` checks
+  its fixed prefix and suffix and leaves the middle run free
+  (unconstrained arity). At the type level `signature_compatible` (and
+  therefore `Callable`/`is_subtype`) unifies a candidate-side `Unpack`
+  by the `ParamSpec` rules one level down -- against a sub-sequence
+  instead of a whole list: the first occurrence captures the
+  counterpart's spanned region verbatim (an empty span binds `Ts` to
+  the empty sequence) and later occurrences substitute it, so a
+  `params`/`returns` pair correlates through `Ts`. Only the candidate
+  side unifies; a super-side (or shared) `Unpack` stays universal.
+  Capturing from a variadic (`Rest`/`VARARG`) counterpart region is
+  refused (no finite sequence to bind). This first iteration is
+  type-level only, like `ParamSpec`: an `Unpack` carries information
+  for the `is_subtype`/`signature_compatible` relation over declared
+  types and has no call-time meaning, so `Signature`/`Function` reject
+  it (and a bare `TypeVarTuple`), and a `Callable` with an `Unpack`
+  parameter list treats parameters as unchecked for raw functions.
+  Length arithmetic over sequences, multiple `Unpack`s per list, and
+  `Unpack` inside `Dict`/`SetOf` are deliberately out of scope. (#104)
 - `ParamSpec('P')` (exported as `llx.ParamSpec`, with the
   `llx.is_param_spec` predicate): a parameter-list variable, the
   runtime analog of Python's `typing.ParamSpec`. Like `AnyParams` it
