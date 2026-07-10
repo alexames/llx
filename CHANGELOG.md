@@ -159,6 +159,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A malformed catch type in the try/catch DSL no longer masks the
+  exception being handled. Since #67 made `isinstance` raise on
+  non-matcher type arguments, a catch clause whose type was not a
+  class or matcher (previously it just silently never matched)
+  raised `InvalidArgumentException` from inside the unwind path,
+  replacing the user's original exception with a confusing secondary
+  one. Catch dispatch now treats a clause whose type is neither a
+  string nor a matcher (a table with a callable `__isinstance`) --
+  and any non-table clause entry -- as non-matching, so the original
+  exception reaches later catchers or propagates unchanged.
+  `catch()` itself now rejects such types up front (see Added), so
+  only hand-built clause tables can reach this backstop. (#92)
 - `check_arguments` now raises a well-formed
   `InvalidArgumentException` when a checked function's parameter has
   no entry in the declared `{name = type}` table, reporting the
@@ -254,6 +266,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- String catchers in the try/catch DSL: `catch('TypeError',
+  handler)` now matches any thrown value whose class -- or any
+  superclass, walked transitively -- has that `__name`. This extends
+  the library's string type names (as accepted by `Signature`
+  params) to catch clauses, with one deliberate difference: catchers
+  walk the superclass chain, where `Signature`'s string matching is
+  exact-name only, because catching a base class is expected to
+  catch derived ones. Clauses are still checked in order with the
+  first match winning, and string and class/matcher catchers mix
+  freely in one `try` block. Dispatch goes through `getclass`, so
+  string catchers also see non-exception errors: `catch('String',
+  h)` catches raw `error('msg')` strings. As with string type names
+  elsewhere in the library, matching is by name only, so distinct
+  classes sharing a `__name` are conflated; catch by the class
+  object where identity matters. `catch()` now also validates its
+  type argument at construction: anything that is neither a string
+  nor a class/matcher with a callable `__isinstance` (e.g. a number,
+  `nil`, or a plain table) raises `InvalidArgumentException` at the
+  `catch()` call site instead of sitting in the clause list silently
+  unmatched. (#92)
 - `AnyParams`: the "any parameters" escape hatch for `Callable`, the
   runtime analog of mypy's `Callable[..., R]`. Passed in place of the
   parameter list -- `Callable(AnyParams, {R})` -- it declares that

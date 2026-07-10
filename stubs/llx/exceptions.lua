@@ -3,7 +3,7 @@
 -- ---------------------------------------------------------------------------
 -- Exception hierarchy. Every class here can be raised via Lua's
 -- error() and caught by llx.flow_control's try/catch on the matching
--- class.
+-- class, a type matcher, or the class name as a string.
 -- ---------------------------------------------------------------------------
 
 ---@class llx.exceptions

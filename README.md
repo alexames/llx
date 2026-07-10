@@ -480,6 +480,13 @@ try {
 }
 ```
 
+A catch clause takes an exception class, a type matcher (e.g.
+`Union{A, B}`), or a class-name string -- `catch('ValueException',
+handler)` matches the named class or any subclass (string type names
+elsewhere in the library, such as `Signature` params, match the exact
+class name only). Anything else is rejected at the `catch()` call
+site.
+
 Built-in classes: `Exception`, `AttributeError`, `ExceptionGroup`,
 `IndexError`, `InvalidArgumentException`, `InvalidArgumentTypeException`,
 `NotImplementedException`, `RuntimeError`, `SchemaException` (+
