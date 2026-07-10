@@ -225,7 +225,16 @@ local function never_type_check()
   })
 end
 
+-- Forward declarations: raise ValueException when a declared type
+-- position (or any entry of a declared type list) holds a stray
+-- Rest(T) or AnyParams marker. Defined with the marker machinery
+-- below; declared here so the composite matcher constructors above
+-- that machinery can reject markers in their element types.
+local reject_markers
+local reject_marker_entries
+
 local function union_type_check(type_list)
+  reject_marker_entries(type_list, 'Union')
   local expected_typenames = '{' .. Table.concat(type_list, ',') .. '}'
   local typename = 'Union' .. expected_typenames
   return setmetatable({
@@ -274,9 +283,21 @@ local function optional_type_check(type_or_list)
   -- (list-wrapped form, consistent with Union's calling convention).
   -- Distinguish by presence of __isinstance: a real type checker
   -- always has it; a bare list wrapper does not.
+  --
+  -- A bare marker must be rejected before the list-unwrap test:
+  -- neither Rest(T) nor AnyParams carries __isinstance, so
+  -- Optional(Rest(T)) would otherwise be mistaken for the
+  -- list-wrapped form and silently collapse to Union{Nil, nil}. The
+  -- list-wrapped form is checked entry-wise -- extra entries are
+  -- ignored by the unwrap, but a marker among them is still a
+  -- mistake, and Union{...} of the same list would reject it. Both
+  -- checks name Optional (the actual construction site) rather than
+  -- the Union built below.
+  reject_markers(type_or_list, 'Optional')
   local inner = type_or_list
   if type(type_or_list) == 'table'
       and type_or_list.__isinstance == nil then
+    reject_marker_entries(type_or_list, 'Optional')
     inner = type_or_list[1]
   end
   return union_type_check{Nil, inner}
@@ -303,10 +324,16 @@ local function protocol_type_check(fields)
   end
   exact = exact == true
   -- Copy the declared fields, excluding the __exact flag, so the
-  -- exposed shape and the checks below see only real fields.
+  -- exposed shape and the checks below see only real fields. A field
+  -- typed with a stray Rest(T)/AnyParams marker would be silently
+  -- unsatisfiable (neither carries __isinstance), so it is rejected
+  -- at construction like any other composite type position.
   local declared = {}
   for k, v in pairs(fields) do
-    if k ~= '__exact' then declared[k] = v end
+    if k ~= '__exact' then
+      reject_markers(v, 'Protocol')
+      declared[k] = v
+    end
   end
   -- Capture field names for the type name; sort for stability.
   local field_names = {}
@@ -351,6 +378,8 @@ local function protocol_type_check(fields)
 end
 
 local function dict_type_check(key_type, value_type)
+  reject_markers(key_type, 'Dict')
+  reject_markers(value_type, 'Dict')
   local typename = 'Dict<' .. type_name_of(key_type) ..
                    ', ' .. type_name_of(value_type) .. '>'
 
@@ -395,6 +424,7 @@ local function dict_type_check(key_type, value_type)
 end
 
 local function list_of_type_check(element_type)
+  reject_markers(element_type, 'ListOf')
   local typename = 'ListOf<' .. type_name_of(element_type) .. '>'
   return setmetatable({
     __name = typename,
@@ -441,6 +471,7 @@ local function list_of_type_check(element_type)
 end
 
 local function set_of_type_check(element_type)
+  reject_markers(element_type, 'SetOf')
   local typename = 'SetOf<' .. type_name_of(element_type) .. '>'
 
   local function elements_match(value)
@@ -541,23 +572,6 @@ local check_arguments_module = nil
 -- only needed on the construction-error paths below).
 local exceptions_module = nil
 
--- Raises ValueException when a Rest(T) marker appears in a declared
--- type list that is not a Tuple element list. Rest carries no
--- __isinstance, so a signature position holding one could never
--- match any value; failing loudly at construction is the same policy
--- Callable already applies to a non-trailing VARARG. `where` names
--- the raising matcher in the message.
-local function reject_rest_entries(type_list, where)
-  for i = 1, #type_list do
-    if is_rest(type_list[i]) then
-      exceptions_module = exceptions_module or require 'llx.exceptions'
-      error(exceptions_module.ValueException(
-        where .. ': Rest(T) is only valid inside Tuple; use a '
-        .. "trailing VARARG ('...') for variadic signatures", 3))
-    end
-  end
-end
-
 -- Marker key identifying the AnyParams sentinel below. A
 -- module-local table key cannot be forged (or observed) outside this
 -- module, so nothing else can accidentally look like AnyParams.
@@ -594,21 +608,45 @@ local function is_any_params(value)
      and rawget(value, any_params_mark) == true
 end
 
--- Raises when the AnyParams sentinel appears inside a declared type
--- list: it replaces Callable's whole parameter list, so an entry-
--- level occurrence is always a mistake, and it carries no
--- __isinstance, so leaving it in place would make the position
--- silently unsatisfiable (the same policy reject_rest_entries
--- applies to stray Rest markers). `where` names the raising matcher.
-local function reject_any_params_entries(type_list, where)
+-- Raises ValueException when `entry` -- a single declared type
+-- position (a Union member, Optional's inner type, a Dict key or
+-- value type, a ListOf/SetOf element type, a Protocol field type, or
+-- one entry of a signature-shaped type list) -- is a stray Rest(T)
+-- or AnyParams marker. Neither marker carries __isinstance, so a
+-- type position holding one could never match any value; failing
+-- loudly at construction is the same policy Callable applies to a
+-- non-trailing VARARG. Rest(T) is only meaningful as the trailing
+-- entry of a Tuple element list, and AnyParams only in place of
+-- Callable's whole parameter list. `where` names the raising matcher
+-- in the message; `level` (default 3, one frame above the caller)
+-- anchors the exception's traceback at the constructor's call site.
+-- (Declared, with reject_marker_entries, near the top of the module
+-- so the composite constructors can see them.)
+function reject_markers(entry, where, level)
+  level = level or 3
+  if is_rest(entry) then
+    exceptions_module = exceptions_module or require 'llx.exceptions'
+    error(exceptions_module.ValueException(
+      where .. ': Rest(T) is only valid inside Tuple; use a '
+      .. "trailing VARARG ('...') for variadic signatures", level))
+  end
+  if is_any_params(entry) then
+    exceptions_module = exceptions_module or require 'llx.exceptions'
+    error(exceptions_module.ValueException(
+      where .. ': AnyParams replaces the whole parameter list '
+      .. '(Callable(AnyParams, returns)); it is not valid as a '
+      .. 'type list entry', level))
+  end
+end
+
+-- Applies reject_markers to every entry of a declared type list
+-- (Callable params/returns, Iterator yields, Generator contract
+-- lists, Union member lists), keeping the messages uniform across
+-- every rejection site. The bumped level skips this extra frame so
+-- the traceback still starts at the constructor's call site.
+function reject_marker_entries(type_list, where)
   for i = 1, #type_list do
-    if is_any_params(type_list[i]) then
-      exceptions_module = exceptions_module or require 'llx.exceptions'
-      error(exceptions_module.ValueException(
-        where .. ': AnyParams replaces the whole parameter list '
-        .. '(Callable(AnyParams, returns)); it is not valid as a '
-        .. 'type list entry', 3))
-    end
+    reject_markers(type_list[i], where, 4)
   end
 end
 
@@ -626,9 +664,11 @@ local function callable_type_check(param_types, return_types, options)
   -- (declare a trailing VARARG for an unchecked return tail).
   local params_any = is_any_params(param_types)
   if is_any_params(return_types) then
-    error('Callable: AnyParams is only valid in place of the '
+    exceptions_module = exceptions_module or require 'llx.exceptions'
+    error(exceptions_module.ValueException(
+      'Callable: AnyParams is only valid in place of the '
       .. 'parameter list; declare a trailing VARARG (\'...\') for '
-      .. 'an unchecked return tail', 2)
+      .. 'an unchecked return tail', 2))
   end
   -- strict exists to tighten the raw-function arity check against
   -- the declared parameter shape; AnyParams declares no shape, so
@@ -664,15 +704,20 @@ local function callable_type_check(param_types, return_types, options)
     -- loudly at construction rather than silently matching nothing.
     for i = 1, params_fixed do
       if param_types[i] == vararg_marker then
-        error("Callable: VARARG ('...') must be the last entry in "
-          .. 'the parameter list', 2)
+        exceptions_module =
+            exceptions_module or require 'llx.exceptions'
+        error(exceptions_module.ValueException(
+          "Callable: VARARG ('...') must be the last entry in "
+          .. 'the parameter list', 2))
       end
     end
   end
   for i = 1, #return_types - 1 do
     if return_types[i] == vararg_marker then
-      error("Callable: VARARG ('...') must be the last entry in "
-        .. 'the return list', 2)
+      exceptions_module = exceptions_module or require 'llx.exceptions'
+      error(exceptions_module.ValueException(
+        "Callable: VARARG ('...') must be the last entry in "
+        .. 'the return list', 2))
     end
   end
   -- Rest(T) is a Tuple-only marker (it has no __isinstance), so a
@@ -682,11 +727,9 @@ local function callable_type_check(param_types, return_types, options)
   -- VARARG marker is the supported (unchecked) spelling. AnyParams
   -- entries are rejected for the same silently-unsatisfiable reason.
   if not params_any then
-    reject_rest_entries(param_types, 'Callable')
-    reject_any_params_entries(param_types, 'Callable')
+    reject_marker_entries(param_types, 'Callable')
   end
-  reject_rest_entries(return_types, 'Callable')
-  reject_any_params_entries(return_types, 'Callable')
+  reject_marker_entries(return_types, 'Callable')
 
   -- The AnyParams parameter list renders as a bare, unparenthesized
   -- '*' -- deliberately distinct from the variadic list's '(...)':
@@ -880,16 +923,17 @@ local function iterator_type_check(...)
       error('Iterator: yield type ' .. i .. ' is nil', 2)
     end
     if i < yield_count and yield_types[i] == vararg_marker then
-      error("Iterator: VARARG ('...') must be the last entry in "
-        .. 'the yield type list', 2)
+      exceptions_module = exceptions_module or require 'llx.exceptions'
+      error(exceptions_module.ValueException(
+        "Iterator: VARARG ('...') must be the last entry in "
+        .. 'the yield type list', 2))
     end
   end
   -- Stray markers make a yield position silently unsatisfiable
   -- against declared yields while the lenient structural fallback
   -- would still accept every raw function; fail loudly at
   -- construction instead, the same policy Callable applies.
-  reject_rest_entries(yield_types, 'Iterator')
-  reject_any_params_entries(yield_types, 'Iterator')
+  reject_marker_entries(yield_types, 'Iterator')
   local yield_names = {}
   for i = 1, yield_count do
     yield_names[i] = type_name_of(yield_types[i])
@@ -1001,13 +1045,28 @@ local function generator_type_check(contract)
   -- unsatisfiable against declared generators while the structural
   -- thread fallback still accepts every coroutine; fail loudly at
   -- construction instead, the same policy Callable and Iterator
-  -- apply.
-  reject_rest_entries(yields, 'Generator')
-  reject_rest_entries(accepts, 'Generator')
-  reject_rest_entries(returns, 'Generator')
-  reject_any_params_entries(yields, 'Generator')
-  reject_any_params_entries(accepts, 'Generator')
-  reject_any_params_entries(returns, 'Generator')
+  -- apply. A non-trailing VARARG ('...') is rejected for the same
+  -- reason: generator_compatible treats only a *trailing* '...' as
+  -- the variadic tail, so a mid-list occurrence is silently
+  -- incompatible with every declared generator.
+  check_arguments_module =
+      check_arguments_module or require 'llx.check_arguments'
+  local vararg_marker = check_arguments_module.VARARG
+  local contract_lists =
+      {{yields, 'yields'}, {accepts, 'accepts'}, {returns, 'returns'}}
+  for _, list_entry in ipairs(contract_lists) do
+    local list, list_name = list_entry[1], list_entry[2]
+    reject_marker_entries(list, 'Generator')
+    for i = 1, #list - 1 do
+      if list[i] == vararg_marker then
+        exceptions_module =
+            exceptions_module or require 'llx.exceptions'
+        error(exceptions_module.ValueException(
+          "Generator: VARARG ('...') must be the last entry in "
+          .. 'the ' .. list_name .. ' list', 2))
+      end
+    end
+  end
   local function names_of(types)
     local names = {}
     for i, t in ipairs(types) do names[i] = type_name_of(t) end
@@ -1086,8 +1145,10 @@ local function tuple_type_check(element_types)
   for i = 1, fixed_count do
     local entry = element_types[i]
     if entry == vararg_marker or is_rest(entry) then
-      error("Tuple: '...' and Rest(T) must be the last entry in "
-        .. 'the element type list', 2)
+      exceptions_module = exceptions_module or require 'llx.exceptions'
+      error(exceptions_module.ValueException(
+        "Tuple: '...' and Rest(T) must be the last entry in "
+        .. 'the element type list', 2))
     end
   end
   local element_names = {}

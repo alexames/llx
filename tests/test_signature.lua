@@ -146,6 +146,41 @@ describe('Signature', function()
       expect(err.what:find('Function', 1, true)).to_not.be_nil()
     end)
 
+    it('should raise when Function is constructed without func',
+        function()
+      -- Without the requirement the wrapper constructs fine and
+      -- crashes at call time as a raw "attempt to call a nil value"
+      -- inside __call, far from the mistake (issue #93).
+      local ok, err = pcall(function()
+        return Function{params={}, returns={}}
+      end)
+      expect(ok).to.be_false()
+      expect(isinstance(err, InvalidArgumentException)).to.be_true()
+      expect(err.what:find("'func'", 1, true)).to_not.be_nil()
+      expect(err.what:find('callable', 1, true)).to_not.be_nil()
+    end)
+
+    it('should raise when func is not callable', function()
+      local ok, err = pcall(function()
+        return Function{params={}, returns={}, func=42}
+      end)
+      expect(ok).to.be_false()
+      expect(isinstance(err, InvalidArgumentException)).to.be_true()
+      expect(err.what:find("'func'", 1, true)).to_not.be_nil()
+      expect(err.what:find('number', 1, true)).to_not.be_nil()
+    end)
+
+    it('should accept a callable table as func', function()
+      local callable = setmetatable({}, {
+        __call = function() return 1 end,
+      })
+      local ok, fn = pcall(function()
+        return Function{params={}, returns={Integer}, func=callable}
+      end)
+      expect(ok).to.be_true()
+      expect(fn()).to.be_equal_to(1)
+    end)
+
     it('should raise when a field is present but not a table',
         function()
       local ok, err = pcall(function()

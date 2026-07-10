@@ -871,16 +871,36 @@ describe('Tuple', function()
     end)
 
     describe('construction-time validation', function()
+      -- The placement errors are typed ValueExceptions (#93), so
+      -- match on .what.
+      local ValueException =
+          require 'llx.exceptions' . ValueException
+
+      local function expect_placement_rejection(build)
+        local ok, err = pcall(build)
+        expect(ok).to.be_false()
+        expect(isinstance(err, ValueException)).to.be_true()
+        expect(err.what:find(
+            "Tuple: '...' and Rest(T) must be the last entry in "
+            .. 'the element type list', 1, true)).to_not.be_nil()
+      end
+
       it('should reject a non-final VARARG', function()
-        expect(function() Tuple{VARARG, Integer} end).to.throw()
-        expect(function() Tuple{Integer, VARARG, String} end)
-          .to.throw()
+        expect_placement_rejection(function()
+          return Tuple{VARARG, Integer}
+        end)
+        expect_placement_rejection(function()
+          return Tuple{Integer, VARARG, String}
+        end)
       end)
 
       it('should reject a non-final Rest', function()
-        expect(function() Tuple{Rest(Integer), String} end).to.throw()
-        expect(function() Tuple{Integer, Rest(String), VARARG} end)
-          .to.throw()
+        expect_placement_rejection(function()
+          return Tuple{Rest(Integer), String}
+        end)
+        expect_placement_rejection(function()
+          return Tuple{Integer, Rest(String), VARARG}
+        end)
       end)
 
       it('should reject Rest without an element type', function()
@@ -1201,6 +1221,125 @@ describe('Protocol', function()
 end)
 
 -- ---------------------------------------------------------------------------
+-- Marker rejection in composite matchers
+-- ---------------------------------------------------------------------------
+
+describe('marker rejection in composite matchers', function()
+  -- Rest(T) and AnyParams carry no __isinstance, so a composite type
+  -- position holding one is silently unsatisfiable; every composite
+  -- constructor rejects them at construction (#93), through the same
+  -- shared helper (and with the same messages) as Callable's list
+  -- validation. The rejections raise ValueExceptions, so match on
+  -- .what.
+  local ValueException = require 'llx.exceptions' . ValueException
+
+  local rest_needle = 'Rest(T) is only valid inside Tuple'
+  local any_params_needle =
+      'AnyParams replaces the whole parameter list'
+
+  local function expect_rejection(where, build, needle)
+    local ok, err = pcall(build)
+    expect(ok).to.be_false()
+    expect(isinstance(err, ValueException)).to.be_true()
+    expect(err.what:find(where .. ': ' .. needle, 1, true))
+      .to_not.be_nil()
+  end
+
+  it('should reject markers in Union member lists', function()
+    expect_rejection('Union', function()
+      return Union{Integer, Rest(String)}
+    end, rest_needle)
+    expect_rejection('Union', function()
+      return Union{AnyParams, Integer}
+    end, any_params_needle)
+  end)
+
+  it('should reject markers in both Optional forms', function()
+    -- The natural form matters especially: a bare marker carries no
+    -- __isinstance, so Optional(Rest(T)) would otherwise be mistaken
+    -- for the list-wrapped form and silently collapse to
+    -- Union{Nil, nil}, a matcher satisfied only by nil.
+    expect_rejection('Optional', function()
+      return Optional(Rest(Integer))
+    end, rest_needle)
+    expect_rejection('Optional', function()
+      return Optional{Rest(Integer)}
+    end, rest_needle)
+    expect_rejection('Optional', function()
+      return Optional(AnyParams)
+    end, any_params_needle)
+    expect_rejection('Optional', function()
+      return Optional{AnyParams}
+    end, any_params_needle)
+    -- Extra entries of the list-wrapped form are ignored by the
+    -- unwrap, but a marker among them is still a mistake.
+    expect_rejection('Optional', function()
+      return Optional{Integer, Rest(String)}
+    end, rest_needle)
+  end)
+
+  it('should reject markers in Dict key and value positions',
+      function()
+    expect_rejection('Dict', function()
+      return Dict(Rest(String), Integer)
+    end, rest_needle)
+    expect_rejection('Dict', function()
+      return Dict(String, Rest(Integer))
+    end, rest_needle)
+    expect_rejection('Dict', function()
+      return Dict(String, AnyParams)
+    end, any_params_needle)
+    expect_rejection('Dict', function()
+      return Dict(AnyParams, Integer)
+    end, any_params_needle)
+  end)
+
+  it('should reject markers as ListOf and SetOf element types',
+      function()
+    expect_rejection('ListOf', function()
+      return ListOf(Rest(Integer))
+    end, rest_needle)
+    expect_rejection('ListOf', function()
+      return ListOf(AnyParams)
+    end, any_params_needle)
+    expect_rejection('SetOf', function()
+      return SetOf(Rest(Integer))
+    end, rest_needle)
+    expect_rejection('SetOf', function()
+      return SetOf(AnyParams)
+    end, any_params_needle)
+  end)
+
+  it('should reject markers as Protocol field types', function()
+    expect_rejection('Protocol', function()
+      return Protocol{name = String, tail = Rest(Integer)}
+    end, rest_needle)
+    expect_rejection('Protocol', function()
+      return Protocol{call = AnyParams}
+    end, any_params_needle)
+  end)
+
+  it('should still accept markers in their valid positions',
+      function()
+    -- The rejection is about *stray* markers: composites over
+    -- matchers that use the markers correctly stay constructible.
+    expect(function()
+      Union{String, Tuple{Rest(Integer)}}
+    end).to_not.throw()
+    expect(function()
+      Optional(Callable(AnyParams, {Integer}))
+    end).to_not.throw()
+    expect(function()
+      Dict(String, Tuple{Number, Rest(Number)})
+    end).to_not.throw()
+    expect(function()
+      Protocol{ints = Tuple{Rest(Integer)},
+               call = Callable(AnyParams, {Integer})}
+    end).to_not.throw()
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
 -- Callable
 -- ---------------------------------------------------------------------------
 
@@ -1317,8 +1456,25 @@ describe('Callable', function()
 
   describe('VARARG placement', function()
     it('should reject a non-trailing VARARG at construction', function()
-      expect(function() Callable({VARARG, Integer}, {}) end).to.throw()
-      expect(function() Callable({}, {VARARG, Integer}) end).to.throw()
+      -- The placement errors are typed ValueExceptions (#93), so
+      -- match on .what.
+      local ValueException =
+          require 'llx.exceptions' . ValueException
+      local function expect_vararg_rejection(build, list_name)
+        local ok, err = pcall(build)
+        expect(ok).to.be_false()
+        expect(isinstance(err, ValueException)).to.be_true()
+        expect(err.what:find(
+            "Callable: VARARG ('...') must be the last entry in "
+            .. 'the ' .. list_name .. ' list', 1, true))
+          .to_not.be_nil()
+      end
+      expect_vararg_rejection(function()
+        return Callable({VARARG, Integer}, {})
+      end, 'parameter')
+      expect_vararg_rejection(function()
+        return Callable({}, {VARARG, Integer})
+      end, 'return')
     end)
 
     it('should accept a trailing VARARG in params and returns',
@@ -1520,10 +1676,17 @@ describe('Callable', function()
       end)
 
       it('should reject AnyParams as the return list', function()
-        expect(function() Callable({}, AnyParams) end)
-          .to.throw('Callable: AnyParams is only valid in place of '
-            .. "the parameter list; declare a trailing VARARG "
-            .. "('...') for an unchecked return tail")
+        -- A typed ValueException (#93), so match on .what.
+        local ok, err = pcall(function()
+          return Callable({}, AnyParams)
+        end)
+        expect(ok).to.be_false()
+        expect(isinstance(err, ValueException)).to.be_true()
+        expect(err.what:find(
+            'Callable: AnyParams is only valid in place of the '
+            .. "parameter list; declare a trailing VARARG ('...') "
+            .. 'for an unchecked return tail', 1, true))
+          .to_not.be_nil()
       end)
 
       it('should reject AnyParams inside a type list', function()
@@ -3222,9 +3385,17 @@ describe('Iterator', function()
     end)
 
     it('should reject a non-trailing VARARG', function()
-      expect(function() Iterator(VARARG, Integer) end)
-        .to.throw("Iterator: VARARG ('...') must be the last entry "
-          .. 'in the yield type list')
+      -- A typed ValueException (#93), so match on .what.
+      local ValueException =
+          require 'llx.exceptions' . ValueException
+      local ok, err = pcall(function()
+        return Iterator(VARARG, Integer)
+      end)
+      expect(ok).to.be_false()
+      expect(isinstance(err, ValueException)).to.be_true()
+      expect(err.what:find(
+          "Iterator: VARARG ('...') must be the last entry in "
+          .. 'the yield type list', 1, true)).to_not.be_nil()
     end)
 
     it('should reject a nil yield type', function()
@@ -3568,6 +3739,45 @@ describe('Generator', function()
       expect_marker_rejection(function()
         return Generator{returns = {AnyParams}}
       end, 'AnyParams replaces the whole parameter list')
+    end)
+
+    it('should reject a non-trailing VARARG in each contract list',
+        function()
+      -- generator_compatible treats only a *trailing* '...' as the
+      -- variadic tail, so a mid-list VARARG is silently incompatible
+      -- with every declared generator while the structural thread
+      -- fallback still accepts every coroutine; it fails loudly at
+      -- construction (#93), like Callable and Iterator. The errors
+      -- are typed ValueExceptions, so match on .what.
+      local ValueException =
+          require 'llx.exceptions' . ValueException
+      local function expect_vararg_rejection(build, list_name)
+        local ok, err = pcall(build)
+        expect(ok).to.be_false()
+        expect(isinstance(err, ValueException)).to.be_true()
+        expect(err.what:find(
+            "Generator: VARARG ('...') must be the last entry in "
+            .. 'the ' .. list_name .. ' list', 1, true))
+          .to_not.be_nil()
+      end
+      expect_vararg_rejection(function()
+        return Generator{yields = {VARARG, Integer}}
+      end, 'yields')
+      expect_vararg_rejection(function()
+        return Generator{accepts = {VARARG, String}}
+      end, 'accepts')
+      expect_vararg_rejection(function()
+        return Generator{returns = {VARARG, Boolean}}
+      end, 'returns')
+    end)
+
+    it('should accept a trailing VARARG in each contract list',
+        function()
+      expect(function()
+        Generator{yields = {Integer, VARARG},
+                  accepts = {String, VARARG},
+                  returns = {Boolean, VARARG}}
+      end).to_not.throw()
     end)
   end)
 

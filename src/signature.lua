@@ -124,7 +124,20 @@ end
 -- recognize wrapped functions and inspect their declared signature.
 Function = class 'Function' {
   __new = function(args)
-    return check_signature_fields('Function', args)
+    check_signature_fields('Function', args)
+    -- A Function without a callable func would pass construction and
+    -- crash at call time as a raw "attempt to call a nil value"
+    -- inside __call, far from the mistake; require it here, at the
+    -- declaration site. Signature deliberately has no such
+    -- requirement: it declares types only and binds the callable
+    -- later (via decorate or the `..` operator, both of which supply
+    -- func).
+    if not is_callable(args.func) then
+      error(InvalidArgumentException(
+          'func', "Function: expected a callable value for 'func', "
+          .. 'got ' .. type(args.func), 2))
+    end
+    return args
   end,
 
   __call = function(self, ...)
