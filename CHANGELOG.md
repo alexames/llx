@@ -156,6 +156,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     paths too (and, for `type_check_decorator`, between arguments
     and returns) instead of degrading to bound-or-`Any` semantics
     per position. (#72)
+- **Breaking:** `llx.signature.Function` now requires a callable
+  `func` at construction and raises a typed
+  `InvalidArgumentException` when it is missing or not callable.
+  Previously `Function{params={}, returns={}}` constructed fine and
+  crashed at call time as a raw "attempt to call a nil value" inside
+  `__call`, far from the mistake. `Signature` is unchanged: it
+  declares types only and binds the callable later (via `decorate`
+  or the `..` operator). (#93)
+- **Breaking:** the composite matcher constructors -- `Union`,
+  `Optional` (both calling forms), `Dict`, `ListOf`, `SetOf`, and
+  `Protocol` field types -- now reject stray `Rest(T)` and
+  `AnyParams` markers at construction with a typed `ValueException`,
+  through the same shared helper (and with the same messages) as the
+  existing `Callable`/`Iterator`/`Generator`/`Signature` list
+  validation. Neither marker carries `__isinstance`, so such a
+  position was silently unsatisfiable -- and `Optional(Rest(T))` was
+  worse: the marker was mistaken for the list-wrapped calling form
+  and the matcher silently collapsed to `Union{Nil, nil}`, satisfied
+  only by nil. Markers in their valid positions (`Rest(T)` trailing
+  a `Tuple` element list, `AnyParams` in place of `Callable`'s
+  parameter list) are unaffected, including nested inside
+  composites. (#93)
+- **Breaking:** `Generator{...}` now validates VARARG placement: a
+  non-trailing `'...'` in the `yields`, `accepts`, or `returns`
+  contract list raises a typed `ValueException` at construction.
+  `generator_compatible` treats only a *trailing* `'...'` as the
+  variadic tail, so such a contract was silently incompatible with
+  every declared generator while the structural thread fallback
+  still accepted every coroutine -- the same gap `Callable` and
+  `Iterator` already close for their lists. (#93)
+- The remaining plain-string marker placement errors now raise typed
+  `ValueException`s with unchanged message text, matching the
+  `Rest`/`AnyParams` rejections: `Callable`'s non-trailing-VARARG
+  errors (parameter and return lists) and its AnyParams-as-return-
+  list error, `Iterator`'s non-trailing-VARARG error, and `Tuple`'s
+  non-final `'...'`/`Rest(T)` error. Code that matched these
+  messages with string operations should match on the exception's
+  `.what` instead. (#93)
 
 ### Fixed
 
