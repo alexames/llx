@@ -24,6 +24,7 @@ local isinstance = isinstance_module.isinstance
 local enter_type_var_scope = matchers.enter_type_var_scope
 local exit_type_var_scope = matchers.exit_type_var_scope
 local is_any_params = matchers.is_any_params
+local is_param_spec = matchers.is_param_spec
 local is_rest = matchers.is_rest
 
 local function type_name_of(t)
@@ -85,6 +86,12 @@ end
 -- (rejecting every call with arguments) while the Callable matcher
 -- would treat the wrapper as universally callable. Declare a
 -- trailing VARARG ('...') for an unchecked tail instead.
+--
+-- A ParamSpec (llx.types.matchers) is rejected the same way, as a
+-- field or an entry. It is a type-level-only marker that captures a
+-- whole parameter list for the is_subtype/signature_compatible
+-- relation (Callable(P, ...)); a Signature enforces types on every
+-- call, which a deferred whole-list capture cannot express.
 local function check_signature_fields(name, args)
   if type(args) ~= 'table' then
     error(InvalidArgumentException(
@@ -97,6 +104,13 @@ local function check_signature_fields(name, args)
       error(ValueException(
           name .. ': AnyParams is a Callable-only marker; declare '
           .. "an unchecked list as {'...'} instead", 2))
+    end
+    if is_param_spec(type_list) then
+      error(ValueException(
+          name .. ': ParamSpec is a type-level, Callable-only marker '
+          .. '(it captures a whole parameter list for is_subtype and '
+          .. 'has no call-time meaning); declare an unchecked list as '
+          .. "{'...'} instead", 2))
     end
     if type(type_list) ~= 'table' then
       error(InvalidArgumentException(
@@ -113,6 +127,11 @@ local function check_signature_fields(name, args)
         error(ValueException(
             name .. ': AnyParams is a Callable-only marker; declare '
             .. "an unchecked list as {'...'} instead", 2))
+      end
+      if is_param_spec(type_list[i]) then
+        error(ValueException(
+            name .. ': ParamSpec is a type-level, Callable-only '
+            .. 'marker; it is not valid as a type list entry', 2))
       end
     end
   end

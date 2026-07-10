@@ -443,6 +443,28 @@ llx.signature_compatible(
   {params = {llx.Integer}, returns = {llx.Integer}},
   {params = {T}, returns = {T}})                         --> false
 
+-- ParamSpec: a parameter-list variable (the analog of Python's
+-- typing.ParamSpec), standing *in place of* a whole parameter list
+-- like AnyParams but capturing it instead of erasing it. It types
+-- forwarding wrappers (decorators, tracing/memoization combinators)
+-- that preserve a wrapped function's parameters. The canonical
+-- decorator shape unifies P (and T) against a concrete callable:
+-- signature_compatible captures P from the first (contravariant)
+-- occurrence and substitutes it at the second (covariant) one. Only
+-- the candidate side's P unifies; a super-side P stays universal.
+-- ParamSpec is type-level-only in this release: it carries
+-- information for is_subtype/Callable but has no call-time meaning,
+-- so a Signature rejects it. (Concatenate-style leading fixed
+-- parameters and P.args/P.kwargs projection are not yet supported.)
+local P = matchers.ParamSpec('P')
+local decorator =
+  matchers.Callable({matchers.Callable(P, {T})},
+                    {matchers.Callable(P, {T})})
+llx.is_subtype(decorator,
+    matchers.Callable(
+      {matchers.Callable({llx.Integer}, {llx.String})},
+      {matchers.Callable({llx.Integer}, {llx.String})})) --> true
+
 -- Overload: several signatures on one callable value, dispatched
 -- first-match-wins (declare the most specific first). When no
 -- candidate accepts a call, OverloadResolutionException lists every

@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ParamSpec('P')` (exported as `llx.ParamSpec`, with the
+  `llx.is_param_spec` predicate): a parameter-list variable, the
+  runtime analog of Python's `typing.ParamSpec`. Like `AnyParams` it
+  stands *in place of* a `Callable`'s whole parameter list --
+  `Callable(P, {R})` -- but captures the list instead of erasing it,
+  so forwarding wrappers (decorators, tracing/memoization
+  combinators) that preserve a wrapped function's parameters can be
+  typed. `signature_compatible` (and therefore the `Callable` matcher
+  and `is_subtype`) unifies a candidate-side ParamSpec by exactly the
+  `TypeVar` rules one level up -- against a whole parameter list
+  instead of a single type: the first occurrence captures the
+  counterpart's entire list (including its trailing VARARG tail or
+  `AnyParams`-ness, verbatim) and later occurrences substitute it, so
+  the canonical decorator shape
+  `Callable({Callable(P, {T})}, {Callable(P, {T})})` is compatible
+  with a concrete
+  `Callable({Callable({Integer}, {String})}, {Callable({Integer},
+  {String})})`. Only the candidate side's ParamSpec unifies; a
+  super-side (or shared) one stays universal, so a concrete wrapper
+  is never compatible with a generic one. This first iteration is
+  type-level only: a ParamSpec carries information for the
+  `is_subtype`/`signature_compatible` relation over declared types
+  and has no call-time meaning, so `Signature`/`Function` reject it
+  (as a field or an entry), and at the value level a `Callable(P, R)`
+  treats parameters as unchecked for raw functions, exactly as
+  `AnyParams` does. `strict` is rejected with a ParamSpec (no
+  declared shape to enforce), and a ParamSpec is rejected as a list
+  *entry* everywhere `AnyParams` is (it replaces the whole list).
+  Concatenate-style leading fixed parameters, `P.args`/`P.kwargs`
+  projection, and value-level participation are deliberately out of
+  scope for this iteration; the captured-list boundary is the
+  composition point for a future `TypeVarTuple`/`Unpack` analog
+  (#104). (#103)
+
 ### Changed
 
 - `is_subtype` now compares parameterized matchers of the same kind

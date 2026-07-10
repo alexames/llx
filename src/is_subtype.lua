@@ -25,6 +25,7 @@ local Any = matchers.Any
 local Never = matchers.Never
 local VARARG = check_arguments.VARARG
 local is_any_params = matchers.is_any_params
+local is_param_spec = matchers.is_param_spec
 local is_type_var = matchers.is_type_var
 local matcher_kind = matchers.matcher_kind
 local resolve_lazy = matchers.resolve_lazy
@@ -149,7 +150,14 @@ local unify_key = {}
 -- thunk just leaves its variables uncollected here -- the comparison
 -- that actually reaches it still raises); `seen` guards recursive
 -- matchers.
-local function collect_type_vars(t, vars, seen)
+-- The optional `param_specs` set, when provided, additionally
+-- collects every ParamSpec standing in place of a Callable's whole
+-- parameter list (Callable(P, {R})): a ParamSpec is not a list entry
+-- but the `params` field itself, so it is recorded here rather than
+-- reached by the entry walk. A ParamSpec never appears in a return
+-- position (rejected at construction), so returns are only walked for
+-- TypeVars.
+local function collect_type_vars(t, vars, seen, param_specs)
   if type(t) ~= 'table' then
     return
   end
@@ -169,29 +177,33 @@ local function collect_type_vars(t, vars, seen)
   local members = rawget(t, 'type_list')
   if members ~= nil then
     for _, member in ipairs(members) do
-      collect_type_vars(member, vars, seen)
+      collect_type_vars(member, vars, seen, param_specs)
     end
   end
   local elements = rawget(t, 'element_types')
   if elements ~= nil then
     for _, element in ipairs(elements) do
-      collect_type_vars(element, vars, seen)
+      collect_type_vars(element, vars, seen, param_specs)
     end
   end
-  collect_type_vars(rawget(t, 'rest_type'), vars, seen)
-  collect_type_vars(rawget(t, 'element_type'), vars, seen)
-  collect_type_vars(rawget(t, 'key_type'), vars, seen)
-  collect_type_vars(rawget(t, 'value_type'), vars, seen)
+  collect_type_vars(rawget(t, 'rest_type'), vars, seen, param_specs)
+  collect_type_vars(rawget(t, 'element_type'), vars, seen, param_specs)
+  collect_type_vars(rawget(t, 'key_type'), vars, seen, param_specs)
+  collect_type_vars(rawget(t, 'value_type'), vars, seen, param_specs)
   local params = rawget(t, 'params')
-  if params ~= nil and not is_any_params(params) then
+  if is_param_spec(params) then
+    if param_specs ~= nil then
+      param_specs[params] = true
+    end
+  elseif params ~= nil and not is_any_params(params) then
     for _, param in ipairs(params) do
-      collect_type_vars(param, vars, seen)
+      collect_type_vars(param, vars, seen, param_specs)
     end
   end
   local returns = rawget(t, 'returns')
   if returns ~= nil and not is_any_params(returns) then
     for _, entry in ipairs(returns) do
-      collect_type_vars(entry, vars, seen)
+      collect_type_vars(entry, vars, seen, param_specs)
     end
   end
 end
@@ -201,18 +213,26 @@ end
 -- params/returns are read with plain indexing, exactly as the
 -- signature relation below reads them, so Signature class instances
 -- resolve their fields the same way in both places.
-local function collect_signature_type_vars(sig, vars)
+-- The optional `param_specs` set collects a ParamSpec standing in
+-- for this signature's whole parameter list (see collect_type_vars);
+-- nested ParamSpecs inside the compared matchers are collected by the
+-- entry walk it threads through.
+local function collect_signature_type_vars(sig, vars, param_specs)
   local seen = {}
   local params = sig.params
-  if type(params) == 'table' and not is_any_params(params) then
+  if is_param_spec(params) then
+    if param_specs ~= nil then
+      param_specs[params] = true
+    end
+  elseif type(params) == 'table' and not is_any_params(params) then
     for _, entry in ipairs(params) do
-      collect_type_vars(entry, vars, seen)
+      collect_type_vars(entry, vars, seen, param_specs)
     end
   end
   local returns = sig.returns
   if type(returns) == 'table' and not is_any_params(returns) then
     for _, entry in ipairs(returns) do
-      collect_type_vars(entry, vars, seen)
+      collect_type_vars(entry, vars, seen, param_specs)
     end
   end
 end
@@ -258,6 +278,94 @@ local function bind_type_var(unify, var, value, in_progress)
   return true
 end
 
+-- ParamSpec unification (llx.types.matchers.ParamSpec): the whole-list
+-- analog of TypeVar unification above, one level up. A ParamSpec
+-- stands *in place of* a Callable's whole parameter list, so it is
+-- unified against its counterpart's entire list rather than a single
+-- type, but the rules are exactly the TypeVar rules: only a
+-- candidate-side ParamSpec instantiates; a super-side (universal) one
+-- keeps the identity rule.
+
+-- Substitutes a ParamSpec that already captured a list for that list;
+-- returns the value unchanged otherwise (a concrete list, AnyParams,
+-- or a still-unbound ParamSpec). The captured value stands in for the
+-- whole list, so the arity/variance checks then see the concrete
+-- shape (including any trailing VARARG tail or AnyParams-ness the
+-- capture preserved verbatim).
+local function resolve_param_spec(params, unify)
+  if unify ~= nil and is_param_spec(params) then
+    local captured = unify.param_bindings[params]
+    if captured ~= nil then
+      return captured
+    end
+  end
+  return params
+end
+
+-- Occurs check for a ParamSpec capture: refuses a capture whose
+-- captured representation reaches the ParamSpec itself (directly, or
+-- through a ParamSpec nested in a Callable inside the list), which
+-- would make later substitutions self-referential. Like the TypeVar
+-- occurs check this is a backstop -- the apartness rule (a ParamSpec
+-- occurring on the super side is excluded from unification) already
+-- excludes every self-occurrence the structural walk can see.
+local function param_spec_occurs(ps, value)
+  if rawequal(ps, value) then
+    return true
+  end
+  if type(value) ~= 'table' or is_any_params(value) then
+    return false
+  end
+  if is_param_spec(value) then
+    return rawequal(ps, value)
+  end
+  local specs = {}
+  for _, entry in ipairs(value) do
+    collect_type_vars(entry, {}, {}, specs)
+  end
+  return specs[ps] == true
+end
+
+-- Instantiates the unifiable ParamSpec `ps` as `value` (its
+-- counterpart's whole parameter representation -- a concrete list,
+-- AnyParams, or another ParamSpec -- at the ParamSpec's first
+-- comparison). Records the binding in the shared log so a speculative
+-- branch can roll it back, exactly as bind_type_var does for a
+-- single-type variable.
+local function bind_param_spec(unify, ps, value)
+  if param_spec_occurs(ps, value) then
+    return false
+  end
+  unify.param_bindings[ps] = value
+  unify.log[#unify.log + 1] = ps
+  return true
+end
+
+-- Decides a parameter position where at least one side stands in as a
+-- ParamSpec (after resolve_param_spec already substituted any *bound*
+-- ParamSpec). A unifiable (candidate-side) ParamSpec captures its
+-- counterpart's whole list; a ParamSpec that is not unifiable --
+-- declared by super, or shared by both sides -- stays universal and
+-- is compatible only with the identical ParamSpec object. Returns
+-- true when the parameter position is satisfied (returns are still
+-- compared by signature_rules afterward).
+local function param_spec_compatible(sub_params, super_params, unify)
+  local sub_ps = is_param_spec(sub_params)
+  local super_ps = is_param_spec(super_params)
+  -- The same ParamSpec object on both sides (the universal,
+  -- both-sides case) is trivially compatible without a binding.
+  if sub_ps and super_ps and rawequal(sub_params, super_params) then
+    return true
+  end
+  if super_ps and unify.unifiable_params[super_params] then
+    return bind_param_spec(unify, super_params, sub_params)
+  end
+  if sub_ps and unify.unifiable_params[sub_params] then
+    return bind_param_spec(unify, sub_params, super_params)
+  end
+  return false
+end
+
 -- Savepoint/rollback pair for speculative branches: an alternative
 -- that records bindings and then fails must not leave them behind
 -- for the next alternative (the type-level analog of the
@@ -280,8 +388,13 @@ local function unify_rollback(in_progress, savepoint)
   end
   local unify = in_progress[unify_key]
   local log, bindings = unify.log, unify.bindings
+  local param_bindings = unify.param_bindings
   for i = #log, savepoint + 1, -1 do
+    -- The log interleaves TypeVar and ParamSpec keys; each key is a
+    -- distinct object, so clearing it from both binding tables is
+    -- unambiguous (only one ever held it).
     bindings[log[i]] = nil
+    param_bindings[log[i]] = nil
     log[i] = nil
   end
 end
@@ -472,8 +585,14 @@ local function subtype_rules(a, b, in_progress)
     if rawget(b, 'strict') and not rawget(a, 'strict') then
       return false
     end
+    -- The exception's other exception: when the supertype's parameter
+    -- list is a ParamSpec, defer to signature_compatible instead of
+    -- rejecting here. A unifiable ParamSpec captures the AnyParams-ness
+    -- (sound: P := AnyParams), and a universal one is rejected there
+    -- anyway, so this guard must not pre-empt that decision.
     if is_any_params(rawget(a, 'params'))
-        and not is_any_params(rawget(b, 'params')) then
+        and not is_any_params(rawget(b, 'params'))
+        and not is_param_spec(rawget(b, 'params')) then
       return false
     end
     return signature_compatible_impl(a, b, in_progress)
@@ -830,6 +949,36 @@ end
 --   relation follows the declared reading, like the rest of
 --   is_subtype.
 --
+-- Parameter-list variables (llx.types.matchers.ParamSpec): a
+-- ParamSpec stands *in place of* a whole parameter list
+-- (Callable(P, {R})), capturing "the same parameters as some other
+-- signature" so forwarding wrappers can be typed. It unifies by
+-- exactly the TypeVar rules, one level up -- against a whole list
+-- instead of a single type:
+--
+-- - A candidate-side ParamSpec instantiates to its counterpart's
+--   entire declared parameter list on first occurrence -- including
+--   that list's trailing VARARG tail or AnyParams-ness, captured
+--   verbatim -- and every later occurrence substitutes it before the
+--   arity/variance checks. The canonical decorator shape
+--   Callable({Callable(P, {T})}, {Callable(P, {T})}) is therefore
+--   compatible with the concrete
+--   Callable({Callable({Integer}, {String})},
+--            {Callable({Integer}, {String})}) (the contravariant
+--   inner position instantiates P := {Integer} and T := String; the
+--   covariant inner position substitutes them).
+-- - Only `sub`'s ParamSpecs unify; a super-side (or shared) ParamSpec
+--   stays universal and is compatible only with the identical
+--   ParamSpec object, so a concrete wrapper is not compatible with a
+--   generic one, exactly as for a super-side TypeVar. A ParamSpec
+--   occurring on both sides is excluded from unification (with an
+--   occurs check as backstop).
+-- - A ParamSpec replaces the *entire* list; it never co-occurs with
+--   leading fixed parameters (mypy's Concatenate is a future
+--   extension), and P.args/P.kwargs projection is out of scope. The
+--   captured-list boundary (a trailing VARARG tail) is where a future
+--   TypeVarTuple/Unpack analog (#104) would compose.
+--
 -- Overload sets (llx.signature.Overload, recognized by their
 -- `overloads` declaration list) participate with intersection-type
 -- semantics, mirroring mypy's treatment of @overload:
@@ -855,8 +1004,11 @@ end
 -- Overload on either side), factored out of signature_compatible_impl
 -- so the latter can bracket it with the TypeVar unification scope.
 local function signature_rules(sub, super, in_progress)
-  local sub_params = sub.params or {}
-  local super_params = super.params or {}
+  local unify = in_progress[unify_key]
+  -- A ParamSpec that already captured a list is substituted for it
+  -- here, so the checks below see the concrete captured shape.
+  local sub_params = resolve_param_spec(sub.params or {}, unify)
+  local super_params = resolve_param_spec(super.params or {}, unify)
   local sub_returns = sub.returns or {}
   local super_returns = super.returns or {}
   -- AnyParams is only meaningful in place of a *parameter* list; a
@@ -866,10 +1018,24 @@ local function signature_rules(sub, super, in_progress)
   if is_any_params(sub_returns) or is_any_params(super_returns) then
     return false
   end
+  -- A ParamSpec still standing in for a whole parameter list (after
+  -- any *bound* ParamSpec was substituted above) is unified now: a
+  -- candidate-side ParamSpec captures its counterpart's whole list, a
+  -- super-side one stays universal (see param_spec_compatible). Once
+  -- handled, the per-position parameter arity/variance checks below
+  -- are skipped; returns are still compared.
+  local params_spec =
+      is_param_spec(sub_params) or is_param_spec(super_params)
+  if params_spec
+      and not param_spec_compatible(sub_params, super_params, unify)
+  then
+    return false
+  end
   local params_any =
       is_any_params(sub_params) or is_any_params(super_params)
   local sub_params_fixed, sub_params_variadic
-  if not is_any_params(sub_params) then
+  if not is_any_params(sub_params)
+      and not is_param_spec(sub_params) then
     sub_params_fixed, sub_params_variadic =
         split_variadic(sub_params)
     -- A malformed (non-trailing VARARG) list is compatible with
@@ -880,7 +1046,8 @@ local function signature_rules(sub, super, in_progress)
     end
   end
   local super_params_fixed, super_params_variadic
-  if not is_any_params(super_params) then
+  if not is_any_params(super_params)
+      and not is_param_spec(super_params) then
     super_params_fixed, super_params_variadic =
         split_variadic(super_params)
     if super_params_fixed == nil then
@@ -894,14 +1061,14 @@ local function signature_rules(sub, super, in_progress)
   if sub_returns_fixed == nil or super_returns_fixed == nil then
     return false
   end
-  if not params_any then
+  if not params_any and not params_spec then
     -- Parameter arity. A variadic super promises callers may pass
     -- arbitrary extra arguments, which only a variadic sub accepts
     -- at call time. A variadic sub is fine anywhere its checked
     -- prefix does not extend past super's parameter list. When
-    -- either side declares AnyParams the parameter checks are
-    -- skipped entirely (see the AnyParams notes above): only returns
-    -- are compared.
+    -- either side declares AnyParams or a ParamSpec the parameter
+    -- checks are skipped entirely (see the AnyParams/ParamSpec notes
+    -- above): only returns are compared.
     if super_params_variadic and not sub_params_variadic then
       return false
     end
@@ -928,7 +1095,7 @@ local function signature_rules(sub, super, in_progress)
   end
   -- Parameters are contravariant over the positions sub checks; any
   -- super parameters beyond them land in sub's unchecked tail.
-  if not params_any then
+  if not params_any and not params_spec then
     for i = 1, sub_params_fixed do
       if not is_subtype_impl(super_params[i], sub_params[i],
                              in_progress) then
@@ -1013,16 +1180,30 @@ function signature_compatible_impl(sub, super, in_progress)
   -- let sub's instantiation be captured by super's universal
   -- promise, so shared variables keep the identity-only rule
   -- (compare signatures renamed apart where that matters).
+  -- ParamSpecs (llx.types.matchers.ParamSpec) that stand in for a
+  -- whole parameter list are collected alongside the TypeVars, with
+  -- the same super-side exclusion: a candidate-side ParamSpec
+  -- captures its counterpart's whole list, a super-side (or shared)
+  -- one stays universal. Both kinds share the log so a speculative
+  -- branch rolls back either.
   local vars = {}
-  collect_signature_type_vars(sub, vars)
-  if next(vars) ~= nil then
+  local param_specs = {}
+  collect_signature_type_vars(sub, vars, param_specs)
+  if next(vars) ~= nil or next(param_specs) ~= nil then
     local super_vars = {}
-    collect_signature_type_vars(super, super_vars)
+    local super_specs = {}
+    collect_signature_type_vars(super, super_vars, super_specs)
     for var in pairs(super_vars) do
       vars[var] = nil
     end
+    for ps in pairs(super_specs) do
+      param_specs[ps] = nil
+    end
   end
-  in_progress[unify_key] = {unifiable = vars, bindings = {}, log = {}}
+  in_progress[unify_key] = {
+    unifiable = vars, bindings = {}, log = {},
+    unifiable_params = param_specs, param_bindings = {},
+  }
   local compatible = signature_rules(sub, super, in_progress)
   in_progress[unify_key] = nil
   return compatible
@@ -1085,18 +1266,27 @@ function generator_compatible(sub, super)
   local completion_sub = {returns = sub.returns or {}}
   local completion_super = {returns = super.returns or {}}
   local vars = {}
-  collect_signature_type_vars(step_sub, vars)
-  collect_signature_type_vars(completion_sub, vars)
-  if next(vars) ~= nil then
+  local param_specs = {}
+  collect_signature_type_vars(step_sub, vars, param_specs)
+  collect_signature_type_vars(completion_sub, vars, param_specs)
+  if next(vars) ~= nil or next(param_specs) ~= nil then
     local super_vars = {}
-    collect_signature_type_vars(step_super, super_vars)
-    collect_signature_type_vars(completion_super, super_vars)
+    local super_specs = {}
+    collect_signature_type_vars(step_super, super_vars, super_specs)
+    collect_signature_type_vars(completion_super, super_vars,
+                                super_specs)
     for var in pairs(super_vars) do
       vars[var] = nil
     end
+    for ps in pairs(super_specs) do
+      param_specs[ps] = nil
+    end
   end
   local in_progress = {
-    [unify_key] = {unifiable = vars, bindings = {}, log = {}},
+    [unify_key] = {
+      unifiable = vars, bindings = {}, log = {},
+      unifiable_params = param_specs, param_bindings = {},
+    },
   }
   return signature_compatible_impl(step_sub, step_super, in_progress)
     and signature_compatible_impl(completion_sub, completion_super,

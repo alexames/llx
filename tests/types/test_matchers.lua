@@ -3454,6 +3454,122 @@ describe('TypeVar', function()
 end)
 
 -- ---------------------------------------------------------------------------
+-- ParamSpec
+-- ---------------------------------------------------------------------------
+
+describe('ParamSpec', function()
+  local ParamSpec = matchers.ParamSpec
+  local is_param_spec = matchers.is_param_spec
+  local ValueException = require 'llx.exceptions' . ValueException
+
+  describe('construction', function()
+    it('should require a string name', function()
+      local ok, err = pcall(ParamSpec, 42)
+      expect(ok).to.be_false()
+      expect(tostring(err):find('expected a string name', 1, true))
+        .to_not.be_nil()
+    end)
+
+    it('should expose the given name', function()
+      expect(ParamSpec('P').__name).to.be_equal_to('P')
+      expect(tostring(ParamSpec('Args'))).to.be_equal_to('Args')
+    end)
+  end)
+
+  describe('is_param_spec', function()
+    it('should recognize only ParamSpec sentinels', function()
+      expect(is_param_spec(ParamSpec('P'))).to.be_true()
+      expect(is_param_spec(AnyParams)).to.be_false()
+      expect(is_param_spec({})).to.be_false()
+      expect(is_param_spec('P')).to.be_false()
+      expect(is_param_spec(nil)).to.be_false()
+      expect(is_param_spec(matchers.TypeVar('T'))).to.be_false()
+    end)
+  end)
+
+  describe('as a matcher itself', function()
+    it('should not be usable as a type matcher', function()
+      -- Like AnyParams and Rest, a ParamSpec has no __isinstance, so
+      -- isinstance against a bare ParamSpec raises the non-matcher
+      -- error.
+      expect(function() isinstance(1, ParamSpec('P')) end).to.throw()
+    end)
+  end)
+
+  describe('in place of a Callable parameter list', function()
+    it('should be accepted as the whole parameter list', function()
+      local P = ParamSpec('P')
+      local C = Callable(P, {String})
+      expect(is_param_spec(C.params)).to.be_true()
+      expect(C.returns[1]).to.be_equal_to(String)
+    end)
+
+    it('should render as an unparenthesized **Name', function()
+      -- Distinct from a concrete list (always inside '(...)') and
+      -- from AnyParams ('*'), so it cannot collide with either
+      -- through an entry name.
+      expect(Callable(ParamSpec('P'), {String}).__name)
+        .to.be_equal_to('Callable<**P -> (String)>')
+      expect(Callable(ParamSpec('P'), {String}).__name).to_not
+        .be_equal_to(Callable(AnyParams, {String}).__name)
+    end)
+
+    it('should accept every raw function at the value level',
+        function()
+      -- ParamSpec is type-level-only: a raw function carries no
+      -- declared parameters to relate to a captured list, so it is
+      -- accepted gradually, exactly as under AnyParams.
+      local C = Callable(ParamSpec('P'), {String})
+      expect(C:__isinstance(function() end)).to.be_true()
+      expect(C:__isinstance(function(a, b, c) end)).to.be_true()
+      expect(C:__isinstance(function(...) end)).to.be_true()
+      expect(C:__isinstance({})).to.be_false()
+    end)
+  end)
+
+  describe('construction-time validation', function()
+    local function expect_param_spec_rejection(build)
+      local ok, err = pcall(build)
+      expect(ok).to.be_false()
+      expect(isinstance(err, ValueException)).to.be_true()
+      expect(err.what:find('ParamSpec replaces the whole '
+                           .. 'parameter list',
+                           1, true)).to_not.be_nil()
+    end
+
+    it('should reject a ParamSpec as a parameter list entry',
+        function()
+      expect_param_spec_rejection(function()
+        return Callable({ParamSpec('P')}, {})
+      end)
+      expect_param_spec_rejection(function()
+        return Callable({Integer, ParamSpec('P')}, {})
+      end)
+    end)
+
+    it('should reject a ParamSpec as a return list entry', function()
+      expect_param_spec_rejection(function()
+        return Callable({}, {ParamSpec('P')})
+      end)
+    end)
+
+    it('should reject the strict option', function()
+      expect(function()
+        Callable(ParamSpec('P'), {String}, {strict = true})
+      end).to.throw('Callable: strict has no effect with a ParamSpec '
+        .. '(there is no declared parameter shape to enforce)')
+    end)
+  end)
+
+  describe('top-level llx namespace', function()
+    it('should be exported as llx.ParamSpec', function()
+      expect(llx.ParamSpec).to.be_equal_to(ParamSpec)
+      expect(llx.is_param_spec).to.be_equal_to(is_param_spec)
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
 -- Iterator
 -- ---------------------------------------------------------------------------
 

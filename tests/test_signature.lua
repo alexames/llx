@@ -282,6 +282,47 @@ describe('Signature', function()
         end)
       end)
     end)
+
+    describe('ParamSpec rejection at declaration time', function()
+      -- ParamSpec is a type-level-only marker: it captures a whole
+      -- parameter list for the is_subtype relation (Callable(P, ...))
+      -- and has no call-time meaning, so a Signature -- which enforces
+      -- types on every call -- rejects it, as a field or an entry.
+      local ValueException = exceptions.ValueException
+      local ParamSpec = require 'llx.types.matchers' . ParamSpec
+
+      local function expect_param_spec_rejection(name, build)
+        local ok, err = pcall(build)
+        expect(ok).to.be_false()
+        expect(isinstance(err, ValueException)).to.be_true()
+        expect(err.what:find(
+            name .. ': ParamSpec is a type-level, Callable-only '
+            .. 'marker', 1, true)).to_not.be_nil()
+      end
+
+      it('should reject a ParamSpec as the params field', function()
+        expect_param_spec_rejection('Signature', function()
+          return Signature{params=ParamSpec('P'), returns={}}
+        end)
+      end)
+
+      it('should reject a ParamSpec as the returns field', function()
+        expect_param_spec_rejection('Signature', function()
+          return Signature{params={}, returns=ParamSpec('P')}
+        end)
+      end)
+
+      it('should reject a ParamSpec entry inside a list', function()
+        expect_param_spec_rejection('Signature', function()
+          return Signature{params={Integer, ParamSpec('P')},
+                           returns={}}
+        end)
+        expect_param_spec_rejection('Function', function()
+          return Function{params={}, returns={ParamSpec('P')},
+                          func=function() end}
+        end)
+      end)
+    end)
   end)
 
   describe('Signature decorate method', function()
