@@ -119,6 +119,173 @@ end
 local is_subtype_impl
 local signature_compatible_impl
 
+-- Key under which the active TypeVar unification scope rides on the
+-- in_progress bookkeeping table (a module-local sentinel, so it can
+-- never collide with a matcher used as a key). The scope is opened
+-- by the outermost signature pair a comparison reaches (see
+-- signature_compatible_impl below) and holds:
+--
+-- - unifiable: the set of TypeVars declared by that pair's *sub*
+--   (candidate) side, the only variables the comparison may
+--   instantiate. Variables reached from the super side stay
+--   universally quantified -- super promises to work for *every*
+--   binding, which no single instantiation can witness -- so they
+--   keep the conservative identity-only rule.
+-- - bindings: TypeVar -> instantiated type, filled greedily at each
+--   variable's first comparison against a counterpart.
+-- - log: bind order, so speculative branches (union members,
+--   overload alternatives, superclass walks) can roll back to a
+--   savepoint when an alternative that recorded bindings fails.
+local unify_key = {}
+
+-- Collects every TypeVar reachable through the declared structure of
+-- `t` into the set `vars`, walking the same fields the structural
+-- subtype rules recurse into (union members, Tuple element lists and
+-- tails, ListOf/SetOf elements, Dict keys and values, Callable
+-- parameter and return lists). Matchers without a structural rule
+-- (Iterator, Protocol, NewType, ...) are opaque here exactly because
+-- the comparison never decomposes them, so a TypeVar inside one can
+-- never surface. Lazy nodes are forced (pcall-guarded: a failing
+-- thunk just leaves its variables uncollected here -- the comparison
+-- that actually reaches it still raises); `seen` guards recursive
+-- matchers.
+local function collect_type_vars(t, vars, seen)
+  if type(t) ~= 'table' then
+    return
+  end
+  local ok, resolved = pcall(resolve_lazy, t)
+  if not ok or type(resolved) ~= 'table' then
+    return
+  end
+  t = resolved
+  if is_type_var(t) then
+    vars[t] = true
+    return
+  end
+  if seen[t] then
+    return
+  end
+  seen[t] = true
+  local members = rawget(t, 'type_list')
+  if members ~= nil then
+    for _, member in ipairs(members) do
+      collect_type_vars(member, vars, seen)
+    end
+  end
+  local elements = rawget(t, 'element_types')
+  if elements ~= nil then
+    for _, element in ipairs(elements) do
+      collect_type_vars(element, vars, seen)
+    end
+  end
+  collect_type_vars(rawget(t, 'rest_type'), vars, seen)
+  collect_type_vars(rawget(t, 'element_type'), vars, seen)
+  collect_type_vars(rawget(t, 'key_type'), vars, seen)
+  collect_type_vars(rawget(t, 'value_type'), vars, seen)
+  local params = rawget(t, 'params')
+  if params ~= nil and not is_any_params(params) then
+    for _, param in ipairs(params) do
+      collect_type_vars(param, vars, seen)
+    end
+  end
+  local returns = rawget(t, 'returns')
+  if returns ~= nil and not is_any_params(returns) then
+    for _, entry in ipairs(returns) do
+      collect_type_vars(entry, vars, seen)
+    end
+  end
+end
+
+-- Collects the TypeVars of a signature-shaped value (a Signature
+-- wrapper, Callable matcher, or plain contract table) into `vars`.
+-- params/returns are read with plain indexing, exactly as the
+-- signature relation below reads them, so Signature class instances
+-- resolve their fields the same way in both places.
+local function collect_signature_type_vars(sig, vars)
+  local seen = {}
+  local params = sig.params
+  if type(params) == 'table' and not is_any_params(params) then
+    for _, entry in ipairs(params) do
+      collect_type_vars(entry, vars, seen)
+    end
+  end
+  local returns = sig.returns
+  if type(returns) == 'table' and not is_any_params(returns) then
+    for _, entry in ipairs(returns) do
+      collect_type_vars(entry, vars, seen)
+    end
+  end
+end
+
+-- Instantiates the unifiable TypeVar `var` as `value` (the concrete
+-- counterpart at the variable's first comparison). Returns false --
+-- refusing the binding, and thereby failing the comparison that
+-- needed it -- rather than record anything unsound:
+--
+-- - Occurs check: a binding containing the variable itself would
+--   make later resolutions self-referential; refusing keeps the
+--   verdict a deterministic false instead of tripping the cycle
+--   guard. The apartness rule in signature_compatible_impl (a
+--   variable occurring on the super side never unifies) already
+--   excludes every self-occurrence the structural walk can see --
+--   the walk covers exactly the fields the comparison decomposes --
+--   so this is a backstop against the two ever diverging.
+-- - The declared bound: instantiating T := B is only sound when
+--   every value of type B satisfies the bound, i.e. is_subtype(B,
+--   bound). This is conservative for structural bounds (a Protocol
+--   compares by name at the type level, unlike the value-level
+--   check), per the soundness-over-permissiveness policy. The
+--   check runs under the active scope, so a bound containing
+--   *other* unifiable variables may record bindings even when it
+--   fails; that is safe for the same reason any failing conjunct
+--   is -- the failure propagates to the nearest choice point,
+--   whose rollback (or the scope's discard) cleans up.
+local function bind_type_var(unify, var, value, in_progress)
+  if type(value) == 'table' then
+    local inner = {}
+    collect_type_vars(value, inner, {})
+    if inner[var] then
+      return false
+    end
+  end
+  local bound = rawget(var, 'bound')
+  if bound ~= nil
+      and not is_subtype_impl(value, bound, in_progress) then
+    return false
+  end
+  unify.bindings[var] = value
+  unify.log[#unify.log + 1] = var
+  return true
+end
+
+-- Savepoint/rollback pair for speculative branches: an alternative
+-- that records bindings and then fails must not leave them behind
+-- for the next alternative (the type-level analog of the
+-- value-level save_type_var_bindings in llx.types.matchers). A nil
+-- savepoint means no unification scope was active; rollback is then
+-- a no-op. Conjunctive walks need no savepoints: their first
+-- failure fails the whole enclosing comparison, and the enclosing
+-- choice point (or the scope's discard) cleans up.
+local function unify_savepoint(in_progress)
+  local unify = in_progress[unify_key]
+  if unify == nil then
+    return nil
+  end
+  return #unify.log
+end
+
+local function unify_rollback(in_progress, savepoint)
+  if savepoint == nil then
+    return
+  end
+  local unify = in_progress[unify_key]
+  local log, bindings = unify.log, unify.bindings
+  for i = #log, savepoint + 1, -1 do
+    bindings[log[i]] = nil
+    log[i] = nil
+  end
+end
+
 -- Structural subtyping between two Tuple matchers. Elements compare
 -- covariantly: a tuple is a positional value container, so a tuple
 -- of narrower elements can stand in wherever a tuple of wider ones
@@ -168,10 +335,9 @@ end
 -- wraps it with Lazy resolution and the cycle-guard bookkeeping;
 -- the public is_subtype below documents the rules.
 local function subtype_rules(a, b, in_progress)
-  -- TypeVars (llx.types.matchers.TypeVar) are excluded from the
-  -- variance relation in this first iteration: a type variable stands
-  -- for a per-call binding, not a concrete type, so without a
-  -- constraint solver the only sound relations are identity (a
+  -- TypeVars (llx.types.matchers.TypeVar). Outside a signature
+  -- comparison a type variable stands for a per-call binding, not a
+  -- concrete type, so the only sound relations are identity (a
   -- variable is trivially a subtype of itself) and widening to the
   -- top type (every binding is a subtype of Any). Everything else --
   -- including is_subtype(T, T.bound), which the value-level bound
@@ -179,8 +345,43 @@ local function subtype_rules(a, b, in_progress)
   -- is_subtype(Never, T) for a TypeVar T -- is conservatively
   -- false. Checked before the name-equality rule below so two
   -- distinct TypeVars sharing a name are never conflated.
+  --
+  -- Inside a signature comparison (a unification scope is active;
+  -- see signature_compatible_impl), variables declared by the
+  -- candidate (sub) signature additionally unify: the variable's
+  -- first comparison against a counterpart instantiates it (subject
+  -- to its bound and the occurs check; see bind_type_var), and
+  -- every later occurrence resolves to that instantiation and is
+  -- compared with the position's own variance -- exactly the check
+  -- "substitute the instantiation, then decide structurally".
+  -- Variables from the super side (or outside the scope's sub) are
+  -- never instantiated: super promises to work for every binding,
+  -- which no single instantiation can witness. An unbound sub
+  -- variable may instantiate *to* such a universal variable, which
+  -- is sound pointwise (for every binding of the universal variable
+  -- the same substitution works), so alpha-equivalent generic
+  -- signatures relate.
   if is_type_var(a) or is_type_var(b) then
-    return rawequal(a, b) or rawequal(b, Any)
+    if rawequal(a, b) or rawequal(b, Any) then
+      return true
+    end
+    local unify = in_progress[unify_key]
+    if unify == nil then
+      return false
+    end
+    local binding_a = is_type_var(a) and unify.bindings[a] or nil
+    local binding_b = is_type_var(b) and unify.bindings[b] or nil
+    if binding_a ~= nil or binding_b ~= nil then
+      return is_subtype_impl(binding_a or a, binding_b or b,
+                             in_progress)
+    end
+    if is_type_var(b) and unify.unifiable[b] then
+      return bind_type_var(unify, b, a, in_progress)
+    end
+    if is_type_var(a) and unify.unifiable[a] then
+      return bind_type_var(unify, a, b, in_progress)
+    end
+    return false
   end
   -- Never is the bottom type: no value of type Never can exist, so
   -- Never can stand in for every type. In the other direction
@@ -317,12 +518,16 @@ local function subtype_rules(a, b, in_progress)
     end
     return true
   end
-  -- a is a subtype of a union when it is a subtype of any member.
+  -- a is a subtype of a union when it is a subtype of any member. A
+  -- member that recorded TypeVar instantiations and then failed must
+  -- not leak them into the next member's attempt.
   if b_members then
     for _, member in ipairs(b_members) do
+      local savepoint = unify_savepoint(in_progress)
       if is_subtype_impl(a, member, in_progress) then
         return true
       end
+      unify_rollback(in_progress, savepoint)
     end
     return false
   end
@@ -332,14 +537,18 @@ local function subtype_rules(a, b, in_progress)
       and (rawequal(a, Integer) or rawequal(a, Float)) then
     return true
   end
-  -- Classes: walk the superclass chain transitively.
+  -- Classes: walk the superclass chain transitively. Like the union
+  -- member walk above, each base is a speculative alternative, so a
+  -- failed branch rolls its TypeVar instantiations back.
   if type(a) == 'table' then
     local superclasses = a.__superclasses
     if superclasses then
       for _, superclass in ipairs(superclasses) do
+        local savepoint = unify_savepoint(in_progress)
         if is_subtype_impl(superclass, b, in_progress) then
           return true
         end
+        unify_rollback(in_progress, savepoint)
       end
     end
   end
@@ -431,14 +640,15 @@ end
 -- - `Lazy`: deferred references are forced (resolving and caching
 --   the underlying matcher) before comparison, so a Lazy compares
 --   exactly as the matcher it resolves to.
--- - `TypeVar`: a type variable is a subtype only of itself and of
---   `Any`; every other comparison involving a TypeVar is false.
---   Generic signatures are thereby conservatively excluded from
---   `signature_compatible` in this iteration (see the matcher's
---   documentation in llx.types.matchers). The structural rules
---   above reach through containers, so containers parameterized by
---   distinct TypeVars are related only where the identity rule
---   allows.
+-- - `TypeVar`: outside a signature comparison a type variable is a
+--   subtype only of itself and of `Any`; every other comparison
+--   involving a TypeVar is false. The structural rules above reach
+--   through containers, so containers parameterized by distinct
+--   TypeVars are related only where the identity rule allows.
+--   Inside a `signature_compatible` check (including the Callable
+--   rule above), the candidate signature's variables unify against
+--   their concrete counterparts instead -- see the generic
+--   signatures section of `signature_compatible` below.
 --
 -- Caveats: matchers with no structural rule (Iterator, Generator,
 -- Protocol, NewType, ClassOf, ...) still compare by non-anonymous
@@ -552,6 +762,74 @@ end
 -- A non-trailing VARARG makes a signature malformed (its call-time
 -- check raises unconditionally), so it is compatible with nothing.
 --
+-- Generic signatures (llx.types.matchers.TypeVar): TypeVars declared
+-- by `sub` -- reachable through its params/returns, including nested
+-- inside the structurally compared matchers (Union, Tuple, ListOf,
+-- SetOf, Dict, Callable) -- are treated as universally quantified
+-- over the declared comparison and solved by unification: the
+-- variable's first comparison against a counterpart (in check
+-- order: parameters left to right, then returns) instantiates it,
+-- and every later occurrence resolves to that instantiation and is
+-- checked with its own position's variance. The whole check
+-- therefore succeeds only if substituting the recorded
+-- instantiations satisfies every position, so
+--
+--   {params = {ListOf(T)}, returns = {T}}
+--
+-- is compatible with `{params = {ListOf(Integer)}, returns =
+-- {Integer}}` (the parameter comparison instantiates T := Integer;
+-- the return comparison then checks Integer against Integer).
+-- Deliberate, documented choices:
+--
+-- - One instantiation per declared comparison: nested Callables
+--   share the enclosing signature pair's instantiations, while each
+--   declaration of a top-level Overload (on either side) is a
+--   separate comparison with instantiations of its own -- a generic
+--   sub may instantiate differently against each declaration of an
+--   overloaded super. generator_compatible likewise spans its whole
+--   three-list contract with a single instantiation.
+-- - A variable with a `bound` only instantiates to a type B with
+--   is_subtype(B, bound); this is conservative for structural
+--   bounds (Protocol compares by name at the type level).
+-- - Only `sub`'s variables unify. A TypeVar promised by `super` is
+--   a promise to work for *every* binding, which no single
+--   instantiation can witness, so it keeps the identity-only rule
+--   (a concrete signature is never compatible with a generic one),
+--   *wherever* it occurs -- including nested under contravariant
+--   positions, where the variance flip makes super's Callable the
+--   nested candidate: quantification belongs to the outermost
+--   signature pair, mypy's whole-signature reading, so
+--   {params = {Callable({Integer}, {Integer})}} is not compatible
+--   with {params = {Callable({U}, {U})}} even though
+--   is_subtype(Callable({U}, {U}), Callable({Integer}, {Integer}))
+--   holds when that Callable pair *is* the outermost comparison
+--   (there U is the candidate's own variable). A variable occurring
+--   on *both* sides never unifies either (instantiating it would
+--   let super's universal promise capture sub's instantiation);
+--   compare signatures renamed apart where that matters. An unbound
+--   sub-only variable may instantiate to a super variable, though,
+--   so alpha-equivalent generic signatures are compatible.
+-- - Greedy solving: the instantiation is fixed at the first
+--   occurrence rather than solved over all constraints at once, so
+--   e.g. params={T, T} against super params={Number, Integer}
+--   instantiates T := Number and accepts (Integer is a subtype of
+--   Number contravariantly at the second position), while
+--   {Integer, Number} instantiates T := Integer and rejects. This
+--   is sound (never accepts what a full solver would refuse) but
+--   incomplete.
+-- - The relation is over *declared* types, with mypy's
+--   universal-quantification reading of a generic callable. The
+--   runtime witness protocol (llx.types.matchers.TypeVar) is
+--   deliberately narrower in ways a type-level relation cannot see:
+--   it binds from the first *value*, inferred narrowly, so e.g. a
+--   params={T, T} function rejects (1, 1.5) at call time even
+--   though this relation accepts the signature against
+--   {Number, Number}; and a call that never witnesses the variable
+--   (an empty list against ListOf(T)) leaves later positions
+--   unconstrained at run time. Where the two disagree, this
+--   relation follows the declared reading, like the rest of
+--   is_subtype.
+--
 -- Overload sets (llx.signature.Overload, recognized by their
 -- `overloads` declaration list) participate with intersection-type
 -- semantics, mirroring mypy's treatment of @overload:
@@ -573,37 +851,10 @@ function signature_compatible(sub, super)
   return signature_compatible_impl(sub, super, {})
 end
 
--- The relation proper, with the cycle-guard bookkeeping threaded
--- through every nested type comparison: the public entry point
--- above starts a fresh top-level table, while is_subtype's Callable
--- rule passes its own in-progress table through, so a comparison
--- routed into recursive Callables trips the guard (raising the
--- clear cyclic-comparison error) instead of recursing without
--- bound.
-function signature_compatible_impl(sub, super, in_progress)
-  if type(sub) ~= 'table' or type(super) ~= 'table' then
-    return false
-  end
-  local super_overloads = overload_members(super)
-  if super_overloads then
-    for _, declaration in ipairs(super_overloads) do
-      if not signature_compatible_impl(sub, declaration, in_progress)
-      then
-        return false
-      end
-    end
-    return true
-  end
-  local sub_overloads = overload_members(sub)
-  if sub_overloads then
-    for _, declaration in ipairs(sub_overloads) do
-      if signature_compatible_impl(declaration, super, in_progress)
-      then
-        return true
-      end
-    end
-    return false
-  end
+-- The variance rules applied to one plain signature pair (no
+-- Overload on either side), factored out of signature_compatible_impl
+-- so the latter can bracket it with the TypeVar unification scope.
+local function signature_rules(sub, super, in_progress)
   local sub_params = sub.params or {}
   local super_params = super.params or {}
   local sub_returns = sub.returns or {}
@@ -696,6 +947,87 @@ function signature_compatible_impl(sub, super, in_progress)
   return true
 end
 
+-- The relation proper, with the cycle-guard bookkeeping threaded
+-- through every nested type comparison: the public entry point
+-- above starts a fresh top-level table, while is_subtype's Callable
+-- rule passes its own in-progress table through, so a comparison
+-- routed into recursive Callables trips the guard (raising the
+-- clear cyclic-comparison error) instead of recursing without
+-- bound.
+--
+-- Overload sets are unfolded first, then each plain signature pair
+-- is decided by signature_rules under a TypeVar unification scope.
+-- The scope opens at the *outermost* plain pair the comparison
+-- reaches and covers everything nested inside it -- Callables inside
+-- parameter or return positions reuse it, so one instantiation
+-- spans the whole declared signature -- while each top-level
+-- overload alternative gets a scope (and therefore an
+-- instantiation) of its own: a generic declaration may instantiate
+-- differently against each declaration of an overloaded super, as a
+-- universally quantified signature may. A failed generic overload
+-- alternative under an *active* outer scope rolls its
+-- instantiations back before the next alternative is tried.
+function signature_compatible_impl(sub, super, in_progress)
+  if type(sub) ~= 'table' or type(super) ~= 'table' then
+    return false
+  end
+  local super_overloads = overload_members(super)
+  if super_overloads then
+    for _, declaration in ipairs(super_overloads) do
+      if not signature_compatible_impl(sub, declaration, in_progress)
+      then
+        return false
+      end
+    end
+    return true
+  end
+  local sub_overloads = overload_members(sub)
+  if sub_overloads then
+    for _, declaration in ipairs(sub_overloads) do
+      -- Defensive: the savepoint is live only when an overload set
+      -- is compared under an already-active scope (a top-level
+      -- overloaded sub sees no scope yet, so each declaration's
+      -- leaf opens and discards its own).
+      local savepoint = unify_savepoint(in_progress)
+      if signature_compatible_impl(declaration, super, in_progress)
+      then
+        return true
+      end
+      unify_rollback(in_progress, savepoint)
+    end
+    return false
+  end
+  if in_progress[unify_key] ~= nil then
+    return signature_rules(sub, super, in_progress)
+  end
+  -- Outermost plain pair: open the unification scope -- even when
+  -- there is nothing to unify -- so every signature pair nested
+  -- inside this comparison is governed by *this* pair's
+  -- quantification instead of opening a scope of its own. In
+  -- particular, a generic Callable in super's *parameter* position
+  -- becomes the nested candidate under the contravariant flip; its
+  -- variables belong to super's declaration, so they must stay
+  -- universal here, which the (possibly empty) active scope
+  -- enforces uniformly. Variables that also occur on the super
+  -- side are excluded from unification: instantiating one would
+  -- let sub's instantiation be captured by super's universal
+  -- promise, so shared variables keep the identity-only rule
+  -- (compare signatures renamed apart where that matters).
+  local vars = {}
+  collect_signature_type_vars(sub, vars)
+  if next(vars) ~= nil then
+    local super_vars = {}
+    collect_signature_type_vars(super, super_vars)
+    for var in pairs(super_vars) do
+      vars[var] = nil
+    end
+  end
+  in_progress[unify_key] = {unifiable = vars, bindings = {}, log = {}}
+  local compatible = signature_rules(sub, super, in_progress)
+  in_progress[unify_key] = nil
+  return compatible
+end
+
 --- Returns true when generator contract `sub` can be used where
 --- `super` is expected.
 --
@@ -736,14 +1068,39 @@ function generator_compatible(sub, super)
     return false
   end
   -- yields-out and accepts-in follow exactly a signature's
-  -- returns/params variance, so reuse signature_compatible for that
-  -- pair, and once more for the completion returns.
-  return signature_compatible(
-      {params = sub.accepts or {}, returns = sub.yields or {}},
-      {params = super.accepts or {}, returns = super.yields or {}})
-    and signature_compatible(
-      {returns = sub.returns or {}},
-      {returns = super.returns or {}})
+  -- returns/params variance, so reuse the signature relation for
+  -- that pair, and once more for the completion returns. The two
+  -- checks share one bookkeeping table and one TypeVar unification
+  -- scope spanning the whole three-list contract: a variable used
+  -- across yields/accepts *and* returns must resolve to a single
+  -- instantiation, exactly as one signature's params and returns
+  -- must. The scope is opened here -- over both halves' variables,
+  -- with the same super-side exclusion as
+  -- signature_compatible_impl -- so the two nested pairs reuse it
+  -- instead of instantiating independently.
+  local step_sub = {params = sub.accepts or {},
+                    returns = sub.yields or {}}
+  local step_super = {params = super.accepts or {},
+                      returns = super.yields or {}}
+  local completion_sub = {returns = sub.returns or {}}
+  local completion_super = {returns = super.returns or {}}
+  local vars = {}
+  collect_signature_type_vars(step_sub, vars)
+  collect_signature_type_vars(completion_sub, vars)
+  if next(vars) ~= nil then
+    local super_vars = {}
+    collect_signature_type_vars(step_super, super_vars)
+    collect_signature_type_vars(completion_super, super_vars)
+    for var in pairs(super_vars) do
+      vars[var] = nil
+    end
+  end
+  local in_progress = {
+    [unify_key] = {unifiable = vars, bindings = {}, log = {}},
+  }
+  return signature_compatible_impl(step_sub, step_super, in_progress)
+    and signature_compatible_impl(completion_sub, completion_super,
+                                  in_progress)
 end
 
 return _M

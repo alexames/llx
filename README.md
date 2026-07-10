@@ -425,6 +425,24 @@ local first = Signature{params={matchers.ListOf(T)}, returns={T}}
     .. function(xs) return xs[1] end
 first({1, 2, 3})                  --> 1 (T bound to Integer)
 
+-- Generic signatures also participate in the type-level relation:
+-- signature_compatible (and therefore Callable) unifies the
+-- candidate side's TypeVars against their concrete counterparts --
+-- the first occurrence instantiates the variable, later occurrences
+-- are checked against the instantiation with their position's own
+-- variance, and a declared bound is respected. Only the candidate
+-- side unifies: a concrete signature is never compatible with a
+-- generic super (its variable promises *every* binding).
+llx.isinstance(first,
+    matchers.Callable({matchers.ListOf(llx.Integer)},
+                      {llx.Integer}))                    --> true
+llx.signature_compatible(
+  {params = {T, T}, returns = {}},
+  {params = {llx.Number, llx.Integer}, returns = {}})    --> true
+llx.signature_compatible(
+  {params = {llx.Integer}, returns = {llx.Integer}},
+  {params = {T}, returns = {T}})                         --> false
+
 -- Overload: several signatures on one callable value, dispatched
 -- first-match-wins (declare the most specific first). When no
 -- candidate accepts a call, OverloadResolutionException lists every

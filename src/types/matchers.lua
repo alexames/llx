@@ -2190,12 +2190,21 @@ local function type_var_type_check(name, opts)
   --   whenever v satisfies opts.bound (or always, without a bound).
   --   The wrapped function's own body runs outside the scope, so
   --   plain isinstance there behaves the same way.
-  -- - Type-level relations do not learn TypeVars in this iteration:
-  --   llx.is_subtype relates a TypeVar only to itself (and to Any, as
-  --   every type is), so signature_compatible -- and therefore the
-  --   Callable matcher -- conservatively rejects a generic signature
-  --   against a concrete one. ParamSpec/TypeVarTuple analogs are
-  --   follow-ups.
+  -- - Type-level relations: plain llx.is_subtype relates a TypeVar
+  --   only to itself (and to Any, as every type is). Inside
+  --   llx.is_subtype.signature_compatible -- and therefore the
+  --   Callable matcher -- the *candidate* signature's variables
+  --   unify against their concrete counterparts (the first
+  --   occurrence instantiates the variable, later occurrences must
+  --   satisfy the instantiation with their position's variance, and
+  --   bounds are respected), so a generic signature such as the
+  --   `first` example above is compatible with
+  --   Callable({ListOf(Integer)}, {Integer}). That relation reads
+  --   the variable as universally quantified over the declared
+  --   signature; it deliberately does not model the narrower
+  --   first-witness runtime binding described here (see the generic
+  --   signatures section of signature_compatible for the exact
+  --   divergences). ParamSpec/TypeVarTuple analogs are follow-ups.
   -- - Like NewType, the matcher's __name is the given name. Matchers
   --   with structural is_subtype rules (Tuple, Union, ListOf, SetOf,
   --   Dict, Callable) compare their element types recursively, so

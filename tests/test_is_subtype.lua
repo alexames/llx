@@ -1139,10 +1139,12 @@ describe('signature_compatible', function()
     end)
   end)
 
-  describe('TypeVar exclusion', function()
-    -- Type variables are excluded from the variance relation in this
-    -- first iteration: a TypeVar relates only to itself (and to Any,
-    -- as every type does). See llx.types.matchers.TypeVar.
+  describe('TypeVar exclusion (plain is_subtype)', function()
+    -- Outside a signature comparison, type variables are excluded
+    -- from the variance relation: a TypeVar relates only to itself
+    -- (and to Any, as every type is). Unification applies only
+    -- inside signature_compatible; see the dedicated describe block
+    -- below.
     local TypeVar = matchers.TypeVar
 
     it('should be reflexive for a TypeVar', function()
@@ -1179,19 +1181,222 @@ describe('signature_compatible', function()
       expect(is_subtype(Number, N)).to.be_false()
     end)
 
-    it('should accept generic signatures only through TypeVar '
-      .. 'identity', function()
+    it('should keep the exclusion inside containers', function()
+      local T = TypeVar('T')
+      expect(is_subtype(ListOf(Integer), ListOf(T))).to.be_false()
+      expect(is_subtype(ListOf(T), ListOf(Integer))).to.be_false()
+    end)
+  end)
+
+  describe('TypeVar unification in signature_compatible', function()
+    -- Inside one signature_compatible check (and therefore inside
+    -- the Callable structural rule), the candidate (sub) signature's
+    -- TypeVars unify: the first comparison against a counterpart
+    -- instantiates the variable, later occurrences resolve to the
+    -- instantiation and are checked with their position's variance,
+    -- and bounds are respected. Variables promised by the super
+    -- side never instantiate. See the generic signatures section of
+    -- signature_compatible.
+    local TypeVar = matchers.TypeVar
+
+    it('should accept the canonical first() example', function()
+      local T = TypeVar('T')
+      expect(signature_compatible(
+          {params = {ListOf(T)}, returns = {T}},
+          {params = {ListOf(Integer)}, returns = {Integer}}))
+        .to.be_true()
+    end)
+
+    it('should reject an inconsistent later occurrence', function()
+      local T = TypeVar('T')
+      expect(signature_compatible(
+          {params = {ListOf(T)}, returns = {T}},
+          {params = {ListOf(Integer)}, returns = {String}}))
+        .to.be_false()
+    end)
+
+    it('should check later occurrences with their own variance',
+        function()
+      local T = TypeVar('T')
+      -- First position instantiates T := Number; the second,
+      -- contravariant position then admits the narrower Integer.
+      expect(signature_compatible(
+          {params = {T, T}, returns = {}},
+          {params = {Number, Integer}, returns = {}})).to.be_true()
+      -- Greedy solving: T := Integer first, and Number fails it.
+      expect(signature_compatible(
+          {params = {T, T}, returns = {}},
+          {params = {Integer, Number}, returns = {}})).to.be_false()
+      -- A covariant later occurrence may narrow the instantiation.
+      expect(signature_compatible(
+          {params = {T}, returns = {T}},
+          {params = {Integer}, returns = {Number}})).to.be_true()
+      expect(signature_compatible(
+          {params = {T}, returns = {T}},
+          {params = {Number}, returns = {Integer}})).to.be_false()
+    end)
+
+    it('should instantiate a return-only variable', function()
+      local T = TypeVar('T')
+      expect(signature_compatible(
+          {params = {}, returns = {T}},
+          {params = {}, returns = {Integer}})).to.be_true()
+      expect(signature_compatible(
+          {params = {}, returns = {T, T}},
+          {params = {}, returns = {Integer, Number}})).to.be_true()
+      expect(signature_compatible(
+          {params = {}, returns = {T, T}},
+          {params = {}, returns = {Integer, String}})).to.be_false()
+    end)
+
+    it('should respect a declared bound at instantiation', function()
+      local N = TypeVar('N', {bound = Number})
+      expect(signature_compatible(
+          {params = {N}, returns = {N}},
+          {params = {Integer}, returns = {Integer}})).to.be_true()
+      expect(signature_compatible(
+          {params = {N}, returns = {N}},
+          {params = {String}, returns = {String}})).to.be_false()
+      -- The bound applies through container positions too.
+      expect(signature_compatible(
+          {params = {ListOf(N)}, returns = {}},
+          {params = {ListOf(String)}, returns = {}})).to.be_false()
+      -- A bounded variable cannot instantiate to a universal
+      -- variable (the universal is not a subtype of the bound).
+      local U = TypeVar('U')
+      expect(signature_compatible(
+          {params = {N}, returns = {N}},
+          {params = {U}, returns = {U}})).to.be_false()
+    end)
+
+    it('should never instantiate the super side\'s variables',
+        function()
+      local T = TypeVar('T')
+      expect(signature_compatible(
+          {params = {Integer}, returns = {Integer}},
+          {params = {T}, returns = {T}})).to.be_false()
+    end)
+
+    it('should keep super\'s variables universal under nested '
+      .. 'contravariant positions', function()
+      -- Quantification belongs to the outermost signature pair:
+      -- U is super's variable even though the contravariant flip
+      -- makes its Callable the nested candidate, so it never
+      -- instantiates -- with or without unrelated variables on the
+      -- sub side (the two forms must agree).
+      local U = TypeVar('U')
+      local S = TypeVar('S')
+      expect(signature_compatible(
+          {params = {Callable({Integer}, {Integer})}, returns = {}},
+          {params = {Callable({U}, {U})}, returns = {}}))
+        .to.be_false()
+      expect(signature_compatible(
+          {params = {Callable({Integer}, {Integer})}, returns = {S}},
+          {params = {Callable({U}, {U})}, returns = {Integer}}))
+        .to.be_false()
+    end)
+
+    it('should never instantiate a variable shared by both sides',
+        function()
+      local T = TypeVar('T')
+      -- Instantiating sub's T would be captured by super's
+      -- (universal) T: the holder of the super view expects
+      -- T-typed returns for every binding, not Integer.
+      expect(signature_compatible(
+          {params = {T}, returns = {Integer}},
+          {params = {Integer}, returns = {T}})).to.be_false()
+      -- Cyclic instantiations through two shared variables have no
+      -- finite solution and must stay false, not diverge.
+      local A = TypeVar('A')
+      local B = TypeVar('B')
+      expect(signature_compatible(
+          {params = {A, B}, returns = {}},
+          {params = {B, ListOf(A)}, returns = {}})).to.be_false()
+    end)
+
+    it('should relate alpha-equivalent generic signatures',
+        function()
       local T = TypeVar('T')
       local U = TypeVar('U')
       local generic = {params = {T}, returns = {T}}
       expect(signature_compatible(generic, generic)).to.be_true()
+      -- T instantiates to the (universal) U pointwise.
       expect(signature_compatible(
           {params = {T}, returns = {T}},
+          {params = {U}, returns = {U}})).to.be_true()
+      -- The reverse correlation must still hold: a signature that
+      -- does not correlate its positions is not alpha-equivalent.
+      expect(signature_compatible(
+          {params = {T}, returns = {Integer}},
           {params = {U}, returns = {U}})).to.be_false()
     end)
 
-    it('should conservatively reject a generic signature against '
-      .. 'a concrete Callable', function()
+    it('should share one instantiation with nested Callables',
+        function()
+      local T = TypeVar('T')
+      expect(signature_compatible(
+          {params = {Callable({T}, {T})}, returns = {T}},
+          {params = {Callable({Integer}, {Integer})},
+           returns = {Integer}})).to.be_true()
+      expect(signature_compatible(
+          {params = {Callable({T}, {T})}, returns = {T}},
+          {params = {Callable({Integer}, {Integer})},
+           returns = {String}})).to.be_false()
+    end)
+
+    it('should roll back instantiations of a failed union branch',
+        function()
+      local T = TypeVar('T')
+      -- The first union member instantiates T := String from its
+      -- first element and then fails its second; without rollback
+      -- the stale binding would also fail the second member.
+      expect(signature_compatible(
+          {params = {Union{Tuple{T, String}, Tuple{String, T}}},
+           returns = {T}},
+          {params = {Tuple{String, Integer}},
+           returns = {Integer}})).to.be_true()
+    end)
+
+    it('should instantiate per overload declaration', function()
+      local T = TypeVar('T')
+      local generic = {params = {T}, returns = {T}}
+      -- Against an overloaded super, each declaration is a separate
+      -- comparison: T instantiates to Integer for one and String
+      -- for the other.
+      expect(signature_compatible(generic, {overloads = {
+          {params = {Integer}, returns = {Integer}},
+          {params = {String}, returns = {String}},
+      }})).to.be_true()
+      expect(signature_compatible(generic, {overloads = {
+          {params = {Integer}, returns = {Integer}},
+          {params = {String}, returns = {Integer}},
+      }})).to.be_false()
+    end)
+
+    it('should refuse a self-referential instantiation', function()
+      local T = TypeVar('T')
+      -- The same TypeVar object on both sides, where unification
+      -- would bind T to a type containing T: refused (by the
+      -- apartness rule, with the occurs check as backstop),
+      -- deterministically false rather than divergent.
+      expect(signature_compatible(
+          {params = {T}, returns = {}},
+          {params = {ListOf(T)}, returns = {}})).to.be_false()
+    end)
+
+    it('should relate generic and concrete Callable matchers',
+        function()
+      local T = TypeVar('T')
+      expect(is_subtype(Callable({ListOf(T)}, {T}),
+                        Callable({ListOf(Integer)}, {Integer})))
+        .to.be_true()
+      expect(is_subtype(Callable({ListOf(Integer)}, {Integer}),
+                        Callable({ListOf(T)}, {T})))
+        .to.be_false()
+    end)
+
+    it('should accept a generic Signature value against a concrete '
+      .. 'Callable', function()
       local T = TypeVar('T')
       local wrapped = signature.Function{
         params = {T},
@@ -1199,8 +1404,10 @@ describe('signature_compatible', function()
         func = function(x) return x end,
       }
       expect(isinstance(wrapped, Callable({Integer}, {Integer})))
+        .to.be_true()
+      expect(isinstance(wrapped, Callable({Integer}, {String})))
         .to.be_false()
-      -- Only the return position may widen (covariantly) to Any.
+      -- The return position may still widen (covariantly) to Any.
       expect(isinstance(wrapped, Callable({T}, {Any})))
         .to.be_true()
     end)
@@ -1295,6 +1502,31 @@ describe('generator_compatible', function()
       expect(generator_compatible({yields = {VARARG, Integer}},
                                   {yields = {VARARG, Integer}}))
         .to.be_false()
+    end)
+  end)
+
+  describe('TypeVar unification', function()
+    it('should span one instantiation across the whole contract',
+        function()
+      -- One variable used across yields/accepts *and* returns must
+      -- resolve to a single instantiation: the contract is one
+      -- declared comparison, not two.
+      local G = matchers.TypeVar('G')
+      local generic = {yields = {G}, accepts = {G}, returns = {G}}
+      expect(generator_compatible(generic,
+          {yields = {Integer}, accepts = {Integer},
+           returns = {Integer}})).to.be_true()
+      expect(generator_compatible(generic,
+          {yields = {Integer}, accepts = {Integer},
+           returns = {String}})).to.be_false()
+    end)
+
+    it('should never instantiate the super contract\'s variables',
+        function()
+      local G = matchers.TypeVar('G')
+      expect(generator_compatible(
+          {yields = {Integer}, accepts = {}, returns = {}},
+          {yields = {G}, accepts = {}, returns = {}})).to.be_false()
     end)
   end)
 end)

@@ -345,6 +345,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- TypeVar constraint solving in `signature_compatible` (and
+  therefore in the `Callable` matcher and the structural Callable
+  rule of `is_subtype`): the candidate signature's type variables now
+  unify against their concrete counterparts instead of excluding the
+  whole signature from the relation. Within one declared comparison,
+  a variable's first occurrence (parameters left to right, then
+  returns) instantiates it, every later occurrence resolves to that
+  instantiation and is checked with its own position's variance, and
+  a declared `bound` is respected at instantiation
+  (`is_subtype(binding, bound)`, conservative for structural
+  bounds). A generic signature such as
+  `{params = {ListOf(T)}, returns = {T}}` is now compatible with
+  `Callable({ListOf(Integer)}, {Integer})`, and
+  `isinstance(wrapped_generic_fn, concrete_callable)` accepts.
+  Deliberate design decisions, documented on
+  `signature_compatible`: the relation reads the variable as
+  universally quantified over the outermost declared signature pair
+  (mypy's whole-signature reading of a generic callable), so only
+  the *candidate* side's variables instantiate -- a concrete
+  signature is still never compatible with a generic super (super's
+  variables promise every binding), even where a contravariant
+  parameter position nests super's generic Callable as the inner
+  candidate -- while alpha-equivalent generic signatures now relate
+  (a candidate variable may instantiate to a universal one
+  pointwise). A variable occurring on *both* sides never
+  instantiates (unifying it would let super's universal promise
+  capture the candidate's instantiation; compare signatures renamed
+  apart where that matters), which also keeps self-referential
+  shared-variable corners a deterministic false, backstopped by an
+  occurs check. Nested Callables share the enclosing comparison's
+  instantiations, and `generator_compatible` spans its whole
+  yields/accepts/returns contract with a single instantiation; each
+  declaration of a top-level Overload is a separate comparison with
+  its own (so a generic candidate may instantiate differently per
+  overloaded-super declaration); speculative branches (union
+  members, overload alternatives, superclass walks) roll failed
+  instantiations back; and solving is greedy (first occurrence
+  fixes the instantiation -- sound but incomplete relative to a
+  full constraint solver). Plain `is_subtype` outside a signature
+  comparison, and the value-level first-witness runtime binding,
+  are unchanged; where the runtime witness protocol is narrower
+  than the declared reading (narrow first-witness inference,
+  unwitnessed variables), the relation follows the declared
+  reading, as documented. First item of the generics follow-up
+  umbrella. (#96)
 - `Generator{..., strict = true}`: a strict mode for the `Generator`
   matcher, following the `Iterator` precedent from #74. By default a
   bare coroutine thread matches any `Generator` contract structurally
