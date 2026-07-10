@@ -2,7 +2,7 @@
 -- Tests for new List methods
 
 local llx = require 'llx'
-local unit = require 'llx.unit.test_api'
+local unit = require 'llx.unit'
 
 local describe = unit.describe
 local it = unit.it
@@ -498,3 +498,7 @@ describe('List Methods', function()
     end)
   end)
 end)
+
+if llx.main_file() then
+  unit.run_unit_tests()
+end

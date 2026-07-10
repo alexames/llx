@@ -69,6 +69,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Comparing a `Set` against a plain table (or any table that is not a
+  `Set`) with `==` now returns `false` instead of raising "attempt to
+  index a nil value" inside `Set.__eq`. (#69)
 - String-declared expected types now render as themselves in argument
   mismatch messages: a mismatch against `params={'MyClass'}` reports
   "MyClass expected" instead of "String expected" (the llx string
