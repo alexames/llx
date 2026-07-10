@@ -40,6 +40,23 @@ local function is_assertion_failure(err)
   return type(err) == 'table' and err.type == ASSERTION_FAILURE
 end
 
+--- Strips a leading "file:line: " position prefix from a string
+-- error message. Anchors on the line number (":%d+: ") instead of
+-- counting colons, so Windows drive letters ("C:\...") do not
+-- confuse the strip. Lazy matching removes only the shortest such
+-- prefix, preserving any ":N:" sequences in the message itself.
+-- Returns the value unchanged when it is not a string or when no
+-- prefix matches.
+local function strip_error_position(exception)
+  if type(exception) == 'string' then
+    local stripped = exception:match('^.-:%d+: (.*)')
+    if stripped then
+      return stripped
+    end
+  end
+  return exception
+end
+
 -- Context stack for nested describe blocks
 local describe_context_stack = {}
 
@@ -150,23 +167,9 @@ local function expect(actual)
           -- if expected
           if expected then
             local exception_msg = exception
-            if type(expected) == 'string'
-                and type(exception) == 'string' then
-              -- Strip a leading "file:line: " prefix
-              -- by anchoring on the line number
-              -- (":%d+: ") instead of counting
-              -- colons, so Windows drive letters
-              -- ("C:\...") do not confuse the strip.
-              -- Lazy matching removes only the
-              -- shortest such prefix, preserving
-              -- any ":N:" sequences in the message
-              -- itself. Falls back to the raw
-              -- message when no prefix matches.
-              local stripped =
-                exception:match('^.-:%d+: (.*)')
-              if stripped then
-                exception_msg = stripped
-              end
+            if type(expected) == 'string' then
+              exception_msg =
+                strip_error_position(exception)
             end
             evaluate_matcher(
               exception_msg,
@@ -211,7 +214,28 @@ local function expect(actual)
           end
           local successful, exception =
             pcall(expect_obj._actual)
-          if not successful then
+          if successful then
+            -- Not throwing at all satisfies
+            -- to_not.throw, with or without an
+            -- expected message.
+            return
+          end
+          if expected then
+            -- Fail only when the thrown message
+            -- (position-stripped, when both sides
+            -- are strings) equals the expected one;
+            -- a different error passes.
+            local exception_msg = exception
+            if type(expected) == 'string' then
+              exception_msg =
+                strip_error_position(exception)
+            end
+            evaluate_matcher(
+              exception_msg,
+              matchers.negate(
+                matchers.equals(expected)),
+              level + 1)
+          else
             error(
               'expected function not to raise '
               .. 'error, but got: '
