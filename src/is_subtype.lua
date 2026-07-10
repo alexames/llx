@@ -22,6 +22,7 @@ local Integer = require 'llx.types.integer' . Integer
 local Number = require 'llx.types.number' . Number
 
 local Any = matchers.Any
+local Never = matchers.Never
 local VARARG = check_arguments.VARARG
 local is_type_var = matchers.is_type_var
 local resolve_lazy = matchers.resolve_lazy
@@ -38,6 +39,15 @@ local anonymous_class_name = '<anonymous class>'
 -- (Signature declarations may name a type by string, as supported by
 -- check_arguments) against the other side's __name. Anonymous classes
 -- share a placeholder __name, so they only ever match by identity.
+--
+-- llx classes carry identity (their __is_llx_class marker), so the
+-- table-to-table name fallback never applies when either side is a
+-- class: two distinct classes that happen to share a __name are
+-- distinct types, not mutual subtypes. Parameterized matchers
+-- (Dict(String, Integer) and friends) have no identity -- separately
+-- constructed instances are meant to compare equal -- so they keep
+-- the name rule, as do string type names (a bare string cannot carry
+-- identity at all, so it matches classes and matchers by name alike).
 local function type_equal(a, b)
   if rawequal(a, b) then return true end
   local a_type, b_type = type(a), type(b)
@@ -51,7 +61,12 @@ local function type_equal(a, b)
     return b == a.__name
   end
   if a_type == 'table' and b_type == 'table' then
+    -- == sees through the class system's proxy/internal-table split
+    -- (a class proxy's __eq compares underlying class identity).
     if a == b then return true end
+    if a.__is_llx_class or b.__is_llx_class then
+      return false
+    end
     local a_name = a.__name
     return a_name ~= nil
        and a_name ~= anonymous_class_name
@@ -82,48 +97,69 @@ local function overload_members(t)
   return nil
 end
 
---- Returns true when type `a` is a subtype of type `b`.
+-- Tuple matchers (llx.types.matchers.Tuple) expose their derived
+-- shape -- element_types, fixed_count, variadic, rest_type -- for
+-- exactly this kind of structural introspection. rawget keeps class
+-- proxies and inherited fields from producing false positives.
+local function is_tuple(t)
+  return type(t) == 'table'
+     and rawget(t, 'element_types') ~= nil
+     and rawget(t, 'fixed_count') ~= nil
+end
+
+-- Forward declaration: the recursion below must thread the
+-- cycle-guard bookkeeping through every nested comparison.
+local is_subtype_impl
+
+-- Structural subtyping between two Tuple matchers. Elements compare
+-- covariantly: a tuple is a positional value container, so a tuple
+-- of narrower elements can stand in wherever a tuple of wider ones
+-- is expected. The arity rules mirror the return-list rules of
+-- signature_compatible (a tuple type, like a return list, describes
+-- values its holder observes):
 --
--- A value of type `a` can safely be used wherever a value of type `b`
--- is expected. The relation is reflexive and covers:
---
--- - `Any` as the top type: everything is a subtype of `Any`.
--- - `Union`: a union is a subtype of `b` when every member is; `a` is
---   a subtype of a union when it is a subtype of any member.
--- - Numeric widening: `Integer` and `Float` are subtypes of `Number`,
---   mirroring the value level where both satisfy `Number`.
--- - Classes: the transitive `__superclasses` chain is walked, so a
---   derived class is a subtype of each of its bases.
--- - `Lazy`: deferred references are forced (resolving and caching
---   the underlying matcher) before comparison, so a Lazy compares
---   exactly as the matcher it resolves to.
--- - `TypeVar`: a type variable is a subtype only of itself and of
---   `Any`; every other comparison involving a TypeVar is false.
---   Generic signatures are thereby conservatively excluded from
---   `signature_compatible` in this iteration (see the matcher's
---   documentation in llx.types.matchers).
---
--- Caveats: distinct types sharing a non-anonymous `__name` compare as
--- equal (and therefore as mutual subtypes), matching the equality
--- rule used for signature matching. String type names participate in
--- name equality only -- a string cannot be resolved to a type, so it
--- gets neither the class-hierarchy walk nor numeric widening on the
--- subtype side.
---
--- @param a The candidate subtype (a type matcher, class, or name)
--- @param b The candidate supertype (a type matcher, class, or name)
--- @return True if `a` is a subtype of `b`, otherwise false
-function is_subtype(a, b)
-  if a == nil or b == nil then
+-- - Fixed `b`: `a` must be fixed with the same arity. A variadic `a`
+--   also admits longer values, which `b`'s holder would observe.
+-- - Variadic `b`: `a`'s minimum length (its fixed prefix) must cover
+--   `b`'s fixed prefix, `a` positions beyond that prefix must
+--   satisfy `b`'s tail, and a variadic `a`'s tail must too. The
+--   unchecked '...' tail admits any value, so it behaves as a tail
+--   of Any on both sides: every element type satisfies an unchecked
+--   `b` tail, while an unchecked `a` tail satisfies only a `b` tail
+--   that admits Any.
+local function tuple_subtype(a, b, in_progress)
+  local a_fixed = rawget(a, 'fixed_count')
+  local b_fixed = rawget(b, 'fixed_count')
+  local a_variadic = rawget(a, 'variadic')
+  if rawget(b, 'variadic') then
+    if a_fixed < b_fixed then
+      return false
+    end
+  elseif a_variadic or a_fixed ~= b_fixed then
     return false
   end
-  -- Lazy matchers are forced up front (llx.types.matchers.Lazy;
-  -- forcing caches the resolution), so the whole relation -- name
-  -- equality, union member walks, numeric widening, superclass
-  -- chains -- sees the resolved matchers. Nested Lazy members are
-  -- forced by the recursive is_subtype calls below.
-  a = resolve_lazy(a)
-  b = resolve_lazy(b)
+  local a_types = rawget(a, 'element_types')
+  local b_types = rawget(b, 'element_types')
+  local b_tail = rawget(b, 'rest_type') or Any
+  for i = 1, a_fixed do
+    local expected = i <= b_fixed and b_types[i] or b_tail
+    if not is_subtype_impl(a_types[i], expected, in_progress) then
+      return false
+    end
+  end
+  if a_variadic then
+    local a_tail = rawget(a, 'rest_type') or Any
+    if not is_subtype_impl(a_tail, b_tail, in_progress) then
+      return false
+    end
+  end
+  return true
+end
+
+-- The relation proper, applied to resolved operands. is_subtype_impl
+-- wraps it with Lazy resolution and the cycle-guard bookkeeping;
+-- the public is_subtype below documents the rules.
+local function subtype_rules(a, b, in_progress)
   -- TypeVars (llx.types.matchers.TypeVar) are excluded from the
   -- variance relation in this first iteration: a type variable stands
   -- for a per-call binding, not a concrete type, so without a
@@ -131,11 +167,30 @@ function is_subtype(a, b)
   -- variable is trivially a subtype of itself) and widening to the
   -- top type (every binding is a subtype of Any). Everything else --
   -- including is_subtype(T, T.bound), which the value-level bound
-  -- check does not justify for structural bounds -- is conservatively
+  -- check does not justify for structural bounds, and
+  -- is_subtype(Never, T) for a TypeVar T -- is conservatively
   -- false. Checked before the name-equality rule below so two
   -- distinct TypeVars sharing a name are never conflated.
   if is_type_var(a) or is_type_var(b) then
     return rawequal(a, b) or rawequal(b, Any)
+  end
+  -- Never is the bottom type: no value of type Never can exist, so
+  -- Never can stand in for every type. In the other direction
+  -- nothing but Never itself is a subtype of Never -- except an
+  -- uninhabited union, which the union rule below accepts vacuously
+  -- (an empty union, or a union of Nevers, promises no inhabitants
+  -- either).
+  if rawequal(a, Never) then
+    return true
+  end
+  -- Tuples compare structurally when both sides are Tuple matchers,
+  -- taking precedence over the name fallback: names freeze Lazy
+  -- placeholders and conflate distinct element types that share a
+  -- name, so the structural verdict -- either way -- is final.
+  -- rawequal keeps the relation reflexive for recursive tuples
+  -- without a self-dependent element walk.
+  if is_tuple(a) and is_tuple(b) then
+    return rawequal(a, b) or tuple_subtype(a, b, in_progress)
   end
   if type_equal(a, b) then
     return true
@@ -150,7 +205,7 @@ function is_subtype(a, b)
   local a_members = union_members(a)
   if a_members then
     for _, member in ipairs(a_members) do
-      if not is_subtype(member, b) then
+      if not is_subtype_impl(member, b, in_progress) then
         return false
       end
     end
@@ -160,7 +215,7 @@ function is_subtype(a, b)
   local b_members = union_members(b)
   if b_members then
     for _, member in ipairs(b_members) do
-      if is_subtype(a, member) then
+      if is_subtype_impl(a, member, in_progress) then
         return true
       end
     end
@@ -177,13 +232,114 @@ function is_subtype(a, b)
     local superclasses = a.__superclasses
     if superclasses then
       for _, superclass in ipairs(superclasses) do
-        if is_subtype(superclass, b) then
+        if is_subtype_impl(superclass, b, in_progress) then
           return true
         end
       end
     end
   end
   return false
+end
+
+function is_subtype_impl(a, b, in_progress)
+  if a == nil or b == nil then
+    return false
+  end
+  -- Lazy matchers are forced up front (llx.types.matchers.Lazy;
+  -- forcing caches the resolution), so the whole relation -- name
+  -- equality, union member walks, numeric widening, superclass
+  -- chains -- sees the resolved matchers. Nested Lazy members are
+  -- forced by the recursive comparisons below.
+  a = resolve_lazy(a)
+  b = resolve_lazy(b)
+  if type(a) ~= 'table' or type(b) ~= 'table' then
+    return subtype_rules(a, b, in_progress)
+  end
+  -- Cycle guard: a type that contains itself as a direct member
+  -- through Lazy (e.g. a Lazy union containing only itself) can
+  -- make a comparison depend on its own outcome. Re-entering a
+  -- comparison that is
+  -- already in progress can never produce new information, so it
+  -- raises a clear error instead of recursing without bound. The
+  -- bookkeeping table is created per top-level call and pairs are
+  -- unmarked on the way out, so only true self-dependence trips the
+  -- guard (shared subterms compared twice on different paths do
+  -- not), and an error propagating out of a nested rule (a failing
+  -- Lazy thunk, say) cannot leak marks into later calls.
+  local seen = in_progress[a]
+  if seen == nil then
+    seen = {}
+    in_progress[a] = seen
+  elseif seen[b] then
+    error('is_subtype: cyclic type comparison: deciding whether '
+      .. tostring(a) .. ' is a subtype of ' .. tostring(b)
+      .. ' depends on itself (a recursive type that contains '
+      .. 'itself as a direct member?)', 0)
+  end
+  seen[b] = true
+  local result = subtype_rules(a, b, in_progress)
+  seen[b] = nil
+  return result
+end
+
+--- Returns true when type `a` is a subtype of type `b`.
+--
+-- A value of type `a` can safely be used wherever a value of type `b`
+-- is expected. The relation is reflexive and covers:
+--
+-- - `Any` as the top type: everything is a subtype of `Any`.
+-- - `Never` as the bottom type: `Never` is a subtype of everything,
+--   and nothing but `Never` itself (and an uninhabited union, which
+--   the union rule accepts vacuously) is a subtype of `Never`.
+-- - `Union`: a union is a subtype of `b` when every member is; `a` is
+--   a subtype of a union when it is a subtype of any member.
+-- - Numeric widening: `Integer` and `Float` are subtypes of `Number`,
+--   mirroring the value level where both satisfy `Number`.
+-- - Classes: the transitive `__superclasses` chain is walked, so a
+--   derived class is a subtype of each of its bases.
+-- - `Tuple`: two Tuple matchers compare structurally, element-wise
+--   covariantly, with fixed/variadic arity rules mirroring the
+--   return-list rules of `signature_compatible` (see tuple_subtype
+--   above). The structural verdict is final: two Tuples never fall
+--   back to name equality.
+-- - `Lazy`: deferred references are forced (resolving and caching
+--   the underlying matcher) before comparison, so a Lazy compares
+--   exactly as the matcher it resolves to.
+-- - `TypeVar`: a type variable is a subtype only of itself and of
+--   `Any`; every other comparison involving a TypeVar is false.
+--   Generic signatures are thereby conservatively excluded from
+--   `signature_compatible` in this iteration (see the matcher's
+--   documentation in llx.types.matchers).
+--
+-- Caveats: distinct *matchers* sharing a non-anonymous `__name`
+-- compare as equal (and therefore as mutual subtypes) -- by design,
+-- so separately constructed parameterized matchers such as
+-- Dict(String, Integer) compare equal. llx classes carry identity,
+-- so the name fallback never applies when either side is a class:
+-- two distinct classes sharing a `__name` are unrelated. A container
+-- matcher's name embeds only its element types' *names*, though, so
+-- same-named classes are still conflated one level up inside
+-- non-Tuple containers (Union{C}, ListOf(C), ...), whose comparison
+-- remains name-based. String type names participate in name equality
+-- only -- a string cannot be resolved to a type, so it gets neither
+-- the class-hierarchy walk nor numeric widening on the subtype side.
+--
+-- A comparison whose outcome depends on itself raises an error
+-- instead of recursing without bound. That happens when a type
+-- contains itself as a direct member through Lazy (e.g. a Lazy
+-- union containing only itself) and the comparison reaches that
+-- member; every such comparison previously overflowed the stack.
+-- Recursion routed through a container matcher -- a leaf of this
+-- relation -- never re-enters, so JSON-style recursive unions are
+-- unaffected. Compare separately constructed recursive types by
+-- identity (the same matcher object on both sides) rather than by
+-- structure.
+--
+-- @param a The candidate subtype (a type matcher, class, or name)
+-- @param b The candidate supertype (a type matcher, class, or name)
+-- @return True if `a` is a subtype of `b`, otherwise false
+function is_subtype(a, b)
+  return is_subtype_impl(a, b, {})
 end
 
 -- Splits a declared type list into its fixed (typed) prefix length

@@ -288,7 +288,10 @@ llx.isinstance({name = 'llx', tags = {'lua', 'types'}}, Json) --> true
 -- A Lazy that resolves (directly or through a chain of Lazy
 -- matchers) back to itself raises a clear error instead of
 -- overflowing the stack. is_subtype sees through Lazy by forcing
--- it; resolve_lazy(matcher) forces one explicitly.
+-- it, and raises a clear "cyclic type comparison" error when a
+-- comparison depends on itself (a type containing itself as a
+-- direct member, e.g. a Lazy union containing only itself);
+-- resolve_lazy(matcher) forces one explicitly.
 
 -- Checked casts: cast returns the value unchanged or raises
 -- TypeError; try_cast returns Ok(value) / Err(TypeError) instead.
@@ -297,10 +300,19 @@ local res = llx.try_cast('x', llx.Integer)
 res:is_err()                               --> true
 
 -- Type-level relations: is_subtype(A, B) asks whether a value of
--- type A can be used where B is expected.
+-- type A can be used where B is expected. Any is the top type and
+-- Never the bottom type; Tuple matchers compare structurally
+-- (element-wise covariantly, with fixed/variadic arity rules);
+-- distinct classes sharing a name stay distinct (classes compare
+-- by identity plus hierarchy, while separately constructed
+-- parameterized matchers still compare equal by name).
 llx.is_subtype(llx.Integer, llx.Number)    --> true
 llx.is_subtype(llx.Integer, NumberOrString) --> true
 llx.is_subtype(llx.Number, llx.Integer)    --> false
+llx.is_subtype(matchers.Never, llx.String) --> true
+llx.is_subtype(matchers.Tuple{llx.Integer, llx.Integer},
+               matchers.Tuple{llx.Integer, matchers.Rest(llx.Integer)})
+                                           --> true
 
 -- Schema with constraints
 local Schema = llx.Schema

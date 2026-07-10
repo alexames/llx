@@ -917,9 +917,10 @@ local function tuple_type_check(element_types)
     element_names[i] = type_name_of(element_types[i])
   end
   -- The variadic tail is part of the matcher's identity, so it is
-  -- encoded in the name (which is_subtype falls back to when
-  -- comparing matchers), with distinct spellings for the unchecked
-  -- ('...') and typed ('...T') forms.
+  -- encoded in the name (is_subtype compares Tuples structurally,
+  -- but everything else -- error messages, Union names, matcher
+  -- name equality -- sees the name), with distinct spellings for
+  -- the unchecked ('...') and typed ('...T') forms.
   if unchecked_tail then
     element_names[fixed_count + 1] = '...'
   elseif rest_type ~= nil then
@@ -1417,9 +1418,11 @@ local function lazy_type_check(thunk)
   -- resolution time, so a check never dispatches from one Lazy to
   -- another. A cycle routed through a structural matcher with no
   -- non-recursive member (e.g. `local A; A = Union{Lazy(-> A)}`) is
-  -- an uninhabitable type with no base case; it cannot be detected at
-  -- resolution time and diverges at check time, like any other
-  -- unbounded recursion in user code.
+  -- an uninhabitable type with no base case; it cannot be detected
+  -- at resolution time. is_subtype detects the resulting
+  -- self-dependent comparison and raises a clear error; isinstance
+  -- against such a type still diverges at check time, like any
+  -- other unbounded recursion in user code.
   --
   -- Errors raised by the thunk itself propagate and are not cached:
   -- a later check retries resolution.

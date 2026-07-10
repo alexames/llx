@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** `is_subtype` no longer treats two distinct llx
+  classes that share a non-anonymous `__name` as equal (and
+  therefore as mutual subtypes). Classes carry identity, so they now
+  compare by identity plus the declared inheritance hierarchy only,
+  closing the name-collision soundness gap documented since #26 for
+  direct class comparisons (and, through the structural Tuple rule
+  below, for Tuple element types). The name fallback still applies
+  where it is relied on by design: separately constructed
+  parameterized matchers (`Dict(String, Integer)`,
+  `NewType('Brand', T)`, ...) keep comparing equal by name, and
+  string type names still match classes and matchers by name.
+  Because a container matcher's name embeds only its element types'
+  *names*, same-named classes can still be conflated one level up
+  inside non-Tuple containers (`Union{C}`, `ListOf(C)`, ...), whose
+  comparison remains name-based. (#73)
+- `is_subtype` now compares two `Tuple` matchers structurally --
+  element-wise covariantly, with fixed/variadic arity rules
+  mirroring `signature_compatible`'s return-list rules -- instead of
+  by name only. `Tuple{Integer, Integer}` is now a subtype of
+  `Tuple{Integer, Rest(Integer)}`, and `Tuple{Rest(Integer)}` of
+  `Tuple{Rest(Number)}`; a variadic tuple is not a subtype of a
+  fixed one, and the unchecked `'...'` tail behaves as a tail of
+  `Any` on both sides. The structural verdict is final: two Tuple
+  matchers never fall back to name equality, so tuples over
+  distinct same-named classes are no longer conflated through their
+  spelled names. (#73)
+- `is_subtype` now raises a clear "cyclic type comparison" error
+  when a comparison's outcome depends on itself, instead of
+  recursing without bound (previously a stack overflow at check
+  time). This happens when a type contains itself as a *direct*
+  member through `Lazy` -- e.g. a Lazy union containing only itself
+  -- and the comparison reaches that member; every such input
+  previously diverged. Recursive types that route the recursion
+  through a container matcher, which is a leaf of the relation
+  (e.g. a JSON-style union over scalars, `ListOf`, and `Dict`
+  members), are unaffected. Compare two separately constructed
+  recursive types by identity (the same matcher object) rather than
+  by structure. (#73)
+
 - Standalone test files and the aggregate runner `test.lua` now
   propagate test failures into the process exit status: the standard
   footer is `os.exit(unit.run_unit_tests() == 0)` instead of a bare
@@ -196,6 +235,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Never` is now the bottom type of the `is_subtype` relation:
+  `is_subtype(Never, T)` is true for every type `T`, matching its
+  documented role as the counterpart of `Any` (an empty `Union` was
+  already vacuously a subtype of everything). In the other
+  direction nothing but `Never` itself and uninhabited unions
+  (`Union{}`, `Union{Never}`) are subtypes of `Never`. TypeVars
+  remain excluded from the relation entirely, so
+  `is_subtype(Never, T)` for a TypeVar `T` stays false. (#73)
 - `llx.signature` is now reachable from the root module as a named
   submodule (`llx.signature.Signature`, `llx.signature.Overload`,
   `llx.signature.Function`), matching sibling submodules like
