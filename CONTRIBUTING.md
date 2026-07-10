@@ -12,9 +12,10 @@ There are no external runtime dependencies.
 
 ## Development setup
 
-The rockspec maps `llx.*` to files under `src/`, so the library must be
-installed into your local rocktree before tests can resolve `require 'llx.unit'`
-and friends. Install from the local source with:
+The rockspec maps `llx.*` to files under `src/`. Installing the library into
+your local rocktree is only needed for standalone per-file test runs and for
+using llx from other projects; the aggregate test runner works without it.
+Install from the local source with:
 
 ```sh
 luarocks make --local
@@ -25,16 +26,23 @@ Re-run this after adding or renaming a module (and add the module to the
 
 ## Running the tests
 
+The aggregate runner resolves `llx.*` from `src/` and `llx.tests.*` from
+`tests/` relative to itself, so it runs the full suite straight from a
+checkout with no installation or path setup, always against the checkout
+sources:
+
 ```sh
-luarocks make --local && lua test.lua
+lua test.lua
 ```
 
 On systems where `lua` points at an older interpreter, call `lua5.4`
-explicitly. If module resolution fails despite the install, prepend the
-LuaRocks paths:
+explicitly. Running a single test file standalone (as CI does per file)
+still resolves `llx.*` through the normal package path, so it needs the
+rock installed and visible:
 
 ```sh
-eval "$(luarocks path)" && lua5.4 test.lua
+luarocks make --local
+eval "$(luarocks path)" && lua tests/test_core.lua
 ```
 
 The suite should report **all tests passed** with zero failures. Please run it

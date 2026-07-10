@@ -677,18 +677,22 @@ Add to your `.luarc.json` `workspace.library` for editor completion.
 
 ## Running tests
 
-llx modules must be installed before tests can resolve them:
+The aggregate runner resolves `llx.*` from `src/` and `llx.tests.*`
+from `tests/` relative to itself, so it runs the full suite straight
+from a checkout with no installation or path setup:
 
 ```sh
-luarocks make --local && lua test.lua
+lua test.lua
 ```
 
 On systems where `lua` defaults to an older version, use `lua5.4`
-explicitly. If module resolution fails despite the install, prepend
-the luarocks paths:
+explicitly. Running a single test file standalone (as CI does per
+file) still requires the rock to be installed and on the package
+path:
 
 ```sh
-eval "$(luarocks-5.4 path)" && lua5.4 test.lua
+luarocks make --local
+eval "$(luarocks path)" && lua tests/test_core.lua
 ```
 
 ## Requirements

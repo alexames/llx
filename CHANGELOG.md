@@ -81,6 +81,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The aggregate test runner `lua test.lua` now works from a source
+  checkout. It previously required `llx.tests`, which the rockspec
+  never installs and nothing mapped to the local `tests/` tree, so
+  the documented workflow failed on any machine whose interpreter did
+  not already resolve it. `test.lua` now installs a package searcher
+  that resolves `llx.*` from `src/` and `llx.tests.*` from `tests/`
+  relative to itself, so the full suite runs with no installation or
+  `LUA_PATH` setup and always tests the checkout sources rather than
+  a possibly stale installed rock. The subprocess spawned by the
+  "should not pollute stdout on require" test likewise resolves llx
+  from the checkout and reuses the running interpreter instead of
+  hardcoding `lua5.4` with an installed rock. Standalone per-file
+  test runs still resolve `llx.*` through the normal package path
+  and need the rock installed and visible, as before. (#71)
 - Comparing a `Set` against a plain table (or any table that is not a
   `Set`) with `==` now returns `false` instead of raising "attempt to
   index a nil value" inside `Set.__eq`. (#69)
