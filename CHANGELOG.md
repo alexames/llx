@@ -159,6 +159,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `check_arguments` now raises a well-formed
+  `InvalidArgumentException` when a checked function's parameter has
+  no entry in the declared `{name = type}` table, reporting the
+  parameter's index, name, and actual type (e.g. `parameter 'b' has
+  no declared type (got Number)`). The undeclared-parameter branch
+  previously called the exception constructor with the wrong arity,
+  so hitting it raised an arithmetic error on a class table instead
+  of a diagnostic. (#91)
 - The unit framework's `expect(fn).to_not.throw(expected)` no longer
   silently ignores its expected-message argument. It previously
   negated only the did-it-throw boolean, so any thrown error failed

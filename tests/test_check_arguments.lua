@@ -283,6 +283,49 @@ describe('check_arguments', function()
     end)
   end)
 
+  describe('undeclared parameters', function()
+    -- Regression pins for issue #91: the expected_type == nil branch
+    -- used to construct InvalidArgumentException with the wrong arity
+    -- (a class table landed in the level slot), so hitting it raised
+    -- an arithmetic error instead of a diagnostic.
+    local InvalidArgumentException =
+        llx.exceptions.InvalidArgumentException
+
+    it('should raise InvalidArgumentException naming the parameter',
+        function()
+      local ok, err = pcall(function(a, b)
+        check_arguments{a=Number}
+      end, 1, 2)
+      expect(ok).to.be_false()
+      expect(llx.isinstance(err, InvalidArgumentException)).to.be_true()
+      expect(err.what:find('bad argument #2', 1, true)).to_not.be_nil()
+      expect(err.what:find(
+          "parameter 'b' has no declared type (got Number)", 1, true))
+          .to_not.be_nil()
+    end)
+
+    it('should describe the undeclared value like a mismatch would',
+        function()
+      local Animal = llx.class 'Animal' {}
+      local ok, err = pcall(function(pet)
+        check_arguments{}
+      end, Animal())
+      expect(ok).to.be_false()
+      expect(llx.isinstance(err, InvalidArgumentException)).to.be_true()
+      expect(err.what:find(
+          "parameter 'pet' has no declared type "
+          .. '(got an instance of Animal)', 1, true))
+          .to_not.be_nil()
+    end)
+
+    it('should still pass when every parameter is declared', function()
+      local ok = pcall(function(a, b)
+        check_arguments{a=Number, b=Number}
+      end, 1, 2)
+      expect(ok).to.be_true()
+    end)
+  end)
+
   describe('TypeVar binding scopes', function()
     local matchers = require 'llx.types.matchers'
     local TypeVar = matchers.TypeVar
