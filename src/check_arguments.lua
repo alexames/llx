@@ -4,7 +4,6 @@ local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
 local getclass_module = require 'llx.getclass'
 local isinstance_module = require 'llx.isinstance'
-local table_module = require 'llx.types.table'
 
 local _ENV, _M = environment.create_module_environment()
 
@@ -13,7 +12,6 @@ local InvalidArgumentException = exceptions.InvalidArgumentException
 local InvalidArgumentTypeException = exceptions.InvalidArgumentTypeException
 local ValueException = exceptions.ValueException
 local isinstance = isinstance_module.isinstance
-local Table = table_module.Table
 
 -- Describes the offending value for a mismatch message. Primitives
 -- and plain tables report their class per llx.getclass ('Number',
@@ -35,9 +33,23 @@ local function describe_actual(value)
   return value_class
 end
 
-local function check_argument(index, value, expected_type)
+-- `name` is the parameter name when known (the check_arguments
+-- path); the check_returns paths have positions, not names, and
+-- leave it nil. A nil expected_type means the caller's declaration
+-- table has no entry for this value -- a mistake in the checking
+-- code itself, so the diagnostic points at the declaration rather
+-- than reporting a type mismatch.
+local function check_argument(index, value, expected_type, name)
   if expected_type == nil then
-    error(InvalidArgumentException(1, Table, getclass(value), 2))
+    local subject = name
+        and string.format("parameter '%s'", name)
+        or 'value'
+    error(InvalidArgumentException(
+        index,
+        string.format(
+            '%s has no declared type (got %s)',
+            subject, describe_actual(value)),
+        4))
   end
   local is_correct_type, exception
   if type(expected_type) == 'string' then
@@ -144,7 +156,7 @@ function check_arguments(expected_types)
   local ok, err = true, nil
   for index = 1, count do
     ok, err = pcall(check_argument, index, values[index],
-                    expected_types[names[index]])
+                    expected_types[names[index]], names[index])
     if not ok then
       break
     end
