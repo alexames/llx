@@ -39,19 +39,30 @@ platform equivalent), making `require 'llx'` and all submodules available.
 
 ## Running Tests
 
-The rockspec maps `llx.*` to `src/*`, so modules must be installed before tests
-can resolve `require 'llx.unit'`, etc. Always install before testing:
+The aggregate runner is self-sufficient: `test.lua` installs a package
+searcher that resolves `llx.*` from `src/` and `llx.tests.*` from `tests/`
+relative to itself, so it runs the full suite straight from a checkout with
+no installation or `LUA_PATH` setup, and always tests the checkout sources
+(never a stale installed rock):
 
 ```sh
-luarocks make --local && lua test.lua
+lua test.lua
 ```
 
-On Windows, if `lua test.lua` fails to find modules despite installation, you
-may need to prepend the luarocks install path explicitly. Find it with
-`luarocks path` and pass it via `lua -e`:
+Running a single test file standalone (as CI does per file) still resolves
+`llx.*` through the normal package path, so it needs the rock installed and
+visible. Install with `luarocks make --local`; if the interpreter's default
+`package.path` does not include the LuaRocks tree, prepend it (find it with
+`luarocks path --lr-path`):
 
 ```sh
-luarocks make --local && lua -e "package.path=luarocks_share_path .. package.path; dofile('test.lua')"
+# sh / bash
+LUA_PATH="$(luarocks path --lr-path);;" lua tests/test_core.lua
+```
+
+```powershell
+# PowerShell
+$env:LUA_PATH = "$(luarocks path --lr-path);;"; lua tests/test_core.lua
 ```
 
 ## Test Conventions

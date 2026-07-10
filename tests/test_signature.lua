@@ -40,7 +40,42 @@ describe('Signature', function()
       -- Require llx.signature in a fresh subprocess and check that
       -- it produces no output. Regression for top-level test code
       -- that previously ran on every import.
-      local cmd = 'lua5.4 -e "require \'llx.signature\'" 2>&1'
+      --
+      -- The subprocess reuses the interpreter running this suite
+      -- and resolves llx.* from the checkout's src/ tree (located
+      -- relative to this file), so the check needs no installed
+      -- rock and no LUA_PATH setup (see #71). The inline shim
+      -- avoids '%', '$', and pattern anchors because the command
+      -- passes through cmd.exe or sh via io.popen.
+      local interpreter = 'lua'
+      local i = -1
+      while arg and arg[i] do
+        interpreter = arg[i]
+        i = i - 1
+      end
+      local source = debug.getinfo(1, 'S').source
+      local path = source:match('^@(.*)$') or source
+      local dir = path:match('^(.*[/\\])') or ''
+      local src = (dir .. '../src'):gsub('\\', '/')
+      local shim = "table.insert(package.searchers, 2,"
+          .. " function(name)"
+          .. " local rest"
+          .. " if name == 'llx' then rest = 'init'"
+          .. " elseif name:sub(1, 4) == 'llx.' then"
+          .. " rest = name:sub(5):gsub('[.]', '/')"
+          .. " else return nil end"
+          .. " local base = '" .. src .. "/' .. rest"
+          .. " return loadfile(base .. '.lua')"
+          .. " or loadfile(base .. '/init.lua')"
+          .. " end)"
+      local cmd = '"' .. interpreter .. '" -e "' .. shim .. '"'
+          .. ' -e "require \'llx.signature\'" 2>&1'
+      if package.config:sub(1, 1) == '\\' then
+        -- cmd.exe strips the first and last quote of the /c string,
+        -- mangling a quoted program name; wrapping the whole command
+        -- in one extra pair of quotes is the documented workaround.
+        cmd = '"' .. cmd .. '"'
+      end
       local handle = io.popen(cmd)
       if handle then
         local output = handle:read('*a')
