@@ -323,6 +323,49 @@ describe('Signature', function()
         end)
       end)
     end)
+
+    describe('Unpack/TypeVarTuple rejection at declaration time',
+        function()
+      -- Unpack(Ts) and a bare TypeVarTuple are type-level-only
+      -- variadic-generic markers with no call-time meaning (per-call
+      -- sequence witnessing is out of scope in this first iteration),
+      -- so a Signature/Function rejects them, as ParamSpec is.
+      local ValueException = exceptions.ValueException
+      local matchers = require 'llx.types.matchers'
+      local TypeVarTuple = matchers.TypeVarTuple
+      local Unpack = matchers.Unpack
+
+      local function expect_rejection(fragment, build)
+        local ok, err = pcall(build)
+        expect(ok).to.be_false()
+        expect(isinstance(err, ValueException)).to.be_true()
+        expect(err.what:find(fragment, 1, true)).to_not.be_nil()
+      end
+
+      it('should reject an Unpack entry in Signature params',
+          function()
+        local Ts = TypeVarTuple('Ts')
+        expect_rejection('Unpack(Ts) is a type-level', function()
+          return Signature{params={Unpack(Ts)}, returns={}}
+        end)
+      end)
+
+      it('should reject an Unpack entry in Function returns',
+          function()
+        local Ts = TypeVarTuple('Ts')
+        expect_rejection('Unpack(Ts) is a type-level', function()
+          return Function{params={}, returns={Unpack(Ts)},
+                          func=function() end}
+        end)
+      end)
+
+      it('should reject a bare TypeVarTuple entry', function()
+        local Ts = TypeVarTuple('Ts')
+        expect_rejection('TypeVarTuple is only valid', function()
+          return Signature{params={Ts}, returns={}}
+        end)
+      end)
+    end)
   end)
 
   describe('Signature decorate method', function()

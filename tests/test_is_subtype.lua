@@ -24,6 +24,7 @@ local Rest = matchers.Rest
 local Lazy = matchers.Lazy
 
 local class = llx.class
+local Boolean = llx.Boolean
 local Float = llx.Float
 local Integer = llx.Integer
 local Nil = llx.Nil
@@ -1681,6 +1682,185 @@ describe('generator_compatible', function()
           {yields = {Integer}, accepts = {}, returns = {}},
           {yields = {G}, accepts = {}, returns = {}})).to.be_false()
     end)
+  end)
+end)
+
+describe('TypeVarTuple/Unpack unification in signature_compatible',
+    function()
+  -- An Unpack(Ts) splices a variadic generic sequence into a list. A
+  -- candidate-side Unpack captures its counterpart's spanned
+  -- sub-sequence verbatim on first occurrence and substitutes it
+  -- later; a super-side (or shared) one stays universal. Type-level
+  -- only, mirroring the ParamSpec block above. See the generic
+  -- signatures section of signature_compatible.
+  local TypeVarTuple = matchers.TypeVarTuple
+  local Unpack = matchers.Unpack
+  local TypeVar = matchers.TypeVar
+
+  it('should correlate a params splice with a returns Tuple',
+      function()
+    local Ts = TypeVarTuple('Ts')
+    -- params = {Unpack(Ts)} captures Ts := {Integer, String}; the
+    -- returns Tuple then substitutes it.
+    expect(signature_compatible(
+        {params = {Unpack(Ts)}, returns = {Tuple{Unpack(Ts)}}},
+        {params = {Integer, String},
+         returns = {Tuple{Integer, String}}})).to.be_true()
+  end)
+
+  it('should reject a mismatched returns splice', function()
+    local Ts = TypeVarTuple('Ts')
+    expect(signature_compatible(
+        {params = {Unpack(Ts)}, returns = {Tuple{Unpack(Ts)}}},
+        {params = {Integer, String},
+         returns = {Tuple{Integer, Integer}}})).to.be_false()
+  end)
+
+  it('should bind an empty spanned region to the empty sequence',
+      function()
+    local Ts = TypeVarTuple('Ts')
+    expect(signature_compatible(
+        {params = {Unpack(Ts)}, returns = {Tuple{Unpack(Ts)}}},
+        {params = {}, returns = {Tuple{}}})).to.be_true()
+    -- With Ts := {} the returns Tuple is empty, so a non-empty super
+    -- returns Tuple is rejected.
+    expect(signature_compatible(
+        {params = {Unpack(Ts)}, returns = {Tuple{Unpack(Ts)}}},
+        {params = {}, returns = {Tuple{Integer}}})).to.be_false()
+  end)
+
+  it('should honor a fixed prefix around the splice', function()
+    local Ts = TypeVarTuple('Ts')
+    -- Prefix String is checked covariantly; the rest binds Ts.
+    expect(signature_compatible(
+        {params = {}, returns = {Tuple{String, Unpack(Ts)}}},
+        {params = {},
+         returns = {Tuple{String, Integer, Boolean}}})).to.be_true()
+    expect(signature_compatible(
+        {params = {}, returns = {Tuple{String, Unpack(Ts)}}},
+        {params = {}, returns = {Tuple{Integer, Integer}}}))
+      .to.be_false()
+  end)
+
+  it('should match a bare Unpack tuple against every fixed arity',
+      function()
+    local Ts = TypeVarTuple('Ts')
+    for _, super in ipairs({
+      Tuple{}, Tuple{Integer}, Tuple{Integer, String, Boolean},
+    }) do
+      expect(signature_compatible(
+          {params = {}, returns = {Tuple{Unpack(Ts)}}},
+          {params = {}, returns = {super}})).to.be_true()
+    end
+  end)
+
+  it('should refuse to capture from a variadic counterpart',
+      function()
+    local Ts = TypeVarTuple('Ts')
+    -- A Rest/VARARG tail is an unbounded region with no finite
+    -- sequence to capture, so unification refuses it.
+    expect(signature_compatible(
+        {params = {}, returns = {Tuple{Unpack(Ts)}}},
+        {params = {}, returns = {Tuple{Rest(Integer)}}})).to.be_false()
+    expect(signature_compatible(
+        {params = {}, returns = {Tuple{Unpack(Ts)}}},
+        {params = {}, returns = {Tuple{Integer, VARARG}}}))
+      .to.be_false()
+  end)
+
+  it('should stay consistent across two occurrences in one list',
+      function()
+    local Ts = TypeVarTuple('Ts')
+    -- The top-level Unpack captures Ts from the spanned region; the
+    -- following Tuple{Unpack(Ts)} in the same list must agree with
+    -- that capture rather than binding an independent sequence.
+    expect(signature_compatible(
+        {params = {Unpack(Ts), Tuple{Unpack(Ts)}}, returns = {}},
+        {params = {Integer, Tuple{Integer}}, returns = {}}))
+      .to.be_true()
+    -- Here the span binds Ts := {Integer} but the suffix Tuple needs
+    -- Ts := {String}; a consistent checker rejects it.
+    expect(signature_compatible(
+        {params = {Unpack(Ts), Tuple{Unpack(Ts)}}, returns = {}},
+        {params = {Integer, Tuple{String}}, returns = {}}))
+      .to.be_false()
+  end)
+
+  it('should never instantiate the super side\'s TypeVarTuple',
+      function()
+    local Ts = TypeVarTuple('Ts')
+    -- A concrete signature is not compatible with a generic super: the
+    -- super-side Unpack promises to work for every sequence.
+    expect(signature_compatible(
+        {params = {Integer, String}, returns = {}},
+        {params = {Unpack(Ts)}, returns = {}})).to.be_false()
+  end)
+
+  it('should relate a generic signature to itself', function()
+    local Ts = TypeVarTuple('Ts')
+    -- Ts occurs on both sides, so it stays universal and the
+    -- comparison reduces to identity of the aligned prefix/suffix.
+    local generic = {params = {Tuple{String, Unpack(Ts)}},
+                     returns = {Tuple{Unpack(Ts)}}}
+    expect(signature_compatible(generic, generic)).to.be_true()
+  end)
+
+  it('should compose with a plain TypeVar in the same signature',
+      function()
+    local Ts = TypeVarTuple('Ts')
+    local T = TypeVar('T')
+    expect(signature_compatible(
+        {params = {T, Unpack(Ts)},
+         returns = {Tuple{T, Unpack(Ts)}}},
+        {params = {Integer, String, Boolean},
+         returns = {Tuple{Integer, String, Boolean}}})).to.be_true()
+    -- T binds Integer from the leading parameter; a returns Tuple that
+    -- needs T := String at that position is rejected (the Ts tail still
+    -- matches).
+    expect(signature_compatible(
+        {params = {T, Unpack(Ts)},
+         returns = {Tuple{T, Unpack(Ts)}}},
+        {params = {Integer, String, Boolean},
+         returns = {Tuple{String, String, Boolean}}})).to.be_false()
+  end)
+
+  it('should capture per overload declaration', function()
+    local Ts = TypeVarTuple('Ts')
+    -- Each declaration of an overloaded super is a separate
+    -- comparison: Ts captures a different sequence for each.
+    expect(signature_compatible(
+        {params = {Unpack(Ts)}, returns = {Tuple{Unpack(Ts)}}},
+        {overloads = {
+          {params = {Integer}, returns = {Tuple{Integer}}},
+          {params = {String, Boolean},
+           returns = {Tuple{String, Boolean}}},
+        }})).to.be_true()
+  end)
+
+  it('should roll back a failed union branch\'s capture', function()
+    local Ts = TypeVarTuple('Ts')
+    -- The first union member captures Ts := {String} and then fails
+    -- its second element; without rollback that stale capture would
+    -- fail the second member (which needs Ts := {Integer}).
+    expect(signature_compatible(
+        {params = {Union{
+           Tuple{Tuple{Unpack(Ts)}, Tuple{String}},
+           Tuple{Tuple{String}, Tuple{Unpack(Ts)}}}},
+         returns = {Tuple{Unpack(Ts)}}},
+        {params = {Tuple{Tuple{String}, Tuple{Integer}}},
+         returns = {Tuple{Integer}}})).to.be_true()
+  end)
+
+  it('should relate generic and concrete Callable matchers',
+      function()
+    local Ts = TypeVarTuple('Ts')
+    expect(is_subtype(
+        Callable({Unpack(Ts)}, {Tuple{Unpack(Ts)}}),
+        Callable({Integer, String},
+                 {Tuple{Integer, String}}))).to.be_true()
+    expect(is_subtype(
+        Callable({Integer, String}, {Tuple{Integer, String}}),
+        Callable({Unpack(Ts)}, {Tuple{Unpack(Ts)}}))).to.be_false()
   end)
 end)
 

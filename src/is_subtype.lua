@@ -26,7 +26,9 @@ local Never = matchers.Never
 local VARARG = check_arguments.VARARG
 local is_any_params = matchers.is_any_params
 local is_param_spec = matchers.is_param_spec
+local is_rest = matchers.is_rest
 local is_type_var = matchers.is_type_var
+local is_unpack = matchers.is_unpack
 local matcher_kind = matchers.matcher_kind
 local resolve_lazy = matchers.resolve_lazy
 
@@ -157,7 +159,11 @@ local unify_key = {}
 -- reached by the entry walk. A ParamSpec never appears in a return
 -- position (rejected at construction), so returns are only walked for
 -- TypeVars.
-local function collect_type_vars(t, vars, seen, param_specs)
+-- The optional `tvts` set, when provided, collects every TypeVarTuple
+-- reached through an Unpack(Ts) list entry (Tuple elements, Callable
+-- params or returns): an Unpack is a list entry, so it surfaces here
+-- as the entry walk descends the same lists.
+local function collect_type_vars(t, vars, seen, param_specs, tvts)
   if type(t) ~= 'table' then
     return
   end
@@ -170,6 +176,14 @@ local function collect_type_vars(t, vars, seen, param_specs)
     vars[t] = true
     return
   end
+  -- An Unpack list entry contributes its wrapped TypeVarTuple; it has
+  -- no further structure to descend.
+  if is_unpack(t) then
+    if tvts ~= nil then
+      tvts[rawget(t, 'type_var_tuple')] = true
+    end
+    return
+  end
   if seen[t] then
     return
   end
@@ -177,19 +191,23 @@ local function collect_type_vars(t, vars, seen, param_specs)
   local members = rawget(t, 'type_list')
   if members ~= nil then
     for _, member in ipairs(members) do
-      collect_type_vars(member, vars, seen, param_specs)
+      collect_type_vars(member, vars, seen, param_specs, tvts)
     end
   end
   local elements = rawget(t, 'element_types')
   if elements ~= nil then
     for _, element in ipairs(elements) do
-      collect_type_vars(element, vars, seen, param_specs)
+      collect_type_vars(element, vars, seen, param_specs, tvts)
     end
   end
-  collect_type_vars(rawget(t, 'rest_type'), vars, seen, param_specs)
-  collect_type_vars(rawget(t, 'element_type'), vars, seen, param_specs)
-  collect_type_vars(rawget(t, 'key_type'), vars, seen, param_specs)
-  collect_type_vars(rawget(t, 'value_type'), vars, seen, param_specs)
+  collect_type_vars(rawget(t, 'rest_type'), vars, seen,
+                    param_specs, tvts)
+  collect_type_vars(rawget(t, 'element_type'), vars, seen,
+                    param_specs, tvts)
+  collect_type_vars(rawget(t, 'key_type'), vars, seen,
+                    param_specs, tvts)
+  collect_type_vars(rawget(t, 'value_type'), vars, seen,
+                    param_specs, tvts)
   local params = rawget(t, 'params')
   if is_param_spec(params) then
     if param_specs ~= nil then
@@ -197,13 +215,13 @@ local function collect_type_vars(t, vars, seen, param_specs)
     end
   elseif params ~= nil and not is_any_params(params) then
     for _, param in ipairs(params) do
-      collect_type_vars(param, vars, seen, param_specs)
+      collect_type_vars(param, vars, seen, param_specs, tvts)
     end
   end
   local returns = rawget(t, 'returns')
   if returns ~= nil and not is_any_params(returns) then
     for _, entry in ipairs(returns) do
-      collect_type_vars(entry, vars, seen, param_specs)
+      collect_type_vars(entry, vars, seen, param_specs, tvts)
     end
   end
 end
@@ -217,7 +235,11 @@ end
 -- for this signature's whole parameter list (see collect_type_vars);
 -- nested ParamSpecs inside the compared matchers are collected by the
 -- entry walk it threads through.
-local function collect_signature_type_vars(sig, vars, param_specs)
+-- The optional `tvts` set collects the TypeVarTuples reached through
+-- Unpack(Ts) entries in this signature's parameter and return lists
+-- (and nested inside the compared matchers), the variadic-generic
+-- analog of param_specs.
+local function collect_signature_type_vars(sig, vars, param_specs, tvts)
   local seen = {}
   local params = sig.params
   if is_param_spec(params) then
@@ -226,13 +248,13 @@ local function collect_signature_type_vars(sig, vars, param_specs)
     end
   elseif type(params) == 'table' and not is_any_params(params) then
     for _, entry in ipairs(params) do
-      collect_type_vars(entry, vars, seen, param_specs)
+      collect_type_vars(entry, vars, seen, param_specs, tvts)
     end
   end
   local returns = sig.returns
   if type(returns) == 'table' and not is_any_params(returns) then
     for _, entry in ipairs(returns) do
-      collect_type_vars(entry, vars, seen, param_specs)
+      collect_type_vars(entry, vars, seen, param_specs, tvts)
     end
   end
 end
@@ -389,14 +411,263 @@ local function unify_rollback(in_progress, savepoint)
   local unify = in_progress[unify_key]
   local log, bindings = unify.log, unify.bindings
   local param_bindings = unify.param_bindings
+  local tuple_bindings = unify.tuple_bindings
   for i = #log, savepoint + 1, -1 do
-    -- The log interleaves TypeVar and ParamSpec keys; each key is a
-    -- distinct object, so clearing it from both binding tables is
-    -- unambiguous (only one ever held it).
+    -- The log interleaves TypeVar, ParamSpec, and TypeVarTuple keys;
+    -- each key is a distinct object, so clearing it from all three
+    -- binding tables is unambiguous (only one ever held it).
     bindings[log[i]] = nil
     param_bindings[log[i]] = nil
+    tuple_bindings[log[i]] = nil
     log[i] = nil
   end
+end
+
+-- TypeVarTuple/Unpack unification (llx.types.matchers.Unpack): the
+-- variadic-generic analog of TypeVar unification, binding a *sequence*
+-- of types rather than one. An Unpack(Ts) spliced into a list
+-- (candidate side) captures the counterpart's spanned sub-sequence --
+-- the positions left over after aligning the fixed prefix and suffix
+-- around it -- verbatim on first occurrence, exactly as a ParamSpec
+-- captures a whole list one level up; later occurrences substitute the
+-- captured sequence before the arity checks. Super-side (universal)
+-- Unpacks stay universal, matching only an identical Unpack.
+
+-- Position of the (single) Unpack entry in a list and its wrapped
+-- TypeVarTuple, or (nil, nil).
+local function find_unpack(list)
+  for i = 1, #list do
+    if is_unpack(list[i]) then
+      return i, rawget(list[i], 'type_var_tuple')
+    end
+  end
+  return nil, nil
+end
+
+-- Whether a list ends in a variadic tail (an unchecked VARARG or a
+-- typed Rest(T)) -- an unbounded region with no finite type sequence
+-- to capture.
+local function list_has_variadic_tail(list)
+  local last = list[#list]
+  return last == VARARG or is_rest(last)
+end
+
+-- Returns a copy of `list` with every Unpack(Ts) whose Ts is already
+-- captured expanded in place into the bound sequence; the list is
+-- returned unchanged (same reference) when nothing was expanded, so
+-- the common no-binding path pays nothing.
+local function substitute_unpack(list, unify)
+  if unify == nil then
+    return list
+  end
+  local out, changed = nil, false
+  for i = 1, #list do
+    local entry = list[i]
+    local seq = is_unpack(entry)
+        and unify.tuple_bindings[rawget(entry, 'type_var_tuple')]
+        or nil
+    if seq ~= nil then
+      if not changed then
+        out = {}
+        for k = 1, i - 1 do
+          out[k] = list[k]
+        end
+        changed = true
+      end
+      for _, ty in ipairs(seq) do
+        out[#out + 1] = ty
+      end
+    elseif changed then
+      out[#out + 1] = entry
+    end
+  end
+  if not changed then
+    return list
+  end
+  return out
+end
+
+-- Occurs check for a TypeVarTuple capture: refuses a captured sequence
+-- that itself reaches Ts through an Unpack, which would make later
+-- substitutions self-referential. A backstop, like the TypeVar and
+-- ParamSpec occurs checks: the apartness rule already excludes every
+-- self-occurrence the structural walk can see.
+local function tvt_occurs(tvt, seq)
+  local tvts = {}
+  for _, ty in ipairs(seq) do
+    collect_type_vars(ty, {}, {}, nil, tvts)
+  end
+  return tvts[tvt] == true
+end
+
+-- Instantiates the unifiable TypeVarTuple `tvt` as the captured
+-- sequence `seq`. Records the binding in the shared log so a
+-- speculative branch can roll it back, exactly as bind_param_spec
+-- does one level up.
+local function bind_type_var_tuple(unify, tvt, seq)
+  if tvt_occurs(tvt, seq) then
+    return false
+  end
+  unify.tuple_bindings[tvt] = seq
+  unify.log[#unify.log + 1] = tvt
+  return true
+end
+
+-- Decides two lists where at least one carries an Unpack (after any
+-- bound sequence was substituted away). `first`/`second` are oriented
+-- so the pointwise fixed-position relation is is_subtype_impl(first,
+-- second): tuple elements and return lists pass (sub, super); the
+-- contravariant parameter list passes (super, sub). Capture is
+-- orientation-independent -- the unifiable side grabs the other's
+-- spanned region verbatim -- so a single function serves both
+-- variances.
+local function unpack_capture(first, fi, ftvt, second, si, stvt,
+                              in_progress)
+  local unify = in_progress[unify_key]
+  if ftvt ~= nil and stvt ~= nil then
+    -- Both sides carry an Unpack. Only the identical (universal,
+    -- both-sides) variable is related in this first iteration:
+    -- require aligned prefix/suffix and compare those fixed positions
+    -- pointwise. Two *different* variadic variables have no sound
+    -- sequence relation yet.
+    if not rawequal(ftvt, stvt) then
+      return false
+    end
+    local f_pre, s_pre = fi - 1, si - 1
+    local f_suf, s_suf = #first - fi, #second - si
+    if f_pre ~= s_pre or f_suf ~= s_suf then
+      return false
+    end
+    for k = 1, f_pre do
+      if not is_subtype_impl(first[k], second[k], in_progress) then
+        return false
+      end
+    end
+    for k = 1, f_suf do
+      if not is_subtype_impl(first[fi + k], second[si + k],
+                             in_progress) then
+        return false
+      end
+    end
+    return true
+  end
+  -- Exactly one side carries an Unpack; it must be unifiable
+  -- (candidate side) and captures the other side's spanned region.
+  local uidx, utvt, other, ulen
+  if ftvt ~= nil then
+    uidx, utvt, other, ulen = fi, ftvt, second, #first
+  else
+    uidx, utvt, other, ulen = si, stvt, first, #second
+  end
+  if unify == nil or not unify.unifiable_tuples[utvt] then
+    -- A universal (super-side or shared) Unpack: no concrete list
+    -- witnesses "for every sequence", so it relates only to an
+    -- identical Unpack (handled above).
+    return false
+  end
+  -- Capturing a finite sequence from a variadic (Rest/VARARG)
+  -- counterpart region is undefined in this first iteration; refuse.
+  if list_has_variadic_tail(other) then
+    return false
+  end
+  local pre = uidx - 1
+  local suf = ulen - uidx
+  local n = #other
+  if n < pre + suf then
+    return false
+  end
+  -- Capture and bind the spanned region *before* comparing the fixed
+  -- prefix/suffix, so a nested occurrence of the same Ts in a
+  -- prefix/suffix position (e.g. {Unpack(Ts), Tuple{Unpack(Ts)}})
+  -- substitutes this binding and is checked against it, rather than
+  -- capturing an independent sequence that the top-level bind would
+  -- then silently overwrite. The counterpart's span is captured
+  -- verbatim; an empty span (n == pre + suf) binds Ts to the empty
+  -- sequence. A failed prefix/suffix comparison below leaves the
+  -- binding for the nearest choice point to roll back (or the scope
+  -- to discard), exactly as a nested capture that later fails does.
+  local span = {}
+  for k = pre + 1, n - suf do
+    span[#span + 1] = other[k]
+  end
+  if not bind_type_var_tuple(unify, utvt, span) then
+    return false
+  end
+  for k = 1, pre do
+    if not is_subtype_impl(first[k], second[k], in_progress) then
+      return false
+    end
+  end
+  for k = 1, suf do
+    if not is_subtype_impl(first[#first - suf + k],
+                           second[#second - suf + k],
+                           in_progress) then
+      return false
+    end
+  end
+  return true
+end
+
+-- Whether a list carries a top-level Unpack(Ts) entry.
+local function list_contains_unpack(list)
+  for i = 1, #list do
+    if is_unpack(list[i]) then
+      return true
+    end
+  end
+  return false
+end
+
+-- unpack_capture for a pair of signature lists, locating each side's
+-- Unpack for the caller. `first`/`second` are oriented so the
+-- pointwise relation is is_subtype_impl(first, second). Precondition:
+-- at least one list carries an Unpack.
+local function unpack_lists_compatible(first, second, in_progress)
+  local fi, ftvt = find_unpack(first)
+  local si, stvt = find_unpack(second)
+  return unpack_capture(first, fi, ftvt, second, si, stvt, in_progress)
+end
+
+-- Covariant structural relation over two Tuple element *lists* (raw
+-- type lists that may carry a trailing VARARG/Rest tail but no
+-- Unpack). Factored out so the precomputed-shape fast path and the
+-- Unpack path (after substituting bound sequences) share it.
+local function tuple_list_shape(types)
+  local n = #types
+  local last = types[n]
+  if last == VARARG then
+    return n - 1, true, nil
+  end
+  if is_rest(last) then
+    return n - 1, true, rawget(last, 'element_type')
+  end
+  return n, false, nil
+end
+
+local function tuple_list_subtype(a_types, b_types, in_progress)
+  local a_fixed, a_variadic, a_rest = tuple_list_shape(a_types)
+  local b_fixed, b_variadic, b_rest = tuple_list_shape(b_types)
+  if b_variadic then
+    if a_fixed < b_fixed then
+      return false
+    end
+  elseif a_variadic or a_fixed ~= b_fixed then
+    return false
+  end
+  local b_tail = b_rest or Any
+  for i = 1, a_fixed do
+    local expected = i <= b_fixed and b_types[i] or b_tail
+    if not is_subtype_impl(a_types[i], expected, in_progress) then
+      return false
+    end
+  end
+  if a_variadic then
+    local a_tail = a_rest or Any
+    if not is_subtype_impl(a_tail, b_tail, in_progress) then
+      return false
+    end
+  end
+  return true
 end
 
 -- Structural subtyping between two Tuple matchers. Elements compare
@@ -415,33 +686,30 @@ end
 --   of Any on both sides: every element type satisfies an unchecked
 --   `b` tail, while an unchecked `a` tail satisfies only a `b` tail
 --   that admits Any.
+--
+-- When either matcher splices an Unpack(Ts), the comparison routes
+-- through the sequence-unification path instead (see unpack_capture):
+-- the spanned region binds Ts, and any already-bound Ts is
+-- substituted before the covariant relation applies.
 local function tuple_subtype(a, b, in_progress)
-  local a_fixed = rawget(a, 'fixed_count')
-  local b_fixed = rawget(b, 'fixed_count')
-  local a_variadic = rawget(a, 'variadic')
-  if rawget(b, 'variadic') then
-    if a_fixed < b_fixed then
-      return false
+  if rawget(a, 'unpack_index') ~= nil
+      or rawget(b, 'unpack_index') ~= nil then
+    local unify = in_progress[unify_key]
+    local a_types =
+        substitute_unpack(rawget(a, 'element_types'), unify)
+    local b_types =
+        substitute_unpack(rawget(b, 'element_types'), unify)
+    local ai, atvt = find_unpack(a_types)
+    local bi, btvt = find_unpack(b_types)
+    if atvt == nil and btvt == nil then
+      -- Both Unpacks were bound and expanded away: plain relation.
+      return tuple_list_subtype(a_types, b_types, in_progress)
     end
-  elseif a_variadic or a_fixed ~= b_fixed then
-    return false
+    return unpack_capture(a_types, ai, atvt, b_types, bi, btvt,
+                          in_progress)
   end
-  local a_types = rawget(a, 'element_types')
-  local b_types = rawget(b, 'element_types')
-  local b_tail = rawget(b, 'rest_type') or Any
-  for i = 1, a_fixed do
-    local expected = i <= b_fixed and b_types[i] or b_tail
-    if not is_subtype_impl(a_types[i], expected, in_progress) then
-      return false
-    end
-  end
-  if a_variadic then
-    local a_tail = rawget(a, 'rest_type') or Any
-    if not is_subtype_impl(a_tail, b_tail, in_progress) then
-      return false
-    end
-  end
-  return true
+  return tuple_list_subtype(rawget(a, 'element_types'),
+                            rawget(b, 'element_types'), in_progress)
 end
 
 -- The relation proper, applied to resolved operands. is_subtype_impl
@@ -1033,9 +1301,34 @@ local function signature_rules(sub, super, in_progress)
   end
   local params_any =
       is_any_params(sub_params) or is_any_params(super_params)
+  -- Variadic-generic parameter lists (llx.types.matchers.Unpack): a
+  -- top-level Unpack(Ts) in either list splices a bound sequence into
+  -- it. Any already-captured Ts is substituted first; if an Unpack
+  -- still remains, the candidate-side Unpack captures its
+  -- counterpart's spanned region (contravariantly: the pointwise
+  -- relation is is_subtype(super, sub)), and the per-position
+  -- parameter arity/variance checks below are skipped. When
+  -- substitution expanded every Unpack away, the substituted lists
+  -- flow into the normal path. Handled before returns so a captured Ts
+  -- is available to substitute into the return positions.
+  local params_unpack = false
+  if not params_any and not params_spec
+      and (list_contains_unpack(sub_params)
+           or list_contains_unpack(super_params)) then
+    sub_params = substitute_unpack(sub_params, unify)
+    super_params = substitute_unpack(super_params, unify)
+    if find_unpack(sub_params) ~= nil
+        or find_unpack(super_params) ~= nil then
+      if not unpack_lists_compatible(super_params, sub_params,
+                                     in_progress) then
+        return false
+      end
+      params_unpack = true
+    end
+  end
   local sub_params_fixed, sub_params_variadic
-  if not is_any_params(sub_params)
-      and not is_param_spec(sub_params) then
+  if not is_any_params(sub_params) and not is_param_spec(sub_params)
+      and not params_unpack then
     sub_params_fixed, sub_params_variadic =
         split_variadic(sub_params)
     -- A malformed (non-trailing VARARG) list is compatible with
@@ -1047,21 +1340,42 @@ local function signature_rules(sub, super, in_progress)
   end
   local super_params_fixed, super_params_variadic
   if not is_any_params(super_params)
-      and not is_param_spec(super_params) then
+      and not is_param_spec(super_params) and not params_unpack then
     super_params_fixed, super_params_variadic =
         split_variadic(super_params)
     if super_params_fixed == nil then
       return false
     end
   end
-  local sub_returns_fixed, sub_returns_variadic =
-      split_variadic(sub_returns)
-  local super_returns_fixed, super_returns_variadic =
-      split_variadic(super_returns)
-  if sub_returns_fixed == nil or super_returns_fixed == nil then
-    return false
+  -- Variadic-generic return lists follow the same pattern, covariantly
+  -- (pointwise is_subtype(sub, super)), after params so a Ts captured
+  -- from the parameters substitutes into the returns.
+  local returns_unpack = false
+  if list_contains_unpack(sub_returns)
+      or list_contains_unpack(super_returns) then
+    sub_returns = substitute_unpack(sub_returns, unify)
+    super_returns = substitute_unpack(super_returns, unify)
+    if find_unpack(sub_returns) ~= nil
+        or find_unpack(super_returns) ~= nil then
+      if not unpack_lists_compatible(sub_returns, super_returns,
+                                     in_progress) then
+        return false
+      end
+      returns_unpack = true
+    end
   end
-  if not params_any and not params_spec then
+  local sub_returns_fixed, sub_returns_variadic
+  local super_returns_fixed, super_returns_variadic
+  if not returns_unpack then
+    sub_returns_fixed, sub_returns_variadic =
+        split_variadic(sub_returns)
+    super_returns_fixed, super_returns_variadic =
+        split_variadic(super_returns)
+    if sub_returns_fixed == nil or super_returns_fixed == nil then
+      return false
+    end
+  end
+  if not params_any and not params_spec and not params_unpack then
     -- Parameter arity. A variadic super promises callers may pass
     -- arbitrary extra arguments, which only a variadic sub accepts
     -- at call time. A variadic sub is fine anywhere its checked
@@ -1083,19 +1397,21 @@ local function signature_rules(sub, super, in_progress)
   -- Return arity: a variadic sub may produce undeclared extras that
   -- a fixed super's callers would observe, and a variadic super's
   -- fixed prefix must be covered by sub's declared returns.
-  if sub_returns_variadic and not super_returns_variadic then
-    return false
-  end
-  if super_returns_variadic then
-    if super_returns_fixed > sub_returns_fixed then
+  if not returns_unpack then
+    if sub_returns_variadic and not super_returns_variadic then
       return false
     end
-  elseif sub_returns_fixed ~= super_returns_fixed then
-    return false
+    if super_returns_variadic then
+      if super_returns_fixed > sub_returns_fixed then
+        return false
+      end
+    elseif sub_returns_fixed ~= super_returns_fixed then
+      return false
+    end
   end
   -- Parameters are contravariant over the positions sub checks; any
   -- super parameters beyond them land in sub's unchecked tail.
-  if not params_any and not params_spec then
+  if not params_any and not params_spec and not params_unpack then
     for i = 1, sub_params_fixed do
       if not is_subtype_impl(super_params[i], sub_params[i],
                              in_progress) then
@@ -1105,10 +1421,12 @@ local function signature_rules(sub, super, in_progress)
   end
   -- Returns are covariant over the positions super promises; any sub
   -- returns beyond them land in super's unchecked tail.
-  for i = 1, super_returns_fixed do
-    if not is_subtype_impl(sub_returns[i], super_returns[i],
-                           in_progress) then
-      return false
+  if not returns_unpack then
+    for i = 1, super_returns_fixed do
+      if not is_subtype_impl(sub_returns[i], super_returns[i],
+                             in_progress) then
+        return false
+      end
     end
   end
   return true
@@ -1184,25 +1502,36 @@ function signature_compatible_impl(sub, super, in_progress)
   -- whole parameter list are collected alongside the TypeVars, with
   -- the same super-side exclusion: a candidate-side ParamSpec
   -- captures its counterpart's whole list, a super-side (or shared)
-  -- one stays universal. Both kinds share the log so a speculative
-  -- branch rolls back either.
+  -- one stays universal. TypeVarTuples reached through Unpack(Ts)
+  -- entries (llx.types.matchers.Unpack) are collected the same way --
+  -- a candidate-side one captures its counterpart's spanned
+  -- sub-sequence, a super-side (or shared) one stays universal. All
+  -- three kinds share the log so a speculative branch rolls back any.
   local vars = {}
   local param_specs = {}
-  collect_signature_type_vars(sub, vars, param_specs)
-  if next(vars) ~= nil or next(param_specs) ~= nil then
+  local tvts = {}
+  collect_signature_type_vars(sub, vars, param_specs, tvts)
+  if next(vars) ~= nil or next(param_specs) ~= nil
+      or next(tvts) ~= nil then
     local super_vars = {}
     local super_specs = {}
-    collect_signature_type_vars(super, super_vars, super_specs)
+    local super_tvts = {}
+    collect_signature_type_vars(super, super_vars, super_specs,
+                                super_tvts)
     for var in pairs(super_vars) do
       vars[var] = nil
     end
     for ps in pairs(super_specs) do
       param_specs[ps] = nil
     end
+    for tvt in pairs(super_tvts) do
+      tvts[tvt] = nil
+    end
   end
   in_progress[unify_key] = {
     unifiable = vars, bindings = {}, log = {},
     unifiable_params = param_specs, param_bindings = {},
+    unifiable_tuples = tvts, tuple_bindings = {},
   }
   local compatible = signature_rules(sub, super, in_progress)
   in_progress[unify_key] = nil
@@ -1267,25 +1596,33 @@ function generator_compatible(sub, super)
   local completion_super = {returns = super.returns or {}}
   local vars = {}
   local param_specs = {}
-  collect_signature_type_vars(step_sub, vars, param_specs)
-  collect_signature_type_vars(completion_sub, vars, param_specs)
-  if next(vars) ~= nil or next(param_specs) ~= nil then
+  local tvts = {}
+  collect_signature_type_vars(step_sub, vars, param_specs, tvts)
+  collect_signature_type_vars(completion_sub, vars, param_specs, tvts)
+  if next(vars) ~= nil or next(param_specs) ~= nil
+      or next(tvts) ~= nil then
     local super_vars = {}
     local super_specs = {}
-    collect_signature_type_vars(step_super, super_vars, super_specs)
+    local super_tvts = {}
+    collect_signature_type_vars(step_super, super_vars, super_specs,
+                                super_tvts)
     collect_signature_type_vars(completion_super, super_vars,
-                                super_specs)
+                                super_specs, super_tvts)
     for var in pairs(super_vars) do
       vars[var] = nil
     end
     for ps in pairs(super_specs) do
       param_specs[ps] = nil
     end
+    for tvt in pairs(super_tvts) do
+      tvts[tvt] = nil
+    end
   end
   local in_progress = {
     [unify_key] = {
       unifiable = vars, bindings = {}, log = {},
       unifiable_params = param_specs, param_bindings = {},
+      unifiable_tuples = tvts, tuple_bindings = {},
     },
   }
   return signature_compatible_impl(step_sub, step_super, in_progress)

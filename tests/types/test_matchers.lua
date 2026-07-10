@@ -4233,6 +4233,224 @@ describe('Generator', function()
   end)
 end)
 
+-- ---------------------------------------------------------------------------
+-- TypeVarTuple / Unpack
+-- ---------------------------------------------------------------------------
+
+describe('TypeVarTuple', function()
+  local TypeVarTuple = matchers.TypeVarTuple
+  local Unpack = matchers.Unpack
+  local is_type_var_tuple = matchers.is_type_var_tuple
+  local is_unpack = matchers.is_unpack
+  local ValueException = require 'llx.exceptions' . ValueException
+
+  describe('construction', function()
+    it('should require a string name', function()
+      local ok, err = pcall(TypeVarTuple, 42)
+      expect(ok).to.be_false()
+      expect(tostring(err):find('expected a string name', 1, true))
+        .to_not.be_nil()
+    end)
+
+    it('should expose the given name', function()
+      expect(TypeVarTuple('Ts').__name).to.be_equal_to('Ts')
+      expect(tostring(TypeVarTuple('Shape'))).to.be_equal_to('Shape')
+    end)
+  end)
+
+  describe('is_type_var_tuple', function()
+    it('should recognize only TypeVarTuple sentinels', function()
+      local Ts = TypeVarTuple('Ts')
+      expect(is_type_var_tuple(Ts)).to.be_true()
+      expect(is_type_var_tuple(Unpack(Ts))).to.be_false()
+      expect(is_type_var_tuple(matchers.TypeVar('T'))).to.be_false()
+      expect(is_type_var_tuple(matchers.ParamSpec('P'))).to.be_false()
+      expect(is_type_var_tuple({})).to.be_false()
+      expect(is_type_var_tuple('Ts')).to.be_false()
+      expect(is_type_var_tuple(nil)).to.be_false()
+    end)
+  end)
+
+  describe('as a matcher itself', function()
+    it('should not be usable as a type matcher', function()
+      -- Like ParamSpec/Rest, a TypeVarTuple has no __isinstance.
+      expect(function() isinstance(1, TypeVarTuple('Ts')) end)
+        .to.throw()
+    end)
+  end)
+
+  -- Construction errors that raise a ValueException object (rather
+  -- than a plain string) need the pcall/what pattern, since throw()
+  -- matches a string message.
+  local function expect_value_error(fragment, build)
+    local ok, err = pcall(build)
+    expect(ok).to.be_false()
+    expect(isinstance(err, ValueException)).to.be_true()
+    expect(err.what:find(fragment, 1, true)).to_not.be_nil()
+  end
+
+  describe('Unpack construction', function()
+    it('should require a TypeVarTuple argument', function()
+      expect(function() Unpack(matchers.TypeVar('T')) end).to.throw(
+        'Unpack: expected a TypeVarTuple (from TypeVarTuple(name))')
+      expect(function() Unpack('Ts') end).to.throw()
+      expect(function() Unpack({}) end).to.throw()
+    end)
+
+    it('should expose the wrapped variable and render as *Ts',
+        function()
+      local Ts = TypeVarTuple('Ts')
+      local u = Unpack(Ts)
+      expect(u.type_var_tuple).to.be_equal_to(Ts)
+      expect(u.__name).to.be_equal_to('*Ts')
+      expect(tostring(u)).to.be_equal_to('*Ts')
+    end)
+
+    it('should not be usable as a type matcher', function()
+      expect(function() isinstance(1, Unpack(TypeVarTuple('Ts'))) end)
+        .to.throw()
+    end)
+  end)
+
+  describe('is_unpack', function()
+    it('should recognize only Unpack markers', function()
+      expect(is_unpack(Unpack(TypeVarTuple('Ts')))).to.be_true()
+      expect(is_unpack(TypeVarTuple('Ts'))).to.be_false()
+      expect(is_unpack(Rest(Integer))).to.be_false()
+      expect(is_unpack(AnyParams)).to.be_false()
+      expect(is_unpack({})).to.be_false()
+      expect(is_unpack(nil)).to.be_false()
+    end)
+  end)
+
+  describe('in a Tuple element list', function()
+    it('should match any tuple shape for a bare Unpack', function()
+      local Ts = TypeVarTuple('Ts')
+      local AnyShape = Tuple{Unpack(Ts)}
+      expect(isinstance({}, AnyShape)).to.be_true()
+      expect(isinstance({1, 2, 3}, AnyShape)).to.be_true()
+      expect(isinstance({'a', true, 4}, AnyShape)).to.be_true()
+      expect(isinstance('not a table', AnyShape)).to.be_false()
+    end)
+
+    it('should check a fixed prefix and leave the tail free',
+        function()
+      local Ts = TypeVarTuple('Ts')
+      local Prefixed = Tuple{String, Unpack(Ts)}
+      expect(isinstance({'a'}, Prefixed)).to.be_true()
+      expect(isinstance({'a', 1, 2}, Prefixed)).to.be_true()
+      expect(isinstance({}, Prefixed)).to.be_false()
+      expect(isinstance({1, 2}, Prefixed)).to.be_false()
+    end)
+
+    it('should check a fixed prefix and suffix around the splice',
+        function()
+      local Ts = TypeVarTuple('Ts')
+      local Bracketed = Tuple{String, Unpack(Ts), Integer}
+      expect(isinstance({'a', 9}, Bracketed)).to.be_true()
+      expect(isinstance({'a', true, 'x', 9}, Bracketed)).to.be_true()
+      -- The suffix must be an Integer, and there must be room for both
+      -- the prefix and suffix.
+      expect(isinstance({'a', 'b'}, Bracketed)).to.be_false()
+      expect(isinstance({9}, Bracketed)).to.be_false()
+    end)
+
+    it('should expose its Unpack-derived shape', function()
+      local Ts = TypeVarTuple('Ts')
+      local t = Tuple{String, Unpack(Ts), Integer}
+      expect(t.unpack_index).to.be_equal_to(2)
+      expect(t.unpack_var).to.be_equal_to(Ts)
+      expect(t.prefix_count).to.be_equal_to(1)
+      expect(t.suffix_count).to.be_equal_to(1)
+      expect(t.__name).to.be_equal_to('Tuple<String, *Ts, Integer>')
+    end)
+  end)
+
+  describe('construction-time validation', function()
+    it('should reject a bare TypeVarTuple as a Tuple entry', function()
+      expect_value_error('TypeVarTuple is only valid wrapped in Unpack',
+        function() return Tuple{TypeVarTuple('Ts')} end)
+    end)
+
+    it('should reject more than one Unpack per Tuple', function()
+      local Ts = TypeVarTuple('Ts')
+      expect_value_error('at most one Unpack',
+        function() return Tuple{Unpack(Ts), Unpack(Ts)} end)
+    end)
+
+    it('should reject Unpack combined with a trailing tail', function()
+      local Ts = TypeVarTuple('Ts')
+      expect_value_error('cannot be combined with a trailing',
+        function() return Tuple{Unpack(Ts), VARARG} end)
+      expect_value_error('cannot be combined with a trailing',
+        function() return Tuple{Unpack(Ts), Rest(Integer)} end)
+    end)
+
+    it('should reject Unpack outside the permitted list positions',
+        function()
+      local Ts = TypeVarTuple('Ts')
+      local function rejects(build)
+        expect_value_error('Unpack(Ts) is only valid', build)
+      end
+      rejects(function() return ListOf(Unpack(Ts)) end)
+      rejects(function() return SetOf(Unpack(Ts)) end)
+      rejects(function() return Dict(Unpack(Ts), Integer) end)
+      rejects(function() return Union{Integer, Unpack(Ts)} end)
+      rejects(function() return Protocol{x = Unpack(Ts)} end)
+    end)
+  end)
+
+  describe('in a Callable list', function()
+    it('should be accepted in the parameter and return lists',
+        function()
+      local Ts = TypeVarTuple('Ts')
+      local C = Callable({Unpack(Ts)}, {Tuple{Unpack(Ts)}})
+      expect(C.__name).to.be_equal_to(
+        'Callable<(*Ts) -> (Tuple<*Ts>)>')
+    end)
+
+    it('should accept every raw function at the value level',
+        function()
+      -- Type-level only: an Unpack parameter list has unbounded arity
+      -- for a raw function, so every function matches (gradual, like
+      -- AnyParams/ParamSpec).
+      local Ts = TypeVarTuple('Ts')
+      local C = Callable({Unpack(Ts)}, {})
+      expect(C:__isinstance(function() end)).to.be_true()
+      expect(C:__isinstance(function(a, b, c) end)).to.be_true()
+      expect(C:__isinstance(function(...) end)).to.be_true()
+      expect(C:__isinstance({})).to.be_false()
+    end)
+
+    it('should reject the strict option with an Unpack param list',
+        function()
+      local Ts = TypeVarTuple('Ts')
+      expect(function()
+        Callable({Unpack(Ts)}, {}, {strict = true})
+      end).to.throw('Callable: strict has no effect with an Unpack(Ts) '
+        .. 'parameter list (its spanned arity is unbounded)')
+    end)
+
+    it('should reject more than one Unpack or a tail combo', function()
+      local Ts = TypeVarTuple('Ts')
+      expect_value_error('at most one Unpack',
+        function() return Callable({Unpack(Ts), Unpack(Ts)}, {}) end)
+      expect_value_error('cannot be combined with a trailing',
+        function() return Callable({Unpack(Ts), VARARG}, {}) end)
+    end)
+  end)
+
+  describe('top-level llx namespace', function()
+    it('should be exported as llx.TypeVarTuple and llx.Unpack',
+        function()
+      expect(llx.TypeVarTuple).to.be_equal_to(TypeVarTuple)
+      expect(llx.Unpack).to.be_equal_to(Unpack)
+      expect(llx.is_type_var_tuple).to.be_equal_to(is_type_var_tuple)
+      expect(llx.is_unpack).to.be_equal_to(is_unpack)
+    end)
+  end)
+end)
+
 if llx.main_file() then
   os.exit(unit.run_unit_tests() == 0)
 end
