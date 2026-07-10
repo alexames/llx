@@ -292,7 +292,7 @@ local function rest_type_check(element_type)
   -- entry of a Tuple element type list, where it declares that every
   -- value beyond the fixed prefix must satisfy T. It is not a
   -- standalone matcher (it has no __isinstance), so isinstance
-  -- against a bare Rest(T) is always false.
+  -- against a bare Rest(T) raises the non-matcher error.
   --
   -- This is deliberately distinct from the bare VARARG ('...')
   -- marker established by llx.check_arguments: VARARG is a plain
@@ -838,15 +838,17 @@ local function newtype_unwrap(value)
   return value
 end
 
+-- Cached upvalue for the deferred require of llx.getclass, which owns
+-- the shared value-description helper (deferred to avoid a load-time
+-- cycle: llx.getclass requires llx.types and therefore this module).
+-- The helper is class-aware, so construction errors describe class
+-- instances as "an instance of Animal" rather than a bare "table".
+local describe_getclass_module = nil
+
 local function describe_value(value)
-  local value_type = type(value)
-  if value_type == 'number' or value_type == 'boolean' then
-    return value_type .. ' ' .. tostring(value)
-  end
-  if value_type == 'string' then
-    return "string '" .. value .. "'"
-  end
-  return value_type
+  describe_getclass_module =
+      describe_getclass_module or require 'llx.getclass'
+  return describe_getclass_module.describe_value(value)
 end
 
 local function new_type_check(name, base_type)
@@ -1121,9 +1123,9 @@ local function class_of_type_check(base_class)
     if type(base_class) == 'table'
         and is_class_object(getmetatable(base_class)) then
       -- A likely mistake: an *instance* where its class was meant.
-      description = 'an instance of '
-        .. type_name_of(getmetatable(base_class))
-        .. ' (pass the class itself)'
+      -- describe_value already renders it as "an instance of X";
+      -- point at the fix.
+      description = description .. ' (pass the class itself)'
     end
     error('ClassOf: expected a class object (or no argument), got '
       .. description, 2)

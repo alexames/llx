@@ -100,6 +100,27 @@ describe('typed_iterators', function()
       expect(function() wrapped() end).to.throw()
     end)
 
+    it('should anchor per-step failures at the driving loop, '
+      .. 'not the check machinery', function()
+      -- Issue #67: the exception used to carry a traceback anchored
+      -- inside check_boundary's pcall; it is re-anchored at the
+      -- first frame outside llx.typed_iterators (the user's loop or
+      -- explicit step call).
+      local wrapped = Yields{String} .. counter(1)
+      -- Not a tail call: the calling frame must stay live so the
+      -- traceback can name it.
+      local ok, err = pcall(function() wrapped() end)
+      expect(ok).to.be_false()
+      local first_frame =
+          err.traceback:match('stack traceback:%s*([^\n]*)')
+      expect(first_frame).to_not.be_nil()
+      -- The first frame must be this test file. (A negative check
+      -- for 'typed_iterators.lua' would be self-defeating: it is a
+      -- substring of this file's own name.)
+      expect(first_frame:find('test_typed_iterators', 1, true))
+          .to_not.be_nil()
+    end)
+
     it('should raise on the offending step only', function()
       local values = {1, 2, 'three'}
       local i = 0
@@ -291,6 +312,26 @@ describe('typed_iterators', function()
       end
       local instance = gen()
       expect(function() instance() end).to.throw()
+    end)
+
+    it('should anchor yield failures outside the generator '
+      .. 'machinery', function()
+      -- The generic-for path is one frame deeper than the iterator
+      -- path (__call -> resume -> check_boundary); the re-anchoring
+      -- walk must still land on the user's frame (issue #67).
+      local gen = Generates{yields = {String}} .. function()
+        coroutine.yield(42)
+      end
+      local instance = gen()
+      -- Not a tail call: the calling frame must stay live so the
+      -- traceback can name it.
+      local ok, err = pcall(function() instance() end)
+      expect(ok).to.be_false()
+      local first_frame =
+          err.traceback:match('stack traceback:%s*([^\n]*)')
+      expect(first_frame).to_not.be_nil()
+      expect(first_frame:find('test_typed_iterators', 1, true))
+          .to_not.be_nil()
     end)
 
     it('should work in a generic-for loop', function()

@@ -40,8 +40,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rejected. `SetOf` is unaffected: it requires an `llx.Set` instance,
   so it never had a vacuous path. (#65)
 
+- **Breaking:** `isinstance(value, t)` now raises
+  `InvalidArgumentException` naming argument #2 ("expected a type
+  matcher or class with `__isinstance`, got ...") when `t` is not a
+  type matcher or class -- a plain string, number, `nil`, boolean, or
+  table without `__isinstance`. Previously a number, boolean, or
+  `nil` `t` crashed with an obscure "attempt to index" error from
+  inside the dispatch; a string `t` silently misdispatched through
+  the llx string extension (whose `__isinstance` tests whether the
+  *value* is a string, so `isinstance(err, 'TypeError')` matched any
+  string whatsoever); and a table without `__isinstance` (including
+  a bare `Rest(T)` marker) silently returned `false`. The raise
+  applies everywhere `isinstance` is used, so malformed type
+  arguments that previously failed silently now fail loudly: a
+  string catcher in `try`/`catch` (`catch('TypeError', ...)` --
+  pass the exception class itself), a non-type `type_switch` case,
+  or a non-type `Schema` `type` field. (#67)
+- Argument and return mismatch messages now describe class instances
+  and class objects explicitly: "Integer expected, got an instance of
+  Animal" (previously the bare class name "Animal", ambiguous between
+  the class and an instance) and "got the class Animal" when the class
+  object itself was passed. The instance-aware description is shared
+  (`llx.getclass.describe_value`, with the `is_class_object`
+  predicate), so `NewType` constructor rejections and `ClassOf`/`Lazy`
+  construction errors report "an instance of Animal" instead of a bare
+  "table" too. Messages for primitives and plain tables are unchanged.
+  (#67)
+
 ### Fixed
 
+- String-declared expected types now render as themselves in argument
+  mismatch messages: a mismatch against `params={'MyClass'}` reports
+  "MyClass expected" instead of "String expected" (the llx string
+  extension gives every Lua string `__name == 'String'`, which the
+  generic name lookup picked up). (#67)
+- `OverloadResolutionException` now anchors its traceback at the
+  user's call site instead of `Overload`'s internal dispatch frame in
+  `signature.lua`, and per-step failures raised by
+  `llx.typed_iterators` wrappers (iterator steps, generator yields,
+  sends, and returns) re-anchor their traceback at the first frame
+  outside the module -- the loop or call driving the boundary --
+  instead of the internal check machinery behind its `pcall`. (#67)
 - The unit framework's `throw(expected)` matcher now strips the
   leading `"file:line: "` error-position prefix with a pattern
   anchored on the line number (lazy `^.-:%d+: `) instead of cutting

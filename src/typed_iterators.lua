@@ -35,6 +35,10 @@ local matchers = require 'llx.types.matchers'
 
 local _ENV, _M = environment.create_module_environment()
 
+-- This module's chunk source, used by check_boundary to re-anchor an
+-- exception's traceback at the first frame outside the module.
+local module_source = debug.getinfo(1, 'S').source
+
 local check_returns_exact = check_arguments_module.check_returns_exact
 local class = class_module.class
 local Decorator = decorator.Decorator
@@ -67,14 +71,30 @@ end
 -- list must bind consistently within the tuple, but each boundary
 -- crossing (each iterator step, send, yield, or return) binds
 -- independently. The scope is always exited, and the pcall re-raise
--- preserves the exception object unchanged (llx exceptions capture
--- their location at construction).
+-- preserves the exception object -- except its traceback, which is
+-- re-anchored below.
 local function check_boundary(expected_types, values)
   enter_type_var_scope()
   local ok, err = pcall(check_returns_exact, expected_types, values,
                         values.n or #values)
   exit_type_var_scope()
   if not ok then
+    if type(err) == 'table' and err.traceback ~= nil then
+      -- The exception captured its traceback at construction, deep
+      -- inside the check machinery (behind this pcall), which is not
+      -- where the blame lies. Re-anchor it at the code driving the
+      -- boundary: walk out of this module's frames (this function,
+      -- then IteratorFunction.__call or GeneratorInstance's
+      -- send/resume -- the generator paths are one frame deeper) to
+      -- the user's loop or explicit call.
+      local level = 2  -- 1 is this function; start at its caller.
+      while true do
+        local info = debug.getinfo(level, 'S')
+        if info == nil or info.source ~= module_source then break end
+        level = level + 1
+      end
+      err.traceback = debug.traceback('', level)
+    end
     error(err, 0)
   end
 end

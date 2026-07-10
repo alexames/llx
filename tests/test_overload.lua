@@ -205,6 +205,21 @@ describe('Overload', function()
                         InvalidArgumentException)).to.be_true()
     end)
 
+    it('should anchor the traceback at the call site, '
+      .. 'not the dispatch loop', function()
+      -- Issue #67: the resolution error used to blame Overload's
+      -- internal __call frame in signature.lua; the first traceback
+      -- frame should be the caller that no candidate accepted.
+      local overloaded = make_overload()
+      local _, err = pcall(function() overloaded(true) end)
+      local first_frame =
+          err.traceback:match('stack traceback:%s*([^\n]*)')
+      expect(first_frame).to_not.be_nil()
+      expect(first_frame:find('signature.lua', 1, true)).to.be_nil()
+      expect(first_frame:find('test_overload', 1, true))
+          .to_not.be_nil()
+    end)
+
     it('should list the candidate signatures in the message', function()
       local overloaded = make_overload()
       local _, err = pcall(function() overloaded(true) end)

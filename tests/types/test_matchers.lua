@@ -947,7 +947,14 @@ describe('Tuple', function()
 
     describe('standalone Rest markers', function()
       it('should not act as a matcher outside Tuple', function()
-        expect(isinstance(1, Rest(Integer))).to.be_false()
+        -- Rest carries no __isinstance, so isinstance rejects it as
+        -- a non-matcher (loudly, like every other non-matcher type
+        -- argument) rather than silently returning false.
+        local ok, err = pcall(isinstance, 1, Rest(Integer))
+        expect(ok).to.be_false()
+        expect(err.what:find(
+            'expected a type matcher or class with __isinstance',
+            1, true)).to_not.be_nil()
       end)
 
       it('should be recognized by the is_rest predicate', function()
@@ -1722,6 +1729,17 @@ describe('NewType', function()
       local UserId = NewType('UserId', Integer)
       expect(function() UserId('42') end).to.throw()
       expect(function() UserId(1.5) end).to.throw()
+    end)
+
+    it('should describe a rejected class instance by its class',
+        function()
+      -- The rejection message uses the shared class-aware describe
+      -- helper, so a class instance reads as "an instance of Animal"
+      -- rather than a bare "table" (issue #67).
+      local Animal = llx.class 'Animal' {}
+      local UserId = NewType('UserId', Integer)
+      expect(function() UserId(Animal()) end).to.throw(
+          'UserId: expected Integer, got an instance of Animal')
     end)
 
     it('should reject nil', function()

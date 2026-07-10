@@ -228,6 +228,61 @@ describe('check_arguments', function()
     end)
   end)
 
+  describe('mismatch messages', function()
+    -- Diagnostic-quality pins for issue #67: string-named expected
+    -- types render as themselves (not 'String'), and class instances
+    -- and class objects are called out explicitly on the actual side.
+    local function message_of(expected_types, ...)
+      local ok, err = pcall(function(x)
+        check_arguments{x=expected_types}
+      end, ...)
+      expect(ok).to.be_false()
+      return err.what
+    end
+
+    it('should name a string-declared expected type by its value',
+        function()
+      local what = message_of('MyClass', 42)
+      expect(what:find('MyClass expected, got Number', 1, true))
+          .to_not.be_nil()
+    end)
+
+    it('should keep the class name for primitive actual values',
+        function()
+      local what = message_of(Integer, 'hi')
+      expect(what:find('Integer expected, got String', 1, true))
+          .to_not.be_nil()
+    end)
+
+    it('should describe a class instance as an instance of its class',
+        function()
+      local Animal = llx.class 'Animal' {}
+      local what = message_of(Integer, Animal())
+      expect(what:find(
+          'Integer expected, got an instance of Animal', 1, true))
+          .to_not.be_nil()
+    end)
+
+    it('should describe a class object as the class itself', function()
+      local Animal = llx.class 'Animal' {}
+      local what = message_of(Integer, Animal)
+      expect(what:find(
+          'Integer expected, got the class Animal', 1, true))
+          .to_not.be_nil()
+    end)
+
+    it('should raise clearly for a non-matcher declared type',
+        function()
+      local ok, err = pcall(function(x)
+        check_arguments{x=42}
+      end, 1)
+      expect(ok).to.be_false()
+      expect(err.what:find(
+          'expected a type matcher or class with __isinstance',
+          1, true)).to_not.be_nil()
+    end)
+  end)
+
   describe('schema', function()
     it('should succeed with number schema and valid number', function()
       local schema = Schema{type=Number}
