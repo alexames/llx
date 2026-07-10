@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Standalone test files and the aggregate runner `test.lua` now
+  propagate test failures into the process exit status: the standard
+  footer is `os.exit(unit.run_unit_tests() == 0)` instead of a bare
+  `unit.run_unit_tests()` call. Previously a test file run directly
+  (as CI does per file) always exited 0, even when assertions failed,
+  so only load-time errors could turn CI red and runtime test
+  failures merged green. `unit.run_unit_tests()` itself is unchanged
+  -- it still returns the failure and test counts and never calls
+  `os.exit`, so embedders and aggregate runners are unaffected.
+  `tests/test_hygiene.lua` now requires the exit-propagating footer
+  form in every test file, so a non-failing footer cannot creep back
+  in. (#82)
 - **Breaking:** `Signature`-wrapped functions now enforce arity. Calls
   with more arguments than declared in `params`, and results with more
   values than declared in `returns`, raise `InvalidArgumentException`

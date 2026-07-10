@@ -234,5 +234,5 @@ describe('export.Config', function()
 end)
 
 if llx.main_file() then
-  unit.run_unit_tests()
+  os.exit(unit.run_unit_tests() == 0)
 end

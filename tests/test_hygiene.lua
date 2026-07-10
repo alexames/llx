@@ -15,6 +15,14 @@ local expect = unit.expect
 
 local THIS_BASENAME = 'test_hygiene.lua'
 
+-- The exact call every standalone footer must make so that assertion
+-- failures propagate into the process exit status (issue #82). A bare
+-- run_unit_tests() call exits 0 even when tests fail, so CI's
+-- per-file `lua <file> || exit 1` can never go red. The needle is
+-- split so this file's own source does not satisfy the check merely
+-- by containing the string in this constant.
+local FOOTER_CALL = 'os.exit(unit.run_unit_' .. 'tests() == 0)'
+
 -- Lists every test_*.lua file at or below the directory containing
 -- this file. Returns the list of paths (as reported by the shell) and
 -- the tests-root prefix shared by all of them, derived from this
@@ -75,7 +83,8 @@ describe('test suite hygiene', function()
     expect(files).to_not.be_nil()
   end)
 
-  it('should have the standalone runner footer in every file', function()
+  it('should have the failing standalone footer in every file',
+      function()
     local files = find_test_files()
     local missing = {}
     for _, file in ipairs(files or {}) do
@@ -84,7 +93,7 @@ describe('test suite hygiene', function()
       local content = handle:read('a')
       handle:close()
       if not (content:find('main_file', 1, true)
-          and content:find('run_unit_tests', 1, true)) then
+          and content:find(FOOTER_CALL, 1, true)) then
         table.insert(missing, file)
       end
     end
@@ -110,5 +119,5 @@ describe('test suite hygiene', function()
 end)
 
 if llx.main_file() then
-  unit.run_unit_tests()
+  os.exit(unit.run_unit_tests() == 0)
 end

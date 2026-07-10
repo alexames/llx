@@ -55,7 +55,7 @@ on 5.3; where a feature genuinely needs it, compile that snippet at runtime with
 
   ```lua
   if llx.main_file() then
-    unit.run_unit_tests()
+    os.exit(unit.run_unit_tests() == 0)
   end
   ```
 

@@ -62,7 +62,7 @@ luarocks make --local && lua -e "package.path=luarocks_share_path .. package.pat
 - Test files are also independently runnable:
   ```lua
   if llx.main_file() then
-    unit.run_unit_tests()
+    os.exit(unit.run_unit_tests() == 0)
   end
   ```
 
