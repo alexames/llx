@@ -8,17 +8,10 @@ local environment = require 'llx.environment'
 local Float = require 'llx.types.float' . Float
 local Integer = require 'llx.types.integer' . Integer
 
--- TODO: I believe these can be removed.
-local Boolean = require 'llx.types.boolean' . Boolean
-local Function = require 'llx.types.function' . Function
 local Nil = require 'llx.types.nil' . Nil
-local Number = require 'llx.types.number' . Number
-local String = require 'llx.types.string' . String
-local Table = require 'llx.types.table' . Table
-local Thread = require 'llx.types.thread' . Thread
-local Userdata = require 'llx.types.userdata' . Userdata
-local isinstance = require 'llx.isinstance' . isinstance
 local Set = require 'llx.types.set' . Set
+local Table = require 'llx.types.table' . Table
+local isinstance = require 'llx.isinstance' . isinstance
 
 local is_callable = core.is_callable
 

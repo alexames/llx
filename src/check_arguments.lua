@@ -1,7 +1,5 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
-local class_module = require 'llx.class'
-local decorator = require 'llx.decorator'
 local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
 local getclass_module = require 'llx.getclass'
@@ -10,8 +8,6 @@ local table_module = require 'llx.types.table'
 
 local _ENV, _M = environment.create_module_environment()
 
-local class = class_module.class
-local Decorator = decorator.Decorator
 local getclass = getclass_module.getclass
 local InvalidArgumentException = exceptions.InvalidArgumentException
 local InvalidArgumentTypeException = exceptions.InvalidArgumentTypeException

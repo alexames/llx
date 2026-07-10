@@ -53,6 +53,9 @@ local ok, result = pcall(function()
     operators = require 'llx.operators',
     property = require 'llx.property',
     proxy = require 'llx.proxy',
+    -- Named submodule, not flattened: llx.signature.Function would
+    -- collide with the root-level Function from llx.types.
+    signature = require 'llx.signature',
     truthy = require 'llx.truthy',
     type_check_decorator = require 'llx.type_check_decorator',
     typed_iterators = require 'llx.typed_iterators',

@@ -22,6 +22,20 @@ describe('Signature', function()
       expect(Signature).to_not.be_nil()
     end)
 
+    it('should be exposed as the llx.signature named submodule',
+        function()
+      -- Attached as a named submodule (not flattened) because
+      -- llx.signature.Function would collide with the root-level
+      -- Function from llx.types. See #70.
+      expect(llx.signature).to.be_equal_to(signature_module)
+      expect(llx.signature.Signature)
+          .to.be_equal_to(signature_module.Signature)
+      expect(llx.signature.Overload)
+          .to.be_equal_to(signature_module.Overload)
+      expect(llx.signature.Function)
+          .to.be_equal_to(signature_module.Function)
+    end)
+
     it('should not pollute stdout on require', function()
       -- Require llx.signature in a fresh subprocess and check that
       -- it produces no output. Regression for top-level test code

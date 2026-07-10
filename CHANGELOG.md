@@ -125,6 +125,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `llx.signature` is now reachable from the root module as a named
+  submodule (`llx.signature.Signature`, `llx.signature.Overload`,
+  `llx.signature.Function`), matching sibling submodules like
+  `llx.decorator` and `llx.functional`. It is attached as a namespace
+  rather than flattened because `llx.signature.Function` would collide
+  with the root-level `Function` from `llx.types`. Requiring
+  `'llx.signature'` directly continues to work. (#70)
 - `check_returns_exact(expected_types, values, count)` and the
   `VARARG` (`'...'`) marker in `llx.check_arguments`, reusable outside
   the `Signature` wrapper.
