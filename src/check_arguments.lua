@@ -113,16 +113,50 @@ function check_returns_exact(expected_types, return_values, count)
   end
 end
 
+-- Checks the calling function's named parameters (via debug.getlocal)
+-- against the {name = type} table. The checks run inside a TypeVar
+-- binding scope (llx.types.matchers), the same hooks llx.signature
+-- threads through Signature-wrapped calls: a TypeVar named by several
+-- parameters binds to the first value checked against it (in
+-- parameter order) and every later occurrence must be consistent, so
+-- generic correlation works on this path too. The scope covers one
+-- check_arguments call and is always exited, even when a check
+-- raises; check_arguments has no return-value path, so parameter and
+-- return types cannot be correlated here -- use llx.signature for
+-- that.
 function check_arguments(expected_types)
-  local index = 0
-  repeat
-    index = index + 1
-    local name, value = debug.getlocal(2, index)
-    local expected_type = expected_types[name]
-    if name then
-      check_argument(index, value, expected_type)
+  -- Walk the caller's frame first: debug.getlocal is level-relative,
+  -- so the walk must happen before any wrapping the protected checks
+  -- below would introduce.
+  local names, values = {}, {}
+  local count = 0
+  while true do
+    local name, value = debug.getlocal(2, count + 1)
+    if name == nil then
+      break
     end
-  until name == nil
+    count = count + 1
+    names[count] = name
+    values[count] = value
+  end
+  matchers_module = matchers_module or require 'llx.types.matchers'
+  matchers_module.enter_type_var_scope()
+  local ok, err = true, nil
+  for index = 1, count do
+    ok, err = pcall(check_argument, index, values[index],
+                    expected_types[names[index]])
+    if not ok then
+      break
+    end
+  end
+  matchers_module.exit_type_var_scope()
+  if not ok then
+    -- Re-raised unchanged: llx exceptions capture their location at
+    -- construction, so the reported position survives; only the raw
+    -- traceback gains the pcall frame (the same trade llx.signature
+    -- makes).
+    error(err, 0)
+  end
 end
 
 return _M

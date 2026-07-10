@@ -719,6 +719,43 @@ describe('Signature', function()
       expect(r2).to.be_equal_to('s')
     end)
 
+    it('should not constrain later positions from a rejected union '
+      .. 'branch', function()
+      local matchers_local = require 'llx.types.matchers'
+      local Union = matchers_local.Union
+      local Any = matchers_local.Any
+      local T = TypeVar('T')
+      local f = make_wrapped(
+        {Union{ListOf(T), Any}, T}, {}, function(a, b) end)
+      -- {1, 'x'} is accepted through the Any member; the ListOf
+      -- member's speculative Integer binding is rolled back, so the
+      -- String argument binds T freshly.
+      expect(pcall(f, {1, 'x'}, 'anything')).to.be_true()
+      -- With the members reversed, Any wins first and T is likewise
+      -- unbound: union member order is not observable through stale
+      -- bindings.
+      local g = make_wrapped(
+        {Union{Any, ListOf(T)}, T}, {}, function(a, b) end)
+      expect(pcall(g, {1, 'x'}, 'anything')).to.be_true()
+      -- A list the ListOf member accepts still binds T as usual.
+      expect(pcall(f, {1, 2, 3}, 'x')).to.be_false()
+      expect(pcall(f, {1, 2, 3}, 4)).to.be_true()
+    end)
+
+    it('should correlate a Dict-joined binding with the return',
+        function()
+      local T = TypeVar('T')
+      local values = make_wrapped(
+        {Dict(String, T)}, {T},
+        function(d) return 2.5 end)
+      -- Integer and Float witnesses join at Number inside the
+      -- pairs-iterated container, so a Float return is consistent.
+      expect(values({a = 1, b = 1.5})).to.be_equal_to(2.5)
+      local bad = make_wrapped(
+        {Dict(String, T)}, {T}, function(d) return 'nope' end)
+      expect(pcall(bad, {a = 1, b = 1.5})).to.be_false()
+    end)
+
     it('should dispatch overloads with generic candidates and keep '
       .. 'candidate scopes isolated', function()
       local T = TypeVar('T')

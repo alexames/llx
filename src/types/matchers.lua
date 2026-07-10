@@ -9,6 +9,7 @@ local Float = require 'llx.types.float' . Float
 local Integer = require 'llx.types.integer' . Integer
 
 local Nil = require 'llx.types.nil' . Nil
+local Number = require 'llx.types.number' . Number
 local Set = require 'llx.types.set' . Set
 local Table = require 'llx.types.table' . Table
 local isinstance = require 'llx.isinstance' . isinstance
@@ -29,6 +30,170 @@ local function type_name_of(t)
     return t
   end
   return t and (t.__name or tostring(t)) or 'nil'
+end
+
+-- The stack of active TypeVar binding scopes. A scope is a plain
+-- table mapping TypeVar objects (by identity, never by name) to the
+-- type they bound in the current checked call; the innermost entry is
+-- the active scope. The stack is entered and exited only around
+-- synchronous signature checks (llx.signature pushes before checking
+-- a call's arguments or returns and pops immediately after, whether
+-- or not the check raises), never across user code:
+--
+-- - Recursion nests naturally: an inner wrapped call pushes its own
+--   scope on top and pops it before the outer check resumes.
+-- - Coroutines are safe: the wrapped function's *body* runs with no
+--   scope active, so a yield never suspends midway through an entered
+--   scope, and interleaved coroutines cannot observe each other's
+--   bindings.
+--
+-- This dynamic-scope design is what lets parameterized matchers
+-- (ListOf(T), Dict(K, V), Tuple, ...) propagate bindings into element
+-- checks with no change to the __isinstance protocol: their recursive
+-- isinstance calls reach TypeVar.__isinstance, which reads the
+-- innermost scope here.
+local type_var_scope_stack = {}
+
+-- Opens a TypeVar binding scope: pushes `scope` (a fresh table when
+-- nil) and returns it. Primarily an integration hook for
+-- llx.signature, which opens a scope around a call's precondition
+-- check and re-enters the same scope around the postcondition check
+-- so parameters and returns share one set of bindings. Every enter
+-- must be paired with exit_type_var_scope, including on error paths.
+local function enter_type_var_scope(scope)
+  if scope == nil then
+    scope = {}
+  elseif type(scope) ~= 'table' then
+    error('enter_type_var_scope: expected a scope table (or nil), '
+      .. 'got ' .. type(scope), 2)
+  end
+  type_var_scope_stack[#type_var_scope_stack + 1] = scope
+  return scope
+end
+
+-- Closes the innermost TypeVar binding scope (the counterpart of
+-- enter_type_var_scope). Raises if no scope is active, since an
+-- unbalanced exit indicates a caller bug that would otherwise
+-- silently corrupt an enclosing scope.
+local function exit_type_var_scope()
+  local top = #type_var_scope_stack
+  if top == 0 then
+    error('exit_type_var_scope: no active TypeVar binding scope', 2)
+  end
+  type_var_scope_stack[top] = nil
+end
+
+-- Private key under which a scope stores the witness sets
+-- accumulated by commutative regions (see commutative_mark below):
+-- a table mapping each TypeVar to the array of distinct witness
+-- types it has seen inside such regions. The join is always computed
+-- over the whole set at once, never by folding pairwise -- a
+-- pairwise fold is not associative under multiple inheritance (an
+-- ambiguous intermediate tie-break can drift to a different, coarser
+-- result depending on encounter order), and order-independence is
+-- the whole point. A non-string, module-local key keeps the sets out
+-- of the scope's TypeVar namespace.
+local witnesses_mark = {}
+
+-- Snapshots the innermost TypeVar binding scope so a speculative
+-- matcher branch can be rolled back when it fails. Returns nil (a
+-- no-op savepoint) when no scope is active -- the common plain
+-- isinstance case, which pays nothing. Union.__isinstance is the
+-- primary caller: without a savepoint, a union member that binds a
+-- TypeVar from part of a value it ultimately rejects would leave the
+-- stale binding constraining the rest of the call, making union
+-- member order observable. The witness sets are copied one level
+-- deeper than the bindings: the branch mutates the inner arrays, so
+-- restoring a shared reference would not roll them back.
+local function save_type_var_bindings()
+  local scope = type_var_scope_stack[#type_var_scope_stack]
+  if scope == nil then
+    return nil
+  end
+  local snapshot = {}
+  for key, value in pairs(scope) do
+    if key == witnesses_mark then
+      local witness_sets = {}
+      for var, list in pairs(value) do
+        local copy = {}
+        for i = 1, #list do
+          copy[i] = list[i]
+        end
+        witness_sets[var] = copy
+      end
+      snapshot[key] = witness_sets
+    else
+      snapshot[key] = value
+    end
+  end
+  return snapshot
+end
+
+-- Restores the innermost scope to a snapshot taken by
+-- save_type_var_bindings, discarding bindings recorded (or widened)
+-- since. The scope table is mutated in place, never replaced:
+-- llx.signature holds a reference to it across the precondition and
+-- postcondition checks, so its identity must survive rollbacks. A
+-- nil snapshot (no scope was active at save time) is a no-op.
+local function restore_type_var_bindings(snapshot)
+  if snapshot == nil then
+    return
+  end
+  local scope = type_var_scope_stack[#type_var_scope_stack]
+  if scope == nil then
+    return
+  end
+  for var in pairs(scope) do
+    if snapshot[var] == nil then
+      scope[var] = nil
+    end
+  end
+  for var, binding in pairs(snapshot) do
+    scope[var] = binding
+  end
+end
+
+-- Private key under which a scope records how many commutative
+-- witness regions are currently open on it. Inside such a region --
+-- entered by matchers whose element iteration order is semantically
+-- meaningless (Dict, SetOf, which iterate with pairs) -- TypeVar
+-- consistency is symmetric: instead of checking a later value
+-- against the recorded binding, the binding is widened to the join
+-- (least common supertype) of itself and the value's inferred type,
+-- and the check fails only when no join exists. The join is
+-- computed over the variable's whole accumulated witness set (see
+-- witnesses_mark above and join_witness_set below), which is
+-- symmetric, so the container's verdict and the resulting binding
+-- are independent of the order pairs happens to produce. A
+-- non-string, module-local key keeps the counter out of the scope's
+-- TypeVar namespace.
+local commutative_mark = {}
+
+-- Opens a commutative witness region on the innermost scope and
+-- returns that scope (nil when no scope is active, in which case
+-- nothing was opened and the matching end call is a no-op). The
+-- returned scope must be passed back to end_commutative_witnesses so
+-- the counter lands on the same table even if scopes were pushed or
+-- popped in between.
+local function begin_commutative_witnesses()
+  local scope = type_var_scope_stack[#type_var_scope_stack]
+  if scope == nil then
+    return nil
+  end
+  scope[commutative_mark] = (scope[commutative_mark] or 0) + 1
+  return scope
+end
+
+-- Closes a commutative witness region opened by
+-- begin_commutative_witnesses on `scope` (a no-op when nil).
+local function end_commutative_witnesses(scope)
+  if scope == nil then
+    return
+  end
+  local depth = scope[commutative_mark]
+  if depth ~= nil then
+    scope[commutative_mark] = depth > 1 and depth - 1 or nil
+  end
 end
 
 local function any_type_check()
@@ -69,10 +234,20 @@ local function union_type_check(type_list)
     type_list = type_list,
 
     __isinstance = function(self, value)
+      -- Each member is a speculative branch: a member that binds a
+      -- TypeVar from part of the value and then rejects it must not
+      -- leave that stale binding constraining the rest of the call
+      -- (which would make union member order observable). The
+      -- savepoint rolls the innermost binding scope back after every
+      -- failed branch; a successful branch keeps its bindings, as
+      -- usual for first-match-wins dispatch. With no active scope
+      -- the savepoint is nil and costs nothing.
       for _, type_checker in ipairs(type_list) do
+        local savepoint = save_type_var_bindings()
         if isinstance(value, type_checker) then
           return true
         end
+        restore_type_var_bindings(savepoint)
       end
       return false
     end,
@@ -178,6 +353,15 @@ end
 local function dict_type_check(key_type, value_type)
   local typename = 'Dict<' .. type_name_of(key_type) ..
                    ', ' .. type_name_of(value_type) .. '>'
+
+  local function entries_match(value)
+    for k, v in pairs(value) do
+      if not isinstance(k, key_type) then return false end
+      if not isinstance(v, value_type) then return false end
+    end
+    return true
+  end
+
   return setmetatable({
     __name = typename,
 
@@ -186,11 +370,24 @@ local function dict_type_check(key_type, value_type)
 
     __isinstance = function(self, value)
       if type(value) ~= 'table' then return false end
-      for k, v in pairs(value) do
-        if not isinstance(k, key_type) then return false end
-        if not isinstance(v, value_type) then return false end
+      -- pairs order is unspecified, so the element checks run in a
+      -- commutative witness region: a TypeVar in key_type or
+      -- value_type binds the join of all witnesses it sees instead
+      -- of whichever element pairs yields first, keeping the verdict
+      -- and the binding independent of iteration order. Without an
+      -- active binding scope the region is a no-op and the loop runs
+      -- unwrapped. The pcall guarantees the region closes even when
+      -- a user matcher raises out of the loop.
+      local scope = begin_commutative_witnesses()
+      if scope == nil then
+        return entries_match(value)
       end
-      return true
+      local ok, result = pcall(entries_match, value)
+      end_commutative_witnesses(scope)
+      if not ok then
+        error(result, 0)
+      end
+      return result
     end,
   }, {
     __tostring = function(self) return self.__name end,
@@ -245,6 +442,16 @@ end
 
 local function set_of_type_check(element_type)
   local typename = 'SetOf<' .. type_name_of(element_type) .. '>'
+
+  local function elements_match(value)
+    for element in pairs(value) do
+      if not isinstance(element, element_type) then
+        return false
+      end
+    end
+    return true
+  end
+
   return setmetatable({
     __name = typename,
 
@@ -261,12 +468,20 @@ local function set_of_type_check(element_type)
       -- elements are the keys. Like Dict, each isinstance call is
       -- O(n) in the size of the set.
       if not isinstance(value, Set) then return false end
-      for element in pairs(value) do
-        if not isinstance(element, element_type) then
-          return false
-        end
+      -- A set is unordered, so the element checks run in a
+      -- commutative witness region (see Dict above): a TypeVar in
+      -- element_type binds the join of all witnesses, independent of
+      -- the order pairs yields the elements.
+      local scope = begin_commutative_witnesses()
+      if scope == nil then
+        return elements_match(value)
       end
-      return true
+      local ok, result = pcall(elements_match, value)
+      end_commutative_witnesses(scope)
+      if not ok then
+        error(result, 0)
+      end
+      return result
     end,
   }, {
     __tostring = function(self) return self.__name end,
@@ -1312,57 +1527,6 @@ end
 -- is the public way to recognize one.
 local type_var_mark = {}
 
--- The stack of active TypeVar binding scopes. A scope is a plain
--- table mapping TypeVar objects (by identity, never by name) to the
--- type they bound in the current checked call; the innermost entry is
--- the active scope. The stack is entered and exited only around
--- synchronous signature checks (llx.signature pushes before checking
--- a call's arguments or returns and pops immediately after, whether
--- or not the check raises), never across user code:
---
--- - Recursion nests naturally: an inner wrapped call pushes its own
---   scope on top and pops it before the outer check resumes.
--- - Coroutines are safe: the wrapped function's *body* runs with no
---   scope active, so a yield never suspends midway through an entered
---   scope, and interleaved coroutines cannot observe each other's
---   bindings.
---
--- This dynamic-scope design is what lets parameterized matchers
--- (ListOf(T), Dict(K, V), Tuple, ...) propagate bindings into element
--- checks with no change to the __isinstance protocol: their recursive
--- isinstance calls reach TypeVar.__isinstance, which reads the
--- innermost scope here.
-local type_var_scope_stack = {}
-
--- Opens a TypeVar binding scope: pushes `scope` (a fresh table when
--- nil) and returns it. Primarily an integration hook for
--- llx.signature, which opens a scope around a call's precondition
--- check and re-enters the same scope around the postcondition check
--- so parameters and returns share one set of bindings. Every enter
--- must be paired with exit_type_var_scope, including on error paths.
-local function enter_type_var_scope(scope)
-  if scope == nil then
-    scope = {}
-  elseif type(scope) ~= 'table' then
-    error('enter_type_var_scope: expected a scope table (or nil), '
-      .. 'got ' .. type(scope), 2)
-  end
-  type_var_scope_stack[#type_var_scope_stack + 1] = scope
-  return scope
-end
-
--- Closes the innermost TypeVar binding scope (the counterpart of
--- enter_type_var_scope). Raises if no scope is active, since an
--- unbalanced exit indicates a caller bug that would otherwise
--- silently corrupt an enclosing scope.
-local function exit_type_var_scope()
-  local top = #type_var_scope_stack
-  if top == 0 then
-    error('exit_type_var_scope: no active TypeVar binding scope', 2)
-  end
-  type_var_scope_stack[top] = nil
-end
-
 -- Returns true when value is a TypeVar produced by the TypeVar
 -- factory below. Used by llx.is_subtype to exclude type variables
 -- from the variance relation (only a TypeVar's identity relates it to
@@ -1418,6 +1582,168 @@ local function type_var_consistent(value, binding)
   return rawequal(infer_type_var_binding(value), binding)
 end
 
+-- Collects `binding` and its transitive declared ancestors (the
+-- __superclasses chain, nearest first, declaration order) into
+-- `list`. Bindings are inferred witness types -- class proxies,
+-- built-in singletons, or plain metatables -- so the field probe is
+-- pcall-guarded against strict __index metatables, the same caution
+-- type_var_consistent applies to its __isinstance probe. Class
+-- graphs are acyclic by construction, so no cycle guard is needed.
+local function collect_declared_ancestors(binding, list)
+  list[#list + 1] = binding
+  local ok, superclasses = pcall(function()
+    return binding.__superclasses
+  end)
+  if ok and type(superclasses) == 'table' then
+    for _, superclass in ipairs(superclasses) do
+      collect_declared_ancestors(superclass, list)
+    end
+  end
+end
+
+local function is_numeric_binding(binding)
+  return rawequal(binding, Integer)
+      or rawequal(binding, Float)
+      or rawequal(binding, Number)
+end
+
+-- Best-effort name of a binding for the deterministic tie-break in
+-- join_type_var_bindings. pcall-guarded like the probes above.
+local function binding_name(binding)
+  local ok, name = pcall(function()
+    return binding.__name
+  end)
+  if ok and type(name) == 'string' then
+    return name
+  end
+  return ''
+end
+
+-- The join (least common supertype) of a set of witness types, or
+-- nil when none exists. `list` holds the distinct witnesses a
+-- TypeVar has accumulated inside commutative regions of the current
+-- scope; `extra` is the new witness, not already in the list by
+-- identity. The join is computed over the whole set at once -- the
+-- intersection of every witness's declared ancestor set -- which is
+-- symmetric in the witnesses, so the result cannot depend on the
+-- order pairs yields a container's elements. (A pairwise fold would
+-- not be associative under multiple inheritance: an ambiguous
+-- intermediate tie-break can drift the fold to a different, coarser
+-- result depending on encounter order.)
+--
+-- Rules, mirroring how a static checker joins types:
+--
+-- - A set of numeric witnesses (Integer, Float, or an accumulated
+--   Number) joins at Number, the same widening is_subtype applies at
+--   the type level.
+-- - Class hierarchies join at the most derived ancestor common to
+--   every witness (walking __superclasses transitively, self
+--   included, so a subclass joins with its superclass at the
+--   superclass).
+-- - Witnesses whose values are certainly tables -- class objects and
+--   the Table singleton -- but share no declared ancestor join at
+--   Table, the top of the table kinds (the getclass analog of
+--   joining unrelated classes at `object`). This also keeps the join
+--   symmetric with type_var_consistent, where a Table binding admits
+--   any table-typed value including class instances.
+-- - Everything else (mixed primitives, plain metatables with no
+--   shared ancestry -- whose values might be tables or userdata, so
+--   widening to Table would be unsound) has no join: the element
+--   check fails, deterministically, in every iteration order.
+--
+-- Multiple inheritance can leave several incomparable most-derived
+-- common ancestors; the tie is broken by name over the (symmetric)
+-- candidate set, so the choice is deterministic for uniquely named
+-- classes even where a unique least supertype does not exist.
+local function join_witness_set(list, extra)
+  local count = #list
+  if count == 0 then
+    return extra
+  end
+  local all_numeric = is_numeric_binding(extra)
+  for i = 1, count do
+    if not all_numeric then
+      break
+    end
+    all_numeric = is_numeric_binding(list[i])
+  end
+  if all_numeric then
+    return Number
+  end
+  if type(extra) ~= 'table' then
+    return nil
+  end
+  -- Identity comparisons suffice throughout: witness types and
+  -- __superclasses entries are both the public class proxy objects
+  -- (or singletons), of which there is exactly one per class.
+  -- Candidates start as the new witness's ancestors and are
+  -- intersected with every accumulated witness's ancestor set.
+  local candidates = {}
+  collect_declared_ancestors(extra, candidates)
+  for i = 1, count do
+    local witness = list[i]
+    if type(witness) ~= 'table' then
+      return nil
+    end
+    local ancestors = {}
+    collect_declared_ancestors(witness, ancestors)
+    local present = {}
+    for j = 1, #ancestors do
+      present[ancestors[j]] = true
+    end
+    local kept, seen = {}, {}
+    for j = 1, #candidates do
+      local candidate = candidates[j]
+      if present[candidate] and not seen[candidate] then
+        seen[candidate] = true
+        kept[#kept + 1] = candidate
+      end
+    end
+    candidates = kept
+    if #candidates == 0 then
+      break
+    end
+  end
+  if #candidates == 0 then
+    if not (is_class_object(extra) or rawequal(extra, Table)) then
+      return nil
+    end
+    for i = 1, count do
+      local witness = list[i]
+      if not (is_class_object(witness) or rawequal(witness, Table))
+      then
+        return nil
+      end
+    end
+    return Table
+  end
+  if #candidates == 1 then
+    return candidates[1]
+  end
+  -- Keep the most derived common ancestors: drop any candidate that
+  -- is a strict ancestor of another candidate, then break ties by
+  -- name.
+  local strictly_above = {}
+  for i = 1, #candidates do
+    local ancestors = {}
+    collect_declared_ancestors(candidates[i], ancestors)
+    for j = 2, #ancestors do
+      strictly_above[ancestors[j]] = true
+    end
+  end
+  local best = nil
+  for i = 1, #candidates do
+    local candidate = candidates[i]
+    if not strictly_above[candidate] then
+      if best == nil or binding_name(candidate) < binding_name(best)
+      then
+        best = candidate
+      end
+    end
+  end
+  return best
+end
+
 local function type_var_type_check(name, opts)
   -- TypeVar(name, opts): a generic type variable with per-call
   -- binding, the runtime analog of mypy's TypeVar('T'). Within a
@@ -1442,28 +1768,44 @@ local function type_var_type_check(name, opts)
   -- Semantics and caveats (first iteration; deliberate, documented
   -- choices):
   --
-  -- - Binding is first-witness, one-pass: there is no constraint
-  --   solving or join, so with params={T, T} the call f(cat, animal)
-  --   is rejected while f(animal, cat) is accepted (the second value
-  --   is checked against the first one's binding with isinstance,
-  --   which admits subclass instances). Likewise f(1, 1.5) is
-  --   rejected: 1 binds T to Integer, not Number.
-  -- - Binding is also one-pass in that there is no rollback: a
-  --   matcher branch that ultimately fails (a Union member, or a
-  --   container that rejects a later element) may still have
-  --   recorded a binding for a variable it touched, and that binding
-  --   persists for the rest of the call. E.g. Union{ListOf(T), Any}
-  --   can bind T from a list the ListOf branch then rejects, so a
-  --   call accepted through the Any member is still constrained by
-  --   that binding, and results can depend on Union member order.
-  --   Keep TypeVars out of union alternatives that are expected to
-  --   fail over.
-  -- - The witness is the first value *checked*: positional params
-  --   and ipairs-ordered containers (ListOf, Tuple) bind
-  --   deterministically, but pairs-iterated containers (Dict, SetOf)
-  --   reach an arbitrary element first, so a container whose
-  --   elements mix a class with its subclasses may bind
-  --   nondeterministically.
+  -- - In positional contexts (params, returns, and ipairs-ordered
+  --   containers such as ListOf and Tuple, outside any
+  --   pairs-iterated container), binding is
+  --   first-witness, one-pass: there is no constraint solving, so
+  --   with params={T, T} the call f(cat, animal) is rejected while
+  --   f(animal, cat) is accepted (the second value is checked
+  --   against the first one's binding with isinstance, which admits
+  --   subclass instances). Likewise f(1, 1.5) is rejected: 1 binds T
+  --   to Integer, not Number. Positional order is part of the
+  --   value, so this is deterministic.
+  -- - Inside pairs-iterated containers (Dict, SetOf), whose element
+  --   order is semantically meaningless, binding is instead
+  --   order-independent: the variable binds the *join* (least common
+  --   supertype) of every witness the container yields --
+  --   Integer/Float widen to Number, a class joins its subclasses,
+  --   unrelated classes join at their nearest common declared
+  --   ancestor (or at Table when there is none), and elements with
+  --   no join at all (e.g. a Number next to a String, or two
+  --   unrelated plain-metatable values) fail the check in every
+  --   iteration order. The join extends to witnesses reached
+  --   *through* the container's elements, including those inside
+  --   nested ipairs-ordered containers: the outer pairs order
+  --   decides which nested list is checked first, so
+  --   Dict(String, ListOf(T)) must join across (and therefore
+  --   within) its lists to stay order-independent -- a list that a
+  --   bare ListOf(T) would reject for mixing Integer and Float is
+  --   accepted inside a Dict, binding T to Number. See
+  --   join_witness_set and the commutative witness region machinery
+  --   above.
+  -- - Speculative matcher branches roll back: a Union member that
+  --   binds a variable and then rejects the value restores the
+  --   bindings that were in place before the branch, so union member
+  --   order is not observable through stale bindings (see
+  --   save_type_var_bindings). A member that *matches* keeps its
+  --   bindings, and members are still tried in declaration order, so
+  --   with Union{Any, ListOf(T)} the Any member wins first and T is
+  --   never bound -- order the specific member first, as with
+  --   Overload.
   -- - Bindings are per call and identity-keyed: two TypeVars sharing
   --   a name are independent variables, and a fresh scope is opened
   --   for every checked call, so bindings never leak between calls,
@@ -1531,6 +1873,42 @@ local function type_var_type_check(name, opts)
         -- First occurrence in this call: this value is the witness;
         -- record its inferred type as the binding.
         scope[var] = infer_type_var_binding(value)
+        return true
+      end
+      if (scope[commutative_mark] or 0) > 0 then
+        -- Inside a commutative witness region (a pairs-iterated
+        -- container): consistency must be symmetric in the values
+        -- seen so far, so the witness set accumulated on the scope
+        -- is extended and the binding widened to the join of the
+        -- whole set, failing only when no join exists. The
+        -- asymmetric type_var_consistent path below would make the
+        -- verdict depend on iteration order.
+        local all_witnesses = scope[witnesses_mark]
+        if all_witnesses == nil then
+          all_witnesses = {}
+          scope[witnesses_mark] = all_witnesses
+        end
+        local list = all_witnesses[var]
+        if list == nil then
+          -- Seed with the pre-region binding (a positional witness,
+          -- since joins only happen where a set already exists): it
+          -- constrains the join like any other witness.
+          list = {binding}
+          all_witnesses[var] = list
+        end
+        local witness = infer_type_var_binding(value)
+        for i = 1, #list do
+          if rawequal(list[i], witness) then
+            -- Already part of the join; nothing can change.
+            return true
+          end
+        end
+        local joined = join_witness_set(list, witness)
+        if joined == nil then
+          return false
+        end
+        list[#list + 1] = witness
+        scope[var] = joined
         return true
       end
       return type_var_consistent(value, binding)

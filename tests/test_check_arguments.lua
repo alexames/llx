@@ -283,6 +283,57 @@ describe('check_arguments', function()
     end)
   end)
 
+  describe('TypeVar binding scopes', function()
+    local matchers = require 'llx.types.matchers'
+    local TypeVar = matchers.TypeVar
+    local ListOf = matchers.ListOf
+
+    it('should correlate a TypeVar across parameters', function()
+      local T = TypeVar('T')
+      local function check(a, b)
+        check_arguments{a=T, b=T}
+      end
+      expect(pcall(check, 1, 2)).to.be_true()
+      expect(pcall(check, 'a', 'b')).to.be_true()
+      expect(pcall(check, 1, 'x')).to.be_false()
+      -- Numbers bind narrowly: an Integer witness rejects a Float,
+      -- matching the signature path.
+      expect(pcall(check, 1, 1.5)).to.be_false()
+    end)
+
+    it('should propagate bindings through parameterized matchers',
+        function()
+      local T = TypeVar('T')
+      local function check(xs, x)
+        check_arguments{xs=ListOf(T), x=T}
+      end
+      expect(pcall(check, {1, 2}, 3)).to.be_true()
+      expect(pcall(check, {1, 2}, 'x')).to.be_false()
+    end)
+
+    it('should enforce a declared bound', function()
+      local N = TypeVar('N', {bound=Number})
+      local function check(n)
+        check_arguments{n=N}
+      end
+      expect(pcall(check, 1)).to.be_true()
+      expect(pcall(check, 'not a number')).to.be_false()
+    end)
+
+    it('should exit the scope on success and on failure', function()
+      local T = TypeVar('T')
+      local function check(a, b)
+        check_arguments{a=T, b=T}
+      end
+      expect(pcall(check, 1, 'x')).to.be_false()
+      -- The scope was exited: plain isinstance is back to the
+      -- unconstrained behavior, and each call re-binds from scratch.
+      expect(llx.isinstance('anything', T)).to.be_true()
+      expect(pcall(check, 'a', 'b')).to.be_true()
+      expect(pcall(check, 2, 3)).to.be_true()
+    end)
+  end)
+
   describe('schema', function()
     it('should succeed with number schema and valid number', function()
       local schema = Schema{type=Number}
