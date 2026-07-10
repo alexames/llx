@@ -3810,6 +3810,20 @@ describe('Generator', function()
       expect(Generator().__name).to.be_equal_to(
         'Generator<yields=(), accepts=(), returns=()>')
     end)
+
+    it('should encode strictness in the name', function()
+      -- Strictness is part of the matcher's identity, so it is
+      -- pinned in the name, exactly as for Iterator and Callable.
+      expect(Generator{yields = {Integer}, strict = true}.__name)
+        .to.be_equal_to(
+          'Generator<yields=(Integer), accepts=(), returns=()> '
+          .. 'strict')
+      expect(Generator{yields = {Integer}, strict = false}.__name)
+        .to.be_equal_to(
+          'Generator<yields=(Integer), accepts=(), returns=()>')
+      expect(Generator{strict = true}.__name).to.be_equal_to(
+        'Generator<yields=(), accepts=(), returns=()> strict')
+    end)
   end)
 
   describe('construction', function()
@@ -3825,6 +3839,18 @@ describe('Generator', function()
     it('should reject unknown contract keys', function()
       expect(function() Generator{sends = {Integer}} end)
         .to.throw("Generator: unknown contract key 'sends'")
+    end)
+
+    it('should reject a non-boolean strict', function()
+      expect(function() Generator{strict = 'yes'} end)
+        .to.throw('Generator: strict must be a boolean')
+    end)
+
+    it('should expose the strict flag', function()
+      expect(Generator{}.strict).to.be_false()
+      expect(Generator().strict).to.be_false()
+      expect(Generator{strict = false}.strict).to.be_false()
+      expect(Generator{strict = true}.strict).to.be_true()
     end)
 
     it('should reject stray Rest and AnyParams markers', function()
@@ -3951,6 +3977,117 @@ describe('Generator', function()
       expect(isinstance(instance, Generator{yields = {Integer},
                                             accepts = {String}}))
         .to.be_false()
+    end)
+  end)
+
+  describe('strict mode', function()
+    -- strict = true disables the weak structural thread fallback:
+    -- only values that declare their contract (GeneratorInstance
+    -- wrappers) can match, mirroring Iterator's strict mode.
+    it('should reject bare coroutine threads', function()
+      local thread = coroutine.create(function() end)
+      expect(Generator{yields = {Integer}, strict = true}
+        :__isinstance(thread)).to.be_false()
+      expect(Generator{strict = true}:__isinstance(thread))
+        .to.be_false()
+    end)
+
+    it('should still reject plain functions and wrap '
+      .. 'results', function()
+      local G = Generator{yields = {Integer}, strict = true}
+      expect(G:__isinstance(function() end)).to.be_false()
+      expect(G:__isinstance(coroutine.wrap(function() end)))
+        .to.be_false()
+    end)
+
+    it('should reject the generator factory itself', function()
+      -- Generates{...} .. body is the *factory* (a
+      -- GeneratorFunction); only the instances it produces declare
+      -- a running generator's contract. Neither mode has ever
+      -- matched the factory, and strict does not change that.
+      local factory = Generates{yields = {Integer}} .. function()
+        coroutine.yield(1)
+      end
+      expect(isinstance(factory, Generator{yields = {Integer}}))
+        .to.be_false()
+      expect(isinstance(factory, Generator{yields = {Integer},
+                                           strict = true}))
+        .to.be_false()
+    end)
+
+    it('should still reject non-coroutine values', function()
+      local G = Generator{strict = true}
+      expect(G:__isinstance(42)).to.be_false()
+      expect(G:__isinstance({})).to.be_false()
+      expect(G:__isinstance(nil)).to.be_false()
+    end)
+
+    it('should match typed generators by their declared '
+      .. 'contract', function()
+      local instance = typed_gen{yields = {Integer}}
+      expect(isinstance(instance,
+                        Generator{yields = {Integer},
+                                  strict = true})).to.be_true()
+    end)
+
+    it('should keep the variance rules of lenient mode', function()
+      -- strict rejects undeclared values; it does not change the
+      -- variance rules for declared ones (yields covariant, accepts
+      -- contravariant).
+      local instance = typed_gen{yields = {Integer},
+                                 accepts = {Number}}
+      expect(isinstance(instance,
+                        Generator{yields = {Number},
+                                  accepts = {Integer},
+                                  strict = true})).to.be_true()
+      expect(isinstance(instance,
+                        Generator{yields = {String},
+                                  accepts = {Integer},
+                                  strict = true})).to.be_false()
+      local narrow = typed_gen{yields = {Integer},
+                               accepts = {Integer}}
+      expect(isinstance(narrow,
+                        Generator{yields = {Integer},
+                                  accepts = {Number},
+                                  strict = true})).to.be_false()
+    end)
+
+    it('should leave the lenient matcher unchanged', function()
+      -- The pre-strict behavior is the default: a bare thread still
+      -- matches any lenient contract structurally.
+      local thread = coroutine.create(function() end)
+      expect(Generator{yields = {Integer}}:__isinstance(thread))
+        .to.be_true()
+      expect(Generator{yields = {Integer}, strict = false}
+        :__isinstance(thread)).to.be_true()
+    end)
+
+    it('should compose inside Protocol', function()
+      local Producer = Protocol{
+        source = Generator{yields = {Integer}, strict = true},
+      }
+      local declared = {source = typed_gen{yields = {Integer}}}
+      local raw = {source = coroutine.create(function() end)}
+      expect(isinstance(declared, Producer)).to.be_true()
+      expect(isinstance(raw, Producer)).to.be_false()
+    end)
+
+    it('should stay distinct from the lenient matcher in '
+      .. 'is_subtype', function()
+      -- Generator has no structural is_subtype rule, so the modes
+      -- are kept apart by the name fallback: strictness is encoded
+      -- in the name, exactly as for Iterator.
+      expect(llx.is_subtype(
+          Generator{yields = {Integer}, strict = true},
+          Generator{yields = {Integer}})).to.be_false()
+      expect(llx.is_subtype(
+          Generator{yields = {Integer}},
+          Generator{yields = {Integer}, strict = true}))
+        .to.be_false()
+      expect(llx.is_subtype(
+          Generator{yields = {Integer}, strict = true},
+          Generator{yields = {Integer}, strict = true}))
+        .to.be_true()
     end)
   end)
 
