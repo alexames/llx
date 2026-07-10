@@ -31,6 +31,12 @@ Set = class 'Set' {
     local a_values = rawget(a, '_values')
     local b_values = rawget(b, '_values')
 
+    -- A plain table (or other non-Set) has no '_values'; it is never
+    -- equal to a Set.
+    if a_values == nil or b_values == nil then
+      return false
+    end
+
     -- Check if all elements in set A are also in set B
     for k, v in pairs(a_values) do
       if not b_values[k] then

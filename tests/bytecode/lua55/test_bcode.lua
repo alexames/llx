@@ -5,6 +5,14 @@ local bcode = require 'llx.bytecode.lua55.bcode'
 
 _ENV = unit.create_test_env(_ENV)
 
+-- These tests string.dump functions from the running VM, so they only
+-- apply when that VM is Lua 5.5 (tests/init.lua gates them the same
+-- way for the aggregate runner).
+if _VERSION ~= 'Lua 5.5' then
+  print('Skipping lua55 bytecode reader tests under ' .. _VERSION)
+  return
+end
+
 describe('bytecode reader (lua55)', function()
   it('can parse an empty function', function()
     local bytes = string.dump(function() end)
