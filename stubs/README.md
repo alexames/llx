@@ -48,9 +48,10 @@ Submodules with no dedicated stub file: `class`, `unit`,
 `flow_control`, `schema`, `bytecode`, `decorator`, `property`,
 `hash`, `hash_table`, `enum`, `proxy`, `debug`, `tracing`, `cache`,
 `coroutine`, `truthy`, `repr`, `tostringf`, `tointeger`,
-`check_arguments`, `signature`, `method`. Their public names work
-from auto-completion via `llx.foo` lookups, but the named-submodule
-namespaces are typed as `any`. Contributions welcome.
+`check_arguments`, `signature`, `typed_iterators`, `method`. Their
+public names work from auto-completion via `llx.foo` lookups, but
+the named-submodule namespaces are typed as `any`. Contributions
+welcome.
 
 ## Setup
 
