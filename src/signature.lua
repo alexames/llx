@@ -23,6 +23,7 @@ local is_callable = core.is_callable
 local isinstance = isinstance_module.isinstance
 local enter_type_var_scope = matchers.enter_type_var_scope
 local exit_type_var_scope = matchers.exit_type_var_scope
+local is_any_params = matchers.is_any_params
 local is_rest = matchers.is_rest
 
 local function type_name_of(t)
@@ -74,6 +75,16 @@ end
 -- holding one could never match any value -- every call would fail
 -- far from the mistake (check_returns_exact also rejects it, as the
 -- call-time backstop for lists that bypass this constructor).
+--
+-- The AnyParams sentinel (llx.types.matchers) is rejected the same
+-- way, whether declared *as* a field or as an entry inside one. It
+-- is a matcher-side marker for Callable(AnyParams, ...) -- "do not
+-- compare parameters" -- and a Signature declares what a call-time
+-- check enforces, which cannot be nothing-in-particular: the
+-- call-time checker would treat the sentinel as an empty fixed list
+-- (rejecting every call with arguments) while the Callable matcher
+-- would treat the wrapper as universally callable. Declare a
+-- trailing VARARG ('...') for an unchecked tail instead.
 local function check_signature_fields(name, args)
   if type(args) ~= 'table' then
     error(InvalidArgumentException(
@@ -82,6 +93,11 @@ local function check_signature_fields(name, args)
   end
   for _, field in ipairs({'params', 'returns'}) do
     local type_list = args[field]
+    if is_any_params(type_list) then
+      error(ValueException(
+          name .. ': AnyParams is a Callable-only marker; declare '
+          .. "an unchecked list as {'...'} instead", 2))
+    end
     if type(type_list) ~= 'table' then
       error(InvalidArgumentException(
           field, name .. ": expected a list of type entries for '"
@@ -92,6 +108,11 @@ local function check_signature_fields(name, args)
         error(ValueException(
             name .. ': Rest(T) is only valid inside Tuple; use a '
             .. "trailing VARARG ('...') for variadic signatures", 2))
+      end
+      if is_any_params(type_list[i]) then
+        error(ValueException(
+            name .. ': AnyParams is a Callable-only marker; declare '
+            .. "an unchecked list as {'...'} instead", 2))
       end
     end
   end

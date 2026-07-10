@@ -50,6 +50,8 @@
 ---@field SetOf fun(element_type: any): any
 ---@field Protocol fun(fields: table<string, any>): any
 ---@field Callable fun(param_types: table, return_types?: table, options?: table): any
+---@field AnyParams any
+---@field is_any_params fun(value: any): boolean
 ---@field Iterator fun(...: any): any
 ---@field Generator fun(contract?: table): any
 ---@field Literal fun(values: table): any
