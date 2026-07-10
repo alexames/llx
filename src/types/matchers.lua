@@ -1106,11 +1106,11 @@ local function iterator_type_check(...)
 end
 
 local function generator_type_check(contract)
-  -- Generator{yields=, accepts=, returns=}: matches typed coroutine
-  -- generators by declared contract -- the runtime analog of mypy's
-  -- Generator[YieldType, SendType, ReturnType]. Each list is optional
-  -- (defaulting to empty); a trailing VARARG ('...') entry declares
-  -- an unchecked variadic tail.
+  -- Generator{yields=, accepts=, returns=, strict=}: matches typed
+  -- coroutine generators by declared contract -- the runtime analog
+  -- of mypy's Generator[YieldType, SendType, ReturnType]. Each list
+  -- is optional (defaulting to empty); a trailing VARARG ('...')
+  -- entry declares an unchecked variadic tail.
   --
   -- - Typed generators (llx.typed_iterators.GeneratorInstance)
   --   declare their contract, which is compared with the standard
@@ -1122,6 +1122,20 @@ local function generator_type_check(contract)
   --   its yields, sends, or returns can be verified. This is the
   --   documented weak fallback; wrap the coroutine
   --   (Generates{...} .. body) to make the contract checkable.
+  -- - strict = true -- Generator's analog of Iterator's strict
+  --   option -- disables that structural fallback entirely: only
+  --   values that *declare* their contract (GeneratorInstance
+  --   wrappers) can match, so bare threads are rejected, with the
+  --   variance rules for declared values unchanged. Like Iterator,
+  --   a generator value offers no signal beyond its threadness, so
+  --   the strongest tightening is to require a declaration. The
+  --   flag lives inside the contract table rather than a trailing
+  --   second argument: Generator's calling form is already a single
+  --   named-key table (Iterator needed a *trailing* options table
+  --   only because its yields are positional varargs), the contract
+  --   keys are a fixed reserved set so 'strict' cannot collide with
+  --   anything, and the single-table Generator{...} spelling is
+  --   preserved.
   -- - Everything else is rejected -- including plain functions and
   --   coroutine.wrap results, which are indistinguishable from
   --   ordinary functions and are better matched by Iterator or
@@ -1132,14 +1146,22 @@ local function generator_type_check(contract)
   contract = contract or {}
   if type(contract) ~= 'table' then
     error('Generator: expected a contract table with optional '
-      .. 'yields, accepts, and returns lists', 2)
+      .. 'yields, accepts, and returns lists (and a strict flag)', 2)
   end
   for key in pairs(contract) do
-    if key ~= 'yields' and key ~= 'accepts' and key ~= 'returns' then
+    if key ~= 'yields' and key ~= 'accepts' and key ~= 'returns'
+        and key ~= 'strict' then
       error("Generator: unknown contract key '" .. tostring(key)
         .. "'", 2)
     end
   end
+  if contract.strict ~= nil and type(contract.strict) ~= 'boolean' then
+    -- A truthy non-boolean would otherwise silently enable (or a
+    -- falsy one disable) strictness; fail loudly instead, the same
+    -- policy Iterator applies.
+    error('Generator: strict must be a boolean', 2)
+  end
+  local strict = contract.strict == true
   local yields = contract.yields or {}
   local accepts = contract.accepts or {}
   local returns = contract.returns or {}
@@ -1174,12 +1196,16 @@ local function generator_type_check(contract)
     for i, t in ipairs(types) do names[i] = type_name_of(t) end
     return table.concat(names, ', ')
   end
-  -- The full contract is part of the matcher's identity, so it is
-  -- encoded in the name (which is_subtype falls back to when
-  -- comparing matchers).
+  -- The full contract is part of the matcher's identity -- the
+  -- strict flag included, since it narrows which values match -- so
+  -- it is encoded in the name (which is_subtype falls back to when
+  -- comparing matchers: Generator has no structural subtype rule, so
+  -- the name is what keeps the strict and lenient forms distinct
+  -- there, exactly as for Iterator).
   local typename = 'Generator<yields=(' .. names_of(yields)
                    .. '), accepts=(' .. names_of(accepts)
                    .. '), returns=(' .. names_of(returns) .. ')>'
+                   .. (strict and ' strict' or '')
 
   -- Cached upvalues for deferred requires; see Iterator above.
   local typed_iterators_module = nil
@@ -1188,17 +1214,20 @@ local function generator_type_check(contract)
   return setmetatable({
     __name = typename,
 
-    -- Expose the contract so callers (and generator_compatible) can
-    -- introspect.
+    -- Expose the contract (and strictness) so callers -- and
+    -- generator_compatible -- can introspect.
     yields = yields,
     accepts = accepts,
     returns = returns,
+    strict = strict,
 
     __isinstance = function(self, value)
       if type(value) == 'thread' then
         -- Weak structural fallback: it is a coroutine, but its
-        -- contract is unknowable at runtime.
-        return true
+        -- contract is unknowable at runtime. Strict mode exists to
+        -- disable exactly this branch -- only declared contracts
+        -- (the wrapper path below) count.
+        return not strict
       end
       if type(value) == 'table' then
         typed_iterators_module = typed_iterators_module

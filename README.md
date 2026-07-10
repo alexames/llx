@@ -465,6 +465,15 @@ local gen = llx.typed_iterators.Generates{yields = {llx.Integer}}
   for j = 1, n do coroutine.yield(j) end
 end
 for v in gen(2) do print(v) end   --> 1  2
+
+-- Generator{...} matches bare coroutine threads structurally (a raw
+-- thread carries no contract). strict = true inside the contract
+-- disables that weak fallback: only Generates-wrapped generators
+-- with a declared contract match, per the usual variance rules.
+local StrictGen = matchers.Generator{yields = {llx.Integer},
+                                     strict = true}
+llx.isinstance(gen(2), StrictGen)                    --> true
+llx.isinstance(coroutine.create(print), StrictGen)   --> false
 ```
 
 ### Structured exceptions

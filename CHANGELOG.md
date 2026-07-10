@@ -345,6 +345,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Generator{..., strict = true}`: a strict mode for the `Generator`
+  matcher, following the `Iterator` precedent from #74. By default a
+  bare coroutine thread matches any `Generator` contract structurally
+  (a raw thread carries no contract, so nothing about its yields,
+  sends, or returns can be verified -- the documented weak fallback);
+  with `strict = true` that fallback is disabled entirely, so only
+  values that declare their contract (`Generates{...}`-wrapped
+  generators, i.e. `GeneratorInstance` values) can match, compared
+  with the variance rules of lenient mode unchanged (yields and
+  returns covariant, accepts contravariant). Plain functions and
+  `coroutine.wrap` results remain rejected in both modes. The flag
+  lives *inside* the contract table rather than in a trailing second
+  argument: `Generator`'s calling form is already a single named-key
+  table (`Iterator` needed a trailing options table only because its
+  yields are positional varargs), and the contract keys are a fixed
+  reserved set, so `strict` cannot collide with anything. Strictness
+  is part of the matcher's name
+  (`Generator<yields=(T), accepts=(), returns=()> strict`), which is
+  what keeps the strict and lenient forms distinct in `is_subtype`'s
+  name fallback. A non-boolean `strict` raises at construction, the
+  same policy `Iterator` applies. (#95)
 - String catchers in the try/catch DSL: `catch('TypeError',
   handler)` now matches any thrown value whose class -- or any
   superclass, walked transitively -- has that `__name`. This extends
