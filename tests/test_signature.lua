@@ -205,6 +205,48 @@ describe('Signature', function()
         expect(ok).to.be_true()
       end)
     end)
+
+    describe('AnyParams rejection at declaration time', function()
+      -- AnyParams is Callable's "do not compare parameters" marker;
+      -- a Signature declares what a call-time check enforces, which
+      -- cannot be nothing-in-particular: the call-time checker
+      -- would treat the sentinel as an empty fixed list (rejecting
+      -- every call with arguments) while the Callable matcher would
+      -- treat the wrapper as universally callable.
+      local ValueException = exceptions.ValueException
+      local AnyParams = require 'llx.types.matchers' . AnyParams
+
+      local function expect_any_params_rejection(name, build)
+        local ok, err = pcall(build)
+        expect(ok).to.be_false()
+        expect(isinstance(err, ValueException)).to.be_true()
+        expect(err.what:find(
+            name .. ': AnyParams is a Callable-only marker',
+            1, true)).to_not.be_nil()
+      end
+
+      it('should reject AnyParams as the params field', function()
+        expect_any_params_rejection('Signature', function()
+          return Signature{params=AnyParams, returns={}}
+        end)
+      end)
+
+      it('should reject AnyParams as the returns field', function()
+        expect_any_params_rejection('Signature', function()
+          return Signature{params={}, returns=AnyParams}
+        end)
+      end)
+
+      it('should reject AnyParams entries inside a list', function()
+        expect_any_params_rejection('Signature', function()
+          return Signature{params={Integer, AnyParams}, returns={}}
+        end)
+        expect_any_params_rejection('Function', function()
+          return Function{params={}, returns={AnyParams},
+                          func=function() end}
+        end)
+      end)
+    end)
   end)
 
   describe('Signature decorate method', function()

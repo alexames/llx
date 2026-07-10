@@ -24,6 +24,7 @@ local Number = require 'llx.types.number' . Number
 local Any = matchers.Any
 local Never = matchers.Never
 local VARARG = check_arguments.VARARG
+local is_any_params = matchers.is_any_params
 local is_type_var = matchers.is_type_var
 local resolve_lazy = matchers.resolve_lazy
 
@@ -406,8 +407,18 @@ end
 -- Note that a variadic `super` parameter list is not an "any
 -- parameters" wildcard (mypy's `Callable[..., R]`): it is a promise
 -- that callers may pass arbitrary extras, so only a variadic `sub`
--- satisfies it. An unchecked-parameters escape hatch is a separate
--- feature.
+-- satisfies it. The wildcard is spelled with the AnyParams sentinel
+-- (llx.types.matchers.AnyParams) *in place of* a parameter list, as
+-- Callable(AnyParams, {R}) exposes it: a side declaring AnyParams
+-- does not constrain parameters at all, so when either side declares
+-- it the parameter checks are skipped and only returns are compared.
+-- A `sub` with AnyParams accepts every parameter list, which is
+-- sound against any `super`; an AnyParams `super` accepting a fixed
+-- `sub` is, like Any, deliberately gradual rather than sound (a
+-- caller holding the `super` view may pass arguments `sub` never
+-- declared). AnyParams is params-only: in a return position the
+-- contract is malformed and compatible with nothing, the same
+-- policy as a non-trailing VARARG.
 --
 -- A non-trailing VARARG makes a signature malformed (its call-time
 -- check raises unconditionally), so it is compatible with nothing.
@@ -455,36 +466,63 @@ function signature_compatible(sub, super)
   local super_params = super.params or {}
   local sub_returns = sub.returns or {}
   local super_returns = super.returns or {}
-  local sub_params_fixed, sub_params_variadic =
-      split_variadic(sub_params)
-  local super_params_fixed, super_params_variadic =
-      split_variadic(super_params)
+  -- AnyParams is only meaningful in place of a *parameter* list; a
+  -- return list "declared" as AnyParams is malformed, so it is
+  -- compatible with nothing (Callable rejects the spelling at
+  -- construction; this guards plain contract tables).
+  if is_any_params(sub_returns) or is_any_params(super_returns) then
+    return false
+  end
+  local params_any =
+      is_any_params(sub_params) or is_any_params(super_params)
+  local sub_params_fixed, sub_params_variadic
+  if not is_any_params(sub_params) then
+    sub_params_fixed, sub_params_variadic =
+        split_variadic(sub_params)
+    -- A malformed (non-trailing VARARG) list is compatible with
+    -- nothing, even under an AnyParams counterpart: AnyParams
+    -- accepts every well-formed parameter list, not broken ones.
+    if sub_params_fixed == nil then
+      return false
+    end
+  end
+  local super_params_fixed, super_params_variadic
+  if not is_any_params(super_params) then
+    super_params_fixed, super_params_variadic =
+        split_variadic(super_params)
+    if super_params_fixed == nil then
+      return false
+    end
+  end
   local sub_returns_fixed, sub_returns_variadic =
       split_variadic(sub_returns)
   local super_returns_fixed, super_returns_variadic =
       split_variadic(super_returns)
-  if sub_params_fixed == nil or super_params_fixed == nil
-      or sub_returns_fixed == nil or super_returns_fixed == nil then
+  if sub_returns_fixed == nil or super_returns_fixed == nil then
     return false
   end
-  -- Parameter arity. A variadic super promises callers may pass
-  -- arbitrary extra arguments, which only a variadic sub accepts at
-  -- call time. A variadic sub is fine anywhere its checked prefix
-  -- does not extend past super's parameter list.
-  if super_params_variadic and not sub_params_variadic then
-    return false
-  end
-  if sub_params_variadic then
-    if sub_params_fixed > super_params_fixed then
+  if not params_any then
+    -- Parameter arity. A variadic super promises callers may pass
+    -- arbitrary extra arguments, which only a variadic sub accepts
+    -- at call time. A variadic sub is fine anywhere its checked
+    -- prefix does not extend past super's parameter list. When
+    -- either side declares AnyParams the parameter checks are
+    -- skipped entirely (see the AnyParams notes above): only returns
+    -- are compared.
+    if super_params_variadic and not sub_params_variadic then
       return false
     end
-  elseif sub_params_fixed ~= super_params_fixed then
-    return false
+    if sub_params_variadic then
+      if sub_params_fixed > super_params_fixed then
+        return false
+      end
+    elseif sub_params_fixed ~= super_params_fixed then
+      return false
+    end
   end
-  -- Return arity is the mirror image: a variadic sub may produce
-  -- undeclared extras that a fixed super's callers would observe,
-  -- and a variadic super's fixed prefix must be covered by sub's
-  -- declared returns.
+  -- Return arity: a variadic sub may produce undeclared extras that
+  -- a fixed super's callers would observe, and a variadic super's
+  -- fixed prefix must be covered by sub's declared returns.
   if sub_returns_variadic and not super_returns_variadic then
     return false
   end
@@ -497,9 +535,11 @@ function signature_compatible(sub, super)
   end
   -- Parameters are contravariant over the positions sub checks; any
   -- super parameters beyond them land in sub's unchecked tail.
-  for i = 1, sub_params_fixed do
-    if not is_subtype(super_params[i], sub_params[i]) then
-      return false
+  if not params_any then
+    for i = 1, sub_params_fixed do
+      if not is_subtype(super_params[i], sub_params[i]) then
+        return false
+      end
     end
   end
   -- Returns are covariant over the positions super promises; any sub

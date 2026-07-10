@@ -16,6 +16,7 @@ local Union = matchers.Union
 local Optional = matchers.Optional
 local Dict = matchers.Dict
 local Callable = matchers.Callable
+local AnyParams = matchers.AnyParams
 local Tuple = matchers.Tuple
 local Rest = matchers.Rest
 local Lazy = matchers.Lazy
@@ -681,6 +682,120 @@ describe('signature_compatible', function()
       expect(signature_compatible(
           sig({}, {VARARG, Integer}),
           sig({}, {VARARG, Integer}))).to.be_false()
+    end)
+  end)
+
+  describe('AnyParams escape hatch', function()
+    -- AnyParams in place of a parameter list is mypy's
+    -- Callable[..., R]: the declaring side does not constrain
+    -- parameters at all, so the parameter checks are skipped and
+    -- only returns are compared.
+    it('should accept any sub parameter list under an AnyParams '
+      .. 'super', function()
+      expect(signature_compatible(
+          sig({Integer, String}, {}),
+          sig(AnyParams, {}))).to.be_true()
+      expect(signature_compatible(
+          sig({}, {}),
+          sig(AnyParams, {}))).to.be_true()
+      expect(signature_compatible(
+          sig({Integer, VARARG}, {}),
+          sig(AnyParams, {}))).to.be_true()
+    end)
+
+    it('should accept an AnyParams sub against any super '
+      .. 'parameter list', function()
+      expect(signature_compatible(
+          sig(AnyParams, {}),
+          sig({Integer, String}, {}))).to.be_true()
+      expect(signature_compatible(
+          sig(AnyParams, {}),
+          sig({}, {}))).to.be_true()
+      expect(signature_compatible(
+          sig(AnyParams, {}),
+          sig({VARARG}, {}))).to.be_true()
+    end)
+
+    it('should relate two AnyParams signatures by their '
+      .. 'returns', function()
+      expect(signature_compatible(
+          sig(AnyParams, {Integer}),
+          sig(AnyParams, {Number}))).to.be_true()
+      expect(signature_compatible(
+          sig(AnyParams, {String}),
+          sig(AnyParams, {Number}))).to.be_false()
+    end)
+
+    it('should still compare returns covariantly', function()
+      expect(signature_compatible(
+          sig({Integer}, {Cat}),
+          sig(AnyParams, {Animal}))).to.be_true()
+      expect(signature_compatible(
+          sig({Integer}, {Animal}),
+          sig(AnyParams, {Cat}))).to.be_false()
+      expect(signature_compatible(
+          sig({Integer}, {Animal, Animal}),
+          sig(AnyParams, {Animal}))).to.be_false()
+    end)
+
+    it('should reject a malformed counterpart list', function()
+      -- AnyParams accepts every well-formed parameter list, not
+      -- broken ones: a non-trailing VARARG stays compatible with
+      -- nothing.
+      expect(signature_compatible(
+          sig({VARARG, Integer}, {}),
+          sig(AnyParams, {}))).to.be_false()
+      expect(signature_compatible(
+          sig(AnyParams, {}),
+          sig({VARARG, Integer}, {}))).to.be_false()
+    end)
+
+    it('should treat an AnyParams return list as malformed', function()
+      expect(signature_compatible(
+          sig({}, AnyParams),
+          sig({}, {}))).to.be_false()
+      expect(signature_compatible(
+          sig({}, {}),
+          sig({}, AnyParams))).to.be_false()
+      expect(signature_compatible(
+          sig({}, AnyParams),
+          sig({}, AnyParams))).to.be_false()
+    end)
+
+    it('should match wrapped functions against '
+      .. 'Callable(AnyParams, ...) by returns only', function()
+      local wrapped = signature.Function{
+        params = {Animal, String},
+        returns = {Cat},
+        func = function(...) return ... end,
+      }
+      expect(isinstance(wrapped, Callable(AnyParams, {Animal})))
+        .to.be_true()
+      expect(isinstance(wrapped, Callable(AnyParams, {String})))
+        .to.be_false()
+      -- Parameter arity is invisible through AnyParams.
+      local zero_arg = signature.Function{
+        params = {},
+        returns = {Cat},
+        func = function() end,
+      }
+      expect(isinstance(zero_arg, Callable(AnyParams, {Animal})))
+        .to.be_true()
+    end)
+
+    it('should keep AnyParams and variadic Callables distinct '
+      .. 'in is_subtype', function()
+      -- Callable({VARARG}, {R}) means "must be variadic";
+      -- Callable(AnyParams, {R}) means "parameters unchecked". The
+      -- matchers render differently, so the name fallback never
+      -- conflates them, while separately constructed AnyParams
+      -- matchers still compare equal.
+      local any_form = Callable(AnyParams, {String})
+      local vararg_form = Callable({VARARG}, {String})
+      expect(is_subtype(any_form, vararg_form)).to.be_false()
+      expect(is_subtype(vararg_form, any_form)).to.be_false()
+      expect(is_subtype(any_form, Callable(AnyParams, {String})))
+        .to.be_true()
     end)
   end)
 

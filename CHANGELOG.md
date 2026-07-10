@@ -235,6 +235,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `AnyParams`: the "any parameters" escape hatch for `Callable`, the
+  runtime analog of mypy's `Callable[..., R]`. Passed in place of the
+  parameter list -- `Callable(AnyParams, {R})` -- it declares that
+  parameters are not checked at all: every raw function is accepted
+  regardless of arity, every declared parameter list is compatible in
+  `signature_compatible` (whichever side declares it), and only
+  returns are compared. Like `Any`, this is deliberately gradual
+  rather than sound. It is distinct from `Callable({'...'}, {R})`,
+  which requires the matched function to itself be variadic, and the
+  two forms render differently (`Callable<* -> (R)>` vs
+  `Callable<(...) -> (R)>` -- the bare, unparenthesized `*` is not
+  producible by any entry name) so `is_subtype`'s name fallback
+  never conflates them. `AnyParams` is params-only and
+  `Callable`-only: combining it with `{strict = true}`, passing it
+  as (or inside) a return list, or embedding it inside a type list
+  raises at construction; `Signature`/`Function` declarations reject
+  it (as a field or an entry) the same way, since a declared
+  signature enforces its lists at call time and cannot enforce
+  nothing-in-particular; and `signature_compatible` treats an
+  `AnyParams` return list in a plain contract table as malformed
+  (compatible with nothing). `is_any_params(v)` recognizes the
+  sentinel. (#74)
+- `Iterator(..., {strict = true})`: a strict mode for the `Iterator`
+  matcher, the iterator analog of `Callable`'s strict option. By
+  default raw functions and unwrapped callables match `Iterator`
+  structurally (they carry no per-step type information -- the
+  documented weak fallback); with a trailing `{strict = true}`
+  options table that fallback is disabled entirely, so only values
+  that declare their yields -- `Yields{...}`-wrapped iterators and
+  generic-for-terminable typed generators -- can match, compared
+  covariantly exactly as in lenient mode. Where `Callable`'s strict
+  tightens the raw-function check to the strongest available signal
+  (exact arity), an iterator has no arity signal at all, so the
+  strongest tightening is to require a declaration. Strictness is
+  part of the matcher's name (`Iterator<T> strict`). Unknown option
+  keys, a non-boolean `strict`, and an empty trailing table (neither
+  a usable yield type nor meaningful options) raise at construction.
+  (#74)
+- `Iterator` and `Generator` now reject stray `Rest(T)` and
+  `AnyParams` markers in their declared type lists at construction
+  (the policy `Callable` already applies): such an entry was
+  silently unsatisfiable against declared yields/contracts while the
+  structural fallback still accepted every raw function or thread.
+  (#74)
 - `Never` is now the bottom type of the `is_subtype` relation:
   `is_subtype(Never, T)` is true for every type `T`, matching its
   documented role as the counterpart of `Any` (an empty `Union` was

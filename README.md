@@ -384,6 +384,14 @@ halve(9)                          --> 4.5
 local NumToNum = matchers.Callable({llx.Number}, {llx.Number})
 llx.isinstance(halve, NumToNum)   --> true
 
+-- Callable(AnyParams, {R}) is the analog of Callable[..., R]: the
+-- parameters are not checked at all (every raw function and every
+-- declared parameter list is accepted); only returns are compared.
+-- This is distinct from Callable({'...'}, {R}), which requires the
+-- function to itself be variadic.
+local ReturnsNum = matchers.Callable(matchers.AnyParams, {llx.Number})
+llx.isinstance(halve, ReturnsNum) --> true
+
 -- signature_compatible is the underlying variance relation: a
 -- handler accepting more and returning something more specific is
 -- usable where a narrower one is expected.
@@ -427,6 +435,14 @@ local count3 = llx.typed_iterators.Yields{llx.Integer} .. function()
 end
 for v in count3 do print(v) end   --> 1  2  3
 llx.isinstance(count3, matchers.Iterator(llx.Integer))  --> true
+
+-- Raw functions match Iterator structurally (they carry no per-step
+-- type information). A trailing {strict = true} disables that weak
+-- fallback: only wrapped iterators and typed generators with
+-- declared yields match.
+local StrictInts = matchers.Iterator(llx.Integer, {strict = true})
+llx.isinstance(count3, StrictInts)                --> true
+llx.isinstance(function() end, StrictInts)        --> false
 
 -- Generates{yields=, accepts=, returns=} is the typed sibling of
 -- coroutine.wrap: yields out, explicit sends in, and final returns

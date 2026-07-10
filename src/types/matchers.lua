@@ -558,11 +558,85 @@ local function reject_rest_entries(type_list, where)
   end
 end
 
+-- Marker key identifying the AnyParams sentinel below. A
+-- module-local table key cannot be forged (or observed) outside this
+-- module, so nothing else can accidentally look like AnyParams.
+-- is_any_params (exported below) is the public way to recognize it.
+local any_params_mark = {}
+
+-- AnyParams: the "any parameters" escape hatch for Callable, the
+-- runtime analog of mypy's Callable[..., R]. Passed *in place of*
+-- Callable's parameter type list -- Callable(AnyParams, {R}) -- it
+-- declares that parameters are not checked at all: every declared
+-- parameter list is compatible (see
+-- llx.is_subtype.signature_compatible) and every raw function is
+-- accepted regardless of arity; only returns are compared.
+--
+-- This is deliberately distinct from Callable({VARARG}, {R}), which
+-- is a *checked* promise that callers may pass arbitrary extras and
+-- therefore requires the matched function to itself be variadic.
+-- AnyParams, like Any, is gradual rather than sound: a fixed-arity
+-- function is accepted even though a caller holding the
+-- Callable(AnyParams, ...) view could pass it arguments it never
+-- declared. It is not a type matcher (it has no __isinstance), so
+-- using it as one raises the standard non-matcher error, and it is
+-- only valid as Callable's whole parameter list -- inside a type
+-- list, or anywhere in a return list, it is rejected at
+-- construction.
+local any_params_sentinel = setmetatable({
+  [any_params_mark] = true,
+}, {
+  __tostring = function() return 'AnyParams' end,
+})
+
+local function is_any_params(value)
+  return type(value) == 'table'
+     and rawget(value, any_params_mark) == true
+end
+
+-- Raises when the AnyParams sentinel appears inside a declared type
+-- list: it replaces Callable's whole parameter list, so an entry-
+-- level occurrence is always a mistake, and it carries no
+-- __isinstance, so leaving it in place would make the position
+-- silently unsatisfiable (the same policy reject_rest_entries
+-- applies to stray Rest markers). `where` names the raising matcher.
+local function reject_any_params_entries(type_list, where)
+  for i = 1, #type_list do
+    if is_any_params(type_list[i]) then
+      exceptions_module = exceptions_module or require 'llx.exceptions'
+      error(exceptions_module.ValueException(
+        where .. ': AnyParams replaces the whole parameter list '
+        .. '(Callable(AnyParams, returns)); it is not valid as a '
+        .. 'type list entry', 3))
+    end
+  end
+end
+
 local function callable_type_check(param_types, return_types, options)
   param_types = param_types or {}
   return_types = return_types or {}
   options = options or {}
   local strict = options.strict == true
+
+  -- AnyParams in place of the parameter list is the "do not check
+  -- parameters" escape hatch (mypy's Callable[..., R]); see the
+  -- sentinel's documentation above. It admits no per-parameter
+  -- entries, so the list validation below is skipped wholesale. It
+  -- is params-only: a return list cannot be unchecked this way
+  -- (declare a trailing VARARG for an unchecked return tail).
+  local params_any = is_any_params(param_types)
+  if is_any_params(return_types) then
+    error('Callable: AnyParams is only valid in place of the '
+      .. 'parameter list; declare a trailing VARARG (\'...\') for '
+      .. 'an unchecked return tail', 2)
+  end
+  -- strict exists to tighten the raw-function arity check against
+  -- the declared parameter shape; AnyParams declares no shape, so
+  -- the combination would be a silent no-op. Fail loudly instead.
+  if params_any and strict then
+    error('Callable: strict has no effect with AnyParams (there is '
+      .. 'no declared parameter shape to enforce)', 2)
+  end
 
   -- A trailing VARARG ('...') entry in param_types declares that the
   -- callable accepts arbitrary extra arguments beyond the fixed,
@@ -572,23 +646,27 @@ local function callable_type_check(param_types, return_types, options)
   -- the raw-function arity checks below. Note that
   -- Callable({VARARG}, {R}) is not mypy's Callable[..., R] ("do not
   -- check parameters"): it requires the matched function to itself
-  -- be declared variadic. An any-parameters escape hatch would be a
-  -- separate feature.
+  -- be declared variadic. Callable(AnyParams, {R}) is that escape
+  -- hatch.
   check_arguments_module =
       check_arguments_module or require 'llx.check_arguments'
   local vararg_marker = check_arguments_module.VARARG
-  local params_fixed = #param_types
-  local params_variadic = param_types[params_fixed] == vararg_marker
-  if params_variadic then
-    params_fixed = params_fixed - 1
-  end
-  -- A non-trailing VARARG can never be satisfied (check_returns_exact
-  -- raises for it at call time), so fail loudly at construction
-  -- rather than silently matching nothing.
-  for i = 1, params_fixed do
-    if param_types[i] == vararg_marker then
-      error("Callable: VARARG ('...') must be the last entry in "
-        .. 'the parameter list', 2)
+  local params_fixed = 0
+  local params_variadic = false
+  if not params_any then
+    params_fixed = #param_types
+    params_variadic = param_types[params_fixed] == vararg_marker
+    if params_variadic then
+      params_fixed = params_fixed - 1
+    end
+    -- A non-trailing VARARG can never be satisfied
+    -- (check_returns_exact raises for it at call time), so fail
+    -- loudly at construction rather than silently matching nothing.
+    for i = 1, params_fixed do
+      if param_types[i] == vararg_marker then
+        error("Callable: VARARG ('...') must be the last entry in "
+          .. 'the parameter list', 2)
+      end
     end
   end
   for i = 1, #return_types - 1 do
@@ -601,18 +679,40 @@ local function callable_type_check(param_types, return_types, options)
   -- parameter or return position holding one is silently
   -- unsatisfiable; reject it anywhere in either list. A *typed*
   -- variadic tail for signatures is a separate feature; the bare
-  -- VARARG marker is the supported (unchecked) spelling.
-  reject_rest_entries(param_types, 'Callable')
+  -- VARARG marker is the supported (unchecked) spelling. AnyParams
+  -- entries are rejected for the same silently-unsatisfiable reason.
+  if not params_any then
+    reject_rest_entries(param_types, 'Callable')
+    reject_any_params_entries(param_types, 'Callable')
+  end
   reject_rest_entries(return_types, 'Callable')
+  reject_any_params_entries(return_types, 'Callable')
 
-  local param_names = {}
-  for i, t in ipairs(param_types) do param_names[i] = type_name_of(t) end
+  -- The AnyParams parameter list renders as a bare, unparenthesized
+  -- '*' -- deliberately distinct from the variadic list's '(...)':
+  -- is_subtype falls back to name equality when comparing matchers,
+  -- and the two forms are different types (one checks that the
+  -- function is variadic, the other checks nothing). Dropping the
+  -- parentheses also makes the spelling unforgeable through entry
+  -- names: every concrete parameter list renders inside '(...)', so
+  -- no list entry (e.g. the string type name '*') can collide with
+  -- it.
+  local param_list_name
+  if params_any then
+    param_list_name = '*'
+  else
+    local param_names = {}
+    for i, t in ipairs(param_types) do
+      param_names[i] = type_name_of(t)
+    end
+    param_list_name = '(' .. table.concat(param_names, ', ') .. ')'
+  end
   local return_names = {}
   for i, t in ipairs(return_types) do return_names[i] = type_name_of(t) end
   -- Strictness is part of the matcher's identity, so it is encoded in
   -- the name (which is_subtype falls back to when comparing matchers).
-  local typename = 'Callable<(' .. table.concat(param_names, ', ')
-                   .. ') -> (' .. table.concat(return_names, ', ') .. ')>'
+  local typename = 'Callable<' .. param_list_name
+                   .. ' -> (' .. table.concat(return_names, ', ') .. ')>'
                    .. (strict and ' strict' or '')
 
   local signature_module = nil
@@ -639,7 +739,9 @@ local function callable_type_check(param_types, return_types, options)
       -- in both lenient and strict mode: signature_compatible already
       -- enforces sound arity rules, and strict's extra constraints
       -- exist for raw functions, where no declared types are
-      -- available. The requires are deferred to avoid load-time cycles
+      -- available. An AnyParams parameter list skips the parameter
+      -- comparison entirely there, so only the declared returns are
+      -- compared. The requires are deferred to avoid load-time cycles
       -- (llx.signature and llx.is_subtype depend, indirectly, on
       -- llx.types) and cached in upvalues.
       signature_module = signature_module or require 'llx.signature'
@@ -665,7 +767,13 @@ local function callable_type_check(param_types, return_types, options)
       -- accepts any C function and strict mode rejects them all --
       -- except against Callable({'...'}, ...), whose declared shape a
       -- C function matches exactly as far as the debug API can tell.
+      -- With AnyParams no parameter shape is declared at all, so
+      -- every function is accepted outright (strict is rejected at
+      -- construction in that form).
       if type(value) == 'function' then
+        if params_any then
+          return true
+        end
         local info = debug.getinfo(value, 'u')
         if strict then
           if params_variadic then
@@ -710,14 +818,23 @@ local function iterator_type_check(...)
   --   values on completion is not generic-for terminable (the loop
   --   would consume the return values as a step and resume a dead
   --   coroutine), so it is not usable as an iterator.
-  -- - Raw functions carry no per-step type information, so they are
-  --   accepted structurally (any function could be an iterator
-  --   closure; generic-for's state/control arguments make arity
-  --   heuristics meaningless here). This is the documented weak
-  --   fallback; wrap the iterator (Yields{...} .. fn) to make the
-  --   yield types checkable.
+  -- - Raw functions carry no per-step type information, so by
+  --   default they are accepted structurally (any function could be
+  --   an iterator closure; generic-for's state/control arguments
+  --   make arity heuristics meaningless here -- unlike Callable,
+  --   there is no arity signal to check at all). This is the
+  --   documented weak fallback; wrap the iterator
+  --   (Yields{...} .. fn) to make the yield types checkable.
   -- - Other callables (tables or userdata with __call) are likewise
-  --   accepted structurally.
+  --   accepted structurally by default.
+  -- - A trailing {strict = true} options table -- Iterator's analog
+  --   of Callable's strict option -- disables the structural
+  --   fallback entirely: only values that *declare* their yields
+  --   (the wrappers above) can match, so raw functions and unwrapped
+  --   callables are rejected. Where Callable's strict tightens the
+  --   raw-function check to the strongest available signal (exact
+  --   arity), an iterator has no such signal, so the strongest
+  --   tightening is to require a declaration.
   -- - Everything else -- including bare coroutine threads, which
   --   generic-for cannot drive -- is rejected.
   --
@@ -726,6 +843,35 @@ local function iterator_type_check(...)
   -- stays opt-in via the wrappers in llx.typed_iterators.
   local yield_count = select('#', ...)
   local yield_types = {...}
+  -- A trailing options table is unambiguous in the vararg calling
+  -- form: every real yield type entry is a matcher or class (a table
+  -- carrying __isinstance), the VARARG string, or a stray marker
+  -- (Rest/AnyParams, rejected below), so a table with no
+  -- __isinstance and no marker can only be options.
+  local strict = false
+  local last = yield_types[yield_count]
+  if yield_count > 0 and type(last) == 'table'
+      and last.__isinstance == nil
+      and not is_rest(last) and not is_any_params(last) then
+    -- An empty table is neither a usable yield type (it could never
+    -- match) nor a meaningful options table; silently discarding it
+    -- would hide the mistake, so it fails loudly.
+    if next(last) == nil then
+      error('Iterator: expected a yield type or a non-empty '
+        .. 'options table ({strict = ...}), got an empty table', 2)
+    end
+    for key in pairs(last) do
+      if key ~= 'strict' then
+        error("Iterator: unknown option '" .. tostring(key) .. "'", 2)
+      end
+    end
+    if last.strict ~= nil and type(last.strict) ~= 'boolean' then
+      error('Iterator: strict must be a boolean', 2)
+    end
+    strict = last.strict == true
+    yield_types[yield_count] = nil
+    yield_count = yield_count - 1
+  end
   check_arguments_module =
       check_arguments_module or require 'llx.check_arguments'
   local vararg_marker = check_arguments_module.VARARG
@@ -738,12 +884,21 @@ local function iterator_type_check(...)
         .. 'the yield type list', 2)
     end
   end
+  -- Stray markers make a yield position silently unsatisfiable
+  -- against declared yields while the lenient structural fallback
+  -- would still accept every raw function; fail loudly at
+  -- construction instead, the same policy Callable applies.
+  reject_rest_entries(yield_types, 'Iterator')
+  reject_any_params_entries(yield_types, 'Iterator')
   local yield_names = {}
   for i = 1, yield_count do
     yield_names[i] = type_name_of(yield_types[i])
   end
+  -- Strictness is part of the matcher's identity, so it is encoded
+  -- in the name (which is_subtype falls back to when comparing
+  -- matchers), exactly as Callable does.
   local typename = 'Iterator<' .. table.concat(yield_names, ', ')
-                   .. '>'
+                   .. '>' .. (strict and ' strict' or '')
 
   -- Cached upvalues for deferred requires (the Callable pattern:
   -- llx.typed_iterators and llx.is_subtype depend on this module, so
@@ -754,8 +909,10 @@ local function iterator_type_check(...)
   return setmetatable({
     __name = typename,
 
-    -- Expose the per-step yield types so callers can introspect.
+    -- Expose the per-step yield types and strictness so callers can
+    -- introspect.
     yields = yield_types,
+    strict = strict,
 
     __isinstance = function(self, value)
       if type(value) == 'table' then
@@ -775,11 +932,21 @@ local function iterator_type_check(...)
           end
           -- Declared yields are covariant, with the same arity and
           -- variadic rules as a signature's return list; reuse
-          -- signature_compatible on returns-only signatures.
+          -- signature_compatible on returns-only signatures. This
+          -- path is the same in lenient and strict mode: strict
+          -- exists to reject undeclared values, not to change the
+          -- variance rules.
           subtype_module = subtype_module or require 'llx.is_subtype'
           return subtype_module.signature_compatible(
               {returns = value.yields}, {returns = yield_types})
         end
+      end
+      if strict then
+        -- Strict mode: only declared yields count, and the wrapper
+        -- paths above are the only declarations. Raw functions and
+        -- unwrapped callables carry no per-step type information,
+        -- so they are rejected rather than structurally accepted.
+        return false
       end
       if type(value) == 'function' then
         return true
@@ -830,6 +997,17 @@ local function generator_type_check(contract)
   local yields = contract.yields or {}
   local accepts = contract.accepts or {}
   local returns = contract.returns or {}
+  -- Stray Rest/AnyParams markers make a contract position silently
+  -- unsatisfiable against declared generators while the structural
+  -- thread fallback still accepts every coroutine; fail loudly at
+  -- construction instead, the same policy Callable and Iterator
+  -- apply.
+  reject_rest_entries(yields, 'Generator')
+  reject_rest_entries(accepts, 'Generator')
+  reject_rest_entries(returns, 'Generator')
+  reject_any_params_entries(yields, 'Generator')
+  reject_any_params_entries(accepts, 'Generator')
+  reject_any_params_entries(returns, 'Generator')
   local function names_of(types)
     local names = {}
     for i, t in ipairs(types) do names[i] = type_name_of(t) end
@@ -1943,10 +2121,12 @@ ClassOf=class_of_type_check
 Lazy=lazy_type_check
 resolve_lazy=resolve_lazy_matcher
 TypeVar=type_var_type_check
+AnyParams=any_params_sentinel
 -- These share their (local) implementation names, so the exports go
 -- through _ENV explicitly (a bare assignment would just write the
 -- local back to itself).
 _ENV.is_rest=is_rest
+_ENV.is_any_params=is_any_params
 _ENV.is_type_var=is_type_var
 _ENV.enter_type_var_scope=enter_type_var_scope
 _ENV.exit_type_var_scope=exit_type_var_scope

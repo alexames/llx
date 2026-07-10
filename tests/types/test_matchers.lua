@@ -12,6 +12,7 @@ local ListOf = matchers.ListOf
 local SetOf = matchers.SetOf
 local Protocol = matchers.Protocol
 local Callable = matchers.Callable
+local AnyParams = matchers.AnyParams
 local Tuple = matchers.Tuple
 local Literal = matchers.Literal
 local ClassOf = matchers.ClassOf
@@ -1448,6 +1449,206 @@ describe('Callable', function()
         .to.be_false()
       expect(Callable({}, {Integer, VARARG}):__isinstance(wrapped))
         .to.be_true()
+    end)
+  end)
+
+  describe('AnyParams escape hatch', function()
+    -- Callable(AnyParams, {R}) is the analog of mypy's
+    -- Callable[..., R]: parameters are not checked at all; only
+    -- returns are compared.
+    describe('__name', function()
+      it('should render the AnyParams list as a bare *', function()
+        expect(Callable(AnyParams, {String}).__name)
+          .to.be_equal_to('Callable<* -> (String)>')
+      end)
+
+      it('should stay distinct from the variadic spelling', function()
+        -- is_subtype falls back to name equality, so the two forms
+        -- must never share a name: {VARARG} means "must be
+        -- variadic", AnyParams means "parameters unchecked".
+        expect(Callable(AnyParams, {String}).__name).to_not
+          .be_equal_to(Callable({VARARG}, {String}).__name)
+      end)
+
+      it('should be unforgeable through string entry names', function()
+        -- A concrete parameter list always renders inside
+        -- parentheses, so no entry name -- not even the literal
+        -- string '*' -- can produce the AnyParams spelling (which
+        -- would make the two forms mutual subtypes through the
+        -- name fallback).
+        expect(Callable({'*'}, {String}).__name)
+          .to.be_equal_to("Callable<(*) -> (String)>")
+        expect(Callable({'*'}, {String}).__name).to_not
+          .be_equal_to(Callable(AnyParams, {String}).__name)
+      end)
+    end)
+
+    describe('exposed fields', function()
+      it('should expose the sentinel as params', function()
+        local C = Callable(AnyParams, {String})
+        expect(matchers.is_any_params(C.params)).to.be_true()
+        expect(C.returns[1]).to.be_equal_to(String)
+      end)
+
+      it('should recognize only the sentinel', function()
+        expect(matchers.is_any_params(AnyParams)).to.be_true()
+        expect(matchers.is_any_params({})).to.be_false()
+        expect(matchers.is_any_params('AnyParams')).to.be_false()
+        expect(matchers.is_any_params(nil)).to.be_false()
+      end)
+    end)
+
+    describe('construction-time validation', function()
+      local ValueException =
+          require 'llx.exceptions' . ValueException
+
+      local function expect_any_params_rejection(build)
+        local ok, err = pcall(build)
+        expect(ok).to.be_false()
+        expect(isinstance(err, ValueException)).to.be_true()
+        expect(err.what:find('AnyParams replaces the whole '
+                             .. 'parameter list',
+                             1, true)).to_not.be_nil()
+      end
+
+      it('should reject the strict option', function()
+        expect(function()
+          Callable(AnyParams, {String}, {strict = true})
+        end).to.throw('Callable: strict has no effect with '
+          .. 'AnyParams (there is no declared parameter shape to '
+          .. 'enforce)')
+      end)
+
+      it('should reject AnyParams as the return list', function()
+        expect(function() Callable({}, AnyParams) end)
+          .to.throw('Callable: AnyParams is only valid in place of '
+            .. "the parameter list; declare a trailing VARARG "
+            .. "('...') for an unchecked return tail")
+      end)
+
+      it('should reject AnyParams inside a type list', function()
+        expect_any_params_rejection(function()
+          return Callable({AnyParams}, {})
+        end)
+        expect_any_params_rejection(function()
+          return Callable({Integer, AnyParams}, {})
+        end)
+        expect_any_params_rejection(function()
+          return Callable({}, {AnyParams})
+        end)
+      end)
+    end)
+
+    describe('raw functions', function()
+      it('should accept every function regardless of arity', function()
+        local C = Callable(AnyParams, {String})
+        expect(C:__isinstance(function() end)).to.be_true()
+        expect(C:__isinstance(function(a, b, c) end)).to.be_true()
+        expect(C:__isinstance(function(...) end)).to.be_true()
+      end)
+
+      it('should accept C functions', function()
+        -- debug.getinfo reports every C function as vararg with
+        -- nparams == 0; AnyParams never consults arity at all.
+        expect(Callable(AnyParams, {}):__isinstance(print))
+          .to.be_true()
+      end)
+
+      it('should accept callable tables and reject '
+        .. 'non-callables', function()
+        local C = Callable(AnyParams, {String})
+        local callable_table = setmetatable({}, {
+          __call = function(self) return 'x' end,
+        })
+        expect(C:__isinstance(callable_table)).to.be_true()
+        expect(C:__isinstance({})).to.be_false()
+        expect(C:__isinstance(42)).to.be_false()
+        expect(C:__isinstance(nil)).to.be_false()
+      end)
+    end)
+
+    describe('Signature-wrapped functions', function()
+      local signature = require 'llx.signature'
+
+      local function make_wrapped(params, returns)
+        return signature.Function{
+          params = params,
+          returns = returns,
+          func = function(...) return ... end,
+        }
+      end
+
+      it('should ignore declared parameters entirely', function()
+        local C = Callable(AnyParams, {String})
+        expect(C:__isinstance(make_wrapped({}, {String})))
+          .to.be_true()
+        expect(C:__isinstance(make_wrapped({Integer, Any}, {String})))
+          .to.be_true()
+        expect(C:__isinstance(make_wrapped({VARARG}, {String})))
+          .to.be_true()
+      end)
+
+      it('should still compare returns covariantly', function()
+        local wrapped = make_wrapped({Integer}, {Integer})
+        expect(isinstance(wrapped, Callable(AnyParams, {Integer})))
+          .to.be_true()
+        expect(isinstance(wrapped, Callable(AnyParams, {Number})))
+          .to.be_true()
+        expect(isinstance(wrapped, Callable(AnyParams, {String})))
+          .to.be_false()
+        expect(isinstance(wrapped, Callable(AnyParams, {})))
+          .to.be_false()
+      end)
+
+      it('should accept an overload set when any declaration '
+        .. 'returns compatibly', function()
+        local overloaded = signature.Overload{
+          signature.Signature{params = {Integer},
+                              returns = {Integer}}
+              .. function(n) return n end,
+          signature.Signature{params = {String},
+                              returns = {String}}
+              .. function(s) return s end,
+        }
+        expect(isinstance(overloaded, Callable(AnyParams, {String})))
+          .to.be_true()
+        expect(isinstance(overloaded, Callable(AnyParams, {Boolean})))
+          .to.be_false()
+      end)
+    end)
+
+    describe('composition', function()
+      it('should compose inside Protocol', function()
+        local Handler = Protocol{
+          callback = Callable(AnyParams, {}),
+        }
+        expect(isinstance({callback = function(a, b) end}, Handler))
+          .to.be_true()
+        expect(isinstance({callback = 'nope'}, Handler)).to.be_false()
+      end)
+
+      it('should compose inside Union', function()
+        local U = Union{String, Callable(AnyParams, {Integer})}
+        expect(isinstance('hello', U)).to.be_true()
+        expect(isinstance(function() end, U)).to.be_true()
+        expect(isinstance(42, U)).to.be_false()
+      end)
+    end)
+
+    describe('isinstance integration', function()
+      it('should raise the standard non-matcher error when used '
+        .. 'as a bare matcher', function()
+        -- AnyParams is a sentinel, not a type: it has no
+        -- __isinstance, so plain isinstance rejects it loudly.
+        expect(function() isinstance(function() end, AnyParams) end)
+          .to.throw()
+      end)
+
+      it('should be exported as llx.AnyParams', function()
+        expect(llx.AnyParams).to.be_equal_to(AnyParams)
+        expect(llx.is_any_params).to.be_equal_to(
+          matchers.is_any_params)
+      end)
     end)
   end)
 
@@ -3030,6 +3231,72 @@ describe('Iterator', function()
       expect(function() Iterator(nil, Integer) end)
         .to.throw('Iterator: yield type 1 is nil')
     end)
+
+    it('should reject stray Rest and AnyParams markers', function()
+      -- Both markers make a yield position silently unsatisfiable
+      -- against declared yields; fail loudly, like Callable. The
+      -- rejections raise ValueException objects, so match on .what.
+      local ValueException =
+          require 'llx.exceptions' . ValueException
+      local function expect_marker_rejection(build, needle)
+        local ok, err = pcall(build)
+        expect(ok).to.be_false()
+        expect(isinstance(err, ValueException)).to.be_true()
+        expect(err.what:find(needle, 1, true)).to_not.be_nil()
+      end
+      expect_marker_rejection(function()
+        return Iterator(Rest(Integer))
+      end, 'Iterator: Rest(T) is only valid inside Tuple')
+      expect_marker_rejection(function()
+        return Iterator(Integer, Rest(String))
+      end, 'Iterator: Rest(T) is only valid inside Tuple')
+      expect_marker_rejection(function()
+        return Iterator(AnyParams)
+      end, 'AnyParams replaces the whole parameter list')
+    end)
+  end)
+
+  describe('options table', function()
+    it('should reject unknown option keys', function()
+      expect(function() Iterator(Integer, {lax = true}) end)
+        .to.throw("Iterator: unknown option 'lax'")
+    end)
+
+    it('should reject a non-boolean strict', function()
+      expect(function() Iterator(Integer, {strict = 'yes'}) end)
+        .to.throw('Iterator: strict must be a boolean')
+    end)
+
+    it('should reject an empty trailing table', function()
+      -- An empty table is neither a usable yield type nor a
+      -- meaningful options table; silently discarding it would hide
+      -- the mistake.
+      expect(function() Iterator(Integer, {}) end)
+        .to.throw('Iterator: expected a yield type or a non-empty '
+          .. 'options table ({strict = ...}), got an empty table')
+    end)
+
+    it('should expose the strict flag', function()
+      expect(Iterator(Integer).strict).to.be_false()
+      expect(Iterator(Integer, {strict = false}).strict).to.be_false()
+      expect(Iterator(Integer, {strict = true}).strict).to.be_true()
+    end)
+
+    it('should encode strictness in the name', function()
+      expect(Iterator(Integer, {strict = true}).__name)
+        .to.be_equal_to('Iterator<Integer> strict')
+      expect(Iterator(Integer, {strict = false}).__name)
+        .to.be_equal_to('Iterator<Integer>')
+      expect(Iterator({strict = true}).__name)
+        .to.be_equal_to('Iterator<> strict')
+    end)
+
+    it('should not swallow the options table into the '
+      .. 'yield list', function()
+      local I = Iterator(Integer, {strict = true})
+      expect(#I.yields).to.be_equal_to(1)
+      expect(I.yields[1]).to.be_equal_to(Integer)
+    end)
   end)
 
   describe('raw functions and callables (structural)', function()
@@ -3117,6 +3384,102 @@ describe('Iterator', function()
     end)
   end)
 
+  describe('strict mode', function()
+    -- {strict = true} disables the weak structural fallback: only
+    -- values that declare their yields (wrapped iterators and
+    -- generic-for-terminable typed generators) can match.
+    it('should reject raw functions', function()
+      local I = Iterator(Integer, {strict = true})
+      expect(I:__isinstance(function() end)).to.be_false()
+      expect(I:__isinstance(counter(3))).to.be_false()
+    end)
+
+    it('should reject unwrapped callable tables', function()
+      local callable = setmetatable({}, {__call = function() end})
+      expect(Iterator(Integer, {strict = true}):__isinstance(callable))
+        .to.be_false()
+    end)
+
+    it('should still reject non-callables and threads', function()
+      local I = Iterator(Integer, {strict = true})
+      expect(I:__isinstance(42)).to.be_false()
+      expect(I:__isinstance(nil)).to.be_false()
+      expect(I:__isinstance(coroutine.create(function() end)))
+        .to.be_false()
+    end)
+
+    it('should match wrapped iterators by declared yields', function()
+      local wrapped = Yields{Integer} .. counter(3)
+      expect(isinstance(wrapped, Iterator(Integer, {strict = true})))
+        .to.be_true()
+    end)
+
+    it('should keep the covariant yield rules of lenient '
+      .. 'mode', function()
+      -- strict rejects undeclared values; it does not change the
+      -- variance rules for declared ones.
+      local wrapped = Yields{Integer} .. counter(3)
+      expect(isinstance(wrapped, Iterator(Number, {strict = true})))
+        .to.be_true()
+      expect(isinstance(wrapped, Iterator(String, {strict = true})))
+        .to.be_false()
+      expect(isinstance(wrapped,
+                        Iterator(Integer, String, {strict = true})))
+        .to.be_false()
+    end)
+
+    it('should apply variadic yield rules unchanged', function()
+      local fixed = Yields{Integer, String} .. counter(0)
+      expect(isinstance(fixed,
+                        Iterator(Integer, VARARG, {strict = true})))
+        .to.be_true()
+      local variadic = Yields{Integer, VARARG} .. counter(0)
+      expect(isinstance(variadic, Iterator(Integer, {strict = true})))
+        .to.be_false()
+    end)
+
+    it('should match typed generators and still reject those '
+      .. 'declaring returns', function()
+      local gen = Generates{yields = {Integer}} .. function()
+        coroutine.yield(1)
+      end
+      expect(isinstance(gen(), Iterator(Integer, {strict = true})))
+        .to.be_true()
+      local returning = Generates{yields = {Integer},
+                                  returns = {String}} .. function()
+        coroutine.yield(1)
+        return 'done'
+      end
+      expect(isinstance(returning(),
+                        Iterator(Integer, {strict = true})))
+        .to.be_false()
+    end)
+
+    it('should compose inside Protocol', function()
+      local Iterable = Protocol{
+        iter = Iterator(Integer, {strict = true}),
+      }
+      local declared = {iter = Yields{Integer} .. counter(2)}
+      local raw = {iter = counter(2)}
+      expect(isinstance(declared, Iterable)).to.be_true()
+      expect(isinstance(raw, Iterable)).to.be_false()
+    end)
+
+    it('should stay distinct from the lenient matcher in '
+      .. 'is_subtype', function()
+      -- Strictness is part of the matcher's identity, encoded in
+      -- its name, so the name fallback never conflates the modes.
+      expect(llx.is_subtype(Iterator(Integer, {strict = true}),
+                            Iterator(Integer))).to.be_false()
+      expect(llx.is_subtype(Iterator(Integer),
+                            Iterator(Integer, {strict = true})))
+        .to.be_false()
+      expect(llx.is_subtype(Iterator(Integer, {strict = true}),
+                            Iterator(Integer, {strict = true})))
+        .to.be_true()
+    end)
+  end)
+
   describe('composition', function()
     it('should compose inside Protocol', function()
       local Iterable = Protocol{iter = Iterator(Integer)}
@@ -3180,6 +3543,31 @@ describe('Generator', function()
     it('should reject unknown contract keys', function()
       expect(function() Generator{sends = {Integer}} end)
         .to.throw("Generator: unknown contract key 'sends'")
+    end)
+
+    it('should reject stray Rest and AnyParams markers', function()
+      -- Same policy as Callable and Iterator: a marker entry is
+      -- silently unsatisfiable against declared generators while
+      -- the structural thread fallback still accepts every
+      -- coroutine, so it fails loudly at construction. The
+      -- rejections raise ValueException objects, so match on .what.
+      local ValueException =
+          require 'llx.exceptions' . ValueException
+      local function expect_marker_rejection(build, needle)
+        local ok, err = pcall(build)
+        expect(ok).to.be_false()
+        expect(isinstance(err, ValueException)).to.be_true()
+        expect(err.what:find(needle, 1, true)).to_not.be_nil()
+      end
+      expect_marker_rejection(function()
+        return Generator{yields = {Rest(Integer)}}
+      end, 'Generator: Rest(T) is only valid inside Tuple')
+      expect_marker_rejection(function()
+        return Generator{accepts = {Rest(Integer)}}
+      end, 'Generator: Rest(T) is only valid inside Tuple')
+      expect_marker_rejection(function()
+        return Generator{returns = {AnyParams}}
+      end, 'AnyParams replaces the whole parameter list')
     end)
   end)
 
