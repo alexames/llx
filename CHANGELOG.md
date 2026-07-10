@@ -87,6 +87,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   construction errors report "an instance of Animal" instead of a bare
   "table" too. Messages for primitives and plain tables are unchanged.
   (#67)
+- `TypeVar` binding refinements, completing three gaps documented in
+  the first iteration (#49):
+  - Speculative matcher branches now roll back: a `Union` member
+    (including `Optional`) that binds a type variable and then
+    rejects the value restores the bindings in place before the
+    branch, so union member order is no longer observable through
+    stale bindings and `Union{ListOf(T), Any}` no longer constrains
+    the rest of the call with a binding from a rejected list.
+  - Witnesses inside `pairs`-iterated containers (`Dict`, `SetOf`)
+    now bind order-independently: the variable binds the join (least
+    common supertype) of all witnesses it sees, computed over the
+    whole accumulated witness set -- `Integer`/`Float` widen to
+    `Number`, subclass mixes bind their most derived common declared
+    ancestor (unrelated classes fall back to `Table`), and witness
+    sets with no join are rejected in every iteration order. This
+    removes the previous nondeterminism and also accepts
+    subclass-heterogeneous containers that first-witness binding
+    only accepted by iteration-order luck. The join extends through
+    nested containers (`Dict(String, ListOf(T))` joins across and
+    within its lists, since the outer `pairs` order decides which
+    list is checked first). Positional contexts outside such
+    containers (`params`, `returns`, and the ipairs-ordered
+    `ListOf`/`Tuple`) keep the documented first-witness, one-pass
+    binding, so e.g. `params={T, T}` still rejects `f(1, 1.5)`.
+  - `check_arguments` and `type_check_decorator` now open the same
+    TypeVar binding scopes `llx.signature` threads through wrapped
+    calls, so type variables correlate across parameters on those
+    paths too (and, for `type_check_decorator`, between arguments
+    and returns) instead of degrading to bound-or-`Any` semantics
+    per position. (#72)
 
 ### Fixed
 

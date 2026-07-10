@@ -381,6 +381,12 @@ llx.signature_compatible(
 
 -- TypeVar: generic type variables with per-call binding. Every
 -- position naming T within one checked call must be consistent.
+-- Positional occurrences bind to the first witness's type; inside
+-- unordered containers (Dict, SetOf, including anything nested in
+-- them) the variable binds the join of the witnesses' types
+-- (Integer and Float join at Number, subclass mixes at their common
+-- base), independent of iteration order, and Union members that
+-- reject a value roll their bindings back.
 local T = matchers.TypeVar('T')
 local first = Signature{params={matchers.ListOf(T)}, returns={T}}
     .. function(xs) return xs[1] end

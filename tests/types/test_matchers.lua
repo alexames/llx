@@ -2703,6 +2703,274 @@ describe('TypeVar', function()
     end)
   end)
 
+  describe('speculative branch rollback (Union)', function()
+    it('should discard bindings recorded by a failed union branch',
+        function()
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      -- The ListOf branch binds T to Integer from element 1, then
+      -- rejects the list at 'x'; the rollback discards the binding
+      -- and the Any member accepts.
+      expect(isinstance({1, 'x'}, Union{ListOf(T), Any})).to.be_true()
+      expect(scope[T]).to.be_nil()
+      -- T is still free: a later witness binds from scratch.
+      expect(isinstance('s', T)).to.be_true()
+      expect(isinstance('t', T)).to.be_true()
+      expect(isinstance(1, T)).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should keep the bindings of a successful union branch',
+        function()
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      expect(isinstance({1, 2}, Union{ListOf(T), Any})).to.be_true()
+      expect(scope[T]).to.be_equal_to(Integer)
+      exit_type_var_scope()
+    end)
+
+    it('should leave no binding when every branch fails', function()
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      -- Optional(ListOf(T)) is Union{Nil, ListOf(T)}: the Nil member
+      -- rejects, the ListOf member binds T from element 1 and then
+      -- rejects; the whole union fails with a clean scope.
+      expect(isinstance({1, 'x'}, Optional(ListOf(T)))).to.be_false()
+      expect(scope[T]).to.be_nil()
+      exit_type_var_scope()
+    end)
+
+    it('should restore, not clear, the pre-branch bindings',
+        function()
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      -- T is bound to String before the union runs; the failed
+      -- ListOf branch must restore that binding, not erase it.
+      expect(isinstance('s', T)).to.be_true()
+      expect(isinstance({1, 'x'}, Union{ListOf(T), Any})).to.be_true()
+      expect(scope[T]).to.be_equal_to(llx.String)
+      exit_type_var_scope()
+    end)
+
+    it('should work with no active binding scope', function()
+      local T = TypeVar('T')
+      expect(isinstance({1, 'x'}, Union{ListOf(T), Any})).to.be_true()
+      expect(isinstance(42, Union{String, Boolean})).to.be_false()
+    end)
+  end)
+
+  describe('commutative witness joins (Dict, SetOf)', function()
+    local class = llx.class
+    local Animal = class 'TypeVarJoinAnimal' { }
+    local Cat = class 'TypeVarJoinCat' : extends(Animal) { }
+    local Dog = class 'TypeVarJoinDog' : extends(Animal) { }
+
+    it('should bind the common superclass of a subclass-'
+      .. 'heterogeneous Dict, in any iteration order', function()
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      expect(isinstance({a = Animal(), b = Cat()}, Dict(String, T)))
+        .to.be_true()
+      expect(scope[T]).to.be_equal_to(Animal)
+      exit_type_var_scope()
+    end)
+
+    it('should join sibling classes at their common ancestor',
+        function()
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      -- Neither Cat nor Dog admits the other, so first-witness
+      -- semantics would reject this in every order; the join binds
+      -- their nearest common declared ancestor.
+      expect(isinstance({a = Cat(), b = Dog()}, Dict(String, T)))
+        .to.be_true()
+      expect(scope[T]).to.be_equal_to(Animal)
+      exit_type_var_scope()
+    end)
+
+    it('should join Integer and Float witnesses at Number', function()
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      expect(isinstance({a = 1, b = 1.5}, Dict(String, T)))
+        .to.be_true()
+      expect(scope[T]).to.be_equal_to(Number)
+      -- The widened binding constrains later positions as usual.
+      expect(isinstance(2, T)).to.be_true()
+      expect(isinstance('s', T)).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should reject elements with no join, in any order', function()
+      local T = TypeVar('T')
+      enter_type_var_scope()
+      expect(isinstance({a = 1, b = 'x'}, Dict(String, T)))
+        .to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should join a class instance and a plain table at Table',
+        function()
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      expect(isinstance({a = Animal(), b = {}}, Dict(String, T)))
+        .to.be_true()
+      expect(scope[T]).to.be_equal_to(Table)
+      exit_type_var_scope()
+    end)
+
+    it('should reject unrelated plain-metatable elements, in any '
+      .. 'order', function()
+      -- Two distinct plain metatables share no declared ancestry,
+      -- and their values might not even be tables (a metatable does
+      -- not say what it is attached to), so there is no sound join.
+      local T = TypeVar('T')
+      local obj_a = setmetatable({}, {})
+      local obj_b = setmetatable({}, {})
+      enter_type_var_scope()
+      expect(isinstance({a = obj_a, b = obj_b}, Dict(String, T)))
+        .to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should apply the join to SetOf elements', function()
+      local Set = llx.Set
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      expect(isinstance(Set{Cat(), Animal(), Dog()}, SetOf(T)))
+        .to.be_true()
+      expect(scope[T]).to.be_equal_to(Animal)
+      exit_type_var_scope()
+    end)
+
+    it('should keep first-witness semantics in ipairs-ordered '
+      .. 'containers', function()
+      -- List order is part of the value, so ListOf stays one-pass:
+      -- a superclass witness admits later subclass elements, but not
+      -- the reverse.
+      local T = TypeVar('T')
+      enter_type_var_scope()
+      expect(isinstance({Animal(), Cat()}, ListOf(T))).to.be_true()
+      exit_type_var_scope()
+      enter_type_var_scope()
+      expect(isinstance({Cat(), Animal()}, ListOf(T))).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should extend the join through containers nested inside a '
+      .. 'pairs-iterated container', function()
+      -- The outer pairs order decides which nested list is checked
+      -- first, so order-independence requires joining across (and
+      -- therefore within) the nested lists too, even though a bare
+      -- ListOf(T) is positional and would reject a mixed list.
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      expect(isinstance({a = {1, 1.5}}, Dict(String, ListOf(T))))
+        .to.be_true()
+      expect(scope[T]).to.be_equal_to(Number)
+      exit_type_var_scope()
+      local T2 = TypeVar('T')
+      local scope2 = enter_type_var_scope()
+      expect(isinstance({a = {Cat()}, b = {Animal()}},
+                        Dict(String, ListOf(T2)))).to.be_true()
+      expect(scope2[T2]).to.be_equal_to(Animal)
+      exit_type_var_scope()
+      -- Outside a pairs-iterated container, ListOf stays one-pass.
+      enter_type_var_scope()
+      expect(isinstance({1, 1.5}, ListOf(T))).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should join a multiple-inheritance witness set at the '
+      .. 'ancestor common to all witnesses', function()
+      local X = class 'TypeVarJoinMixinX' { }
+      local Y = class 'TypeVarJoinMixinY' { }
+      local A = class 'TypeVarJoinLeafA' : extends(X, Y) { }
+      local B = class 'TypeVarJoinLeafB' : extends(X, Y) { }
+      local C = class 'TypeVarJoinLeafC' : extends(Y) { }
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      -- Y is the only ancestor common to all three witnesses. The
+      -- join is computed over the whole witness set, so it lands on
+      -- Y in every iteration order; a pairwise fold could have
+      -- tie-broken A and B at X first and then drifted to Table.
+      expect(isinstance({a = A(), b = B(), c = C()},
+                        Dict(String, T))).to.be_true()
+      expect(scope[T]).to.be_equal_to(Y)
+      exit_type_var_scope()
+      -- The same set presented in explicitly reversed encounter
+      -- order reaches the same join.
+      local T2 = TypeVar('T')
+      local scope2 = enter_type_var_scope()
+      expect(isinstance({a = C()}, Dict(String, T2))).to.be_true()
+      expect(isinstance({a = B()}, Dict(String, T2))).to.be_true()
+      expect(isinstance({a = A()}, Dict(String, T2))).to.be_true()
+      expect(scope2[T2]).to.be_equal_to(Y)
+      exit_type_var_scope()
+    end)
+
+    it('should reach the same join in either encounter order',
+        function()
+      -- pairs order cannot be forced from a test, so the fold is
+      -- driven explicitly: successive single-element containers in
+      -- one scope present the witnesses in a chosen order. Both
+      -- orders must accept and bind the same join.
+      local T1 = TypeVar('T')
+      local scope1 = enter_type_var_scope()
+      expect(isinstance({a = Cat()}, Dict(String, T1))).to.be_true()
+      expect(isinstance({a = Animal()}, Dict(String, T1)))
+        .to.be_true()
+      expect(scope1[T1]).to.be_equal_to(Animal)
+      exit_type_var_scope()
+      local T2 = TypeVar('T')
+      local scope2 = enter_type_var_scope()
+      expect(isinstance({a = Animal()}, Dict(String, T2))).to.be_true()
+      expect(isinstance({a = Cat()}, Dict(String, T2))).to.be_true()
+      expect(scope2[T2]).to.be_equal_to(Animal)
+      exit_type_var_scope()
+      -- Sibling classes, both orders join at the common ancestor.
+      local T3 = TypeVar('T')
+      local scope3 = enter_type_var_scope()
+      expect(isinstance({a = Dog()}, Dict(String, T3))).to.be_true()
+      expect(isinstance({a = Cat()}, Dict(String, T3))).to.be_true()
+      expect(scope3[T3]).to.be_equal_to(Animal)
+      exit_type_var_scope()
+    end)
+
+    it('should restore a binding widened by a failed union branch',
+        function()
+      local T = TypeVar('T')
+      local scope = enter_type_var_scope()
+      expect(isinstance({a = Cat()}, Dict(String, T))).to.be_true()
+      expect(scope[T]).to.be_equal_to(Cat)
+      -- The Dict member may widen T to Animal before rejecting the
+      -- value at 'x' (depending on iteration order); either way the
+      -- union rollback restores the original Cat binding.
+      expect(isinstance({a = Animal(), b = 'x'},
+                        Union{Dict(String, T), Any})).to.be_true()
+      expect(scope[T]).to.be_equal_to(Cat)
+      exit_type_var_scope()
+    end)
+
+    it('should not leak join semantics past the container check',
+        function()
+      local T = TypeVar('T')
+      enter_type_var_scope()
+      expect(isinstance({a = Cat()}, Dict(String, T))).to.be_true()
+      -- Outside the container, consistency is positional again: an
+      -- Animal is not admitted by (or joined into) the Cat binding.
+      expect(isinstance(Animal(), T)).to.be_false()
+      exit_type_var_scope()
+    end)
+
+    it('should work with no active binding scope', function()
+      local T = TypeVar('T')
+      expect(isinstance({a = Animal(), b = Cat()}, Dict(String, T)))
+        .to.be_true()
+      expect(isinstance({a = 1, b = 'x'}, Dict(String, Integer)))
+        .to.be_false()
+    end)
+  end)
+
   describe('top-level llx namespace', function()
     it('should be exported as llx.TypeVar', function()
       expect(llx.TypeVar).to.be_equal_to(TypeVar)

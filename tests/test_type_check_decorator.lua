@@ -201,6 +201,57 @@ describe('type_check_decorator', function()
     end)
   end)
 
+  describe('TypeVar binding scopes', function()
+    local matchers = require 'llx.types.matchers'
+    local TypeVar = matchers.TypeVar
+    local ListOf = matchers.ListOf
+
+    it('should correlate a TypeVar across arguments', function()
+      local T = TypeVar('T')
+      local wrapped = type_check_decorator(
+        function(a, b) end, {args={T, T}})
+      expect(pcall(wrapped, 1, 2)).to.be_true()
+      expect(pcall(wrapped, 'a', 'b')).to.be_true()
+      expect(pcall(wrapped, 1, 'x')).to.be_false()
+      -- Numbers bind narrowly, matching the signature path.
+      expect(pcall(wrapped, 1, 1.5)).to.be_false()
+    end)
+
+    it('should correlate arguments and returns through one scope',
+        function()
+      local T = TypeVar('T')
+      local wrapped = type_check_decorator(
+        function(x) return 'oops' end, {args={T}, returns={T}})
+      expect(pcall(wrapped, 1)).to.be_false()
+      expect(wrapped('oops')).to.be_equal_to('oops')
+    end)
+
+    it('should propagate bindings through parameterized matchers',
+        function()
+      local T = TypeVar('T')
+      local first = type_check_decorator(
+        function(xs) return xs[1] end,
+        {args={ListOf(T)}, returns={T}})
+      expect(first({1, 2, 3})).to.be_equal_to(1)
+      expect(first({'a', 'b'})).to.be_equal_to('a')
+      local bad = type_check_decorator(
+        function(xs) return 'nope' end,
+        {args={ListOf(T)}, returns={T}})
+      expect(pcall(bad, {1, 2})).to.be_false()
+    end)
+
+    it('should exit the scope on success and on failure', function()
+      local T = TypeVar('T')
+      local wrapped = type_check_decorator(
+        function(a, b) end, {args={T, T}})
+      expect(pcall(wrapped, 1, 'x')).to.be_false()
+      -- The scope was exited: plain isinstance is back to the
+      -- unconstrained behavior, and each call re-binds from scratch.
+      expect(llx.isinstance('anything', T)).to.be_true()
+      expect(pcall(wrapped, 'a', 'b')).to.be_true()
+    end)
+  end)
+
   describe('access via llx module', function()
     it('should be accessible as llx.type_check_decorator', function()
       expect(llx.type_check_decorator).to_not.be_nil()
