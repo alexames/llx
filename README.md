@@ -462,7 +462,7 @@ describe('parser', function()
   end)
 end)
 
-if llx.main_file() then unit.run_unit_tests() end
+if llx.main_file() then os.exit(unit.run_unit_tests() == 0) end
 ```
 
 ### Strict mode

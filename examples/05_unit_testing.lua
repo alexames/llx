@@ -62,5 +62,5 @@ end)
 
 -- Run the tests if this file is executed directly.
 if llx.main_file() then
-  unit.run_unit_tests()
+  os.exit(unit.run_unit_tests() == 0)
 end
