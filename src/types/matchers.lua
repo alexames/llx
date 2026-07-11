@@ -95,6 +95,23 @@ end
 -- of the scope's TypeVar namespace.
 local witnesses_mark = {}
 
+-- Private key under which a scope stores captured ParamSpec parameter
+-- lists. A table mapping each ParamSpec object to the list of
+-- observed parameter types (inferred from actual arguments at call
+-- time). Binding a ParamSpec "freezes" the observed list so any
+-- second occurrence (e.g., a Callable return list mirroring captured
+-- params) must check element-wise consistency. Like TypeVar bindings,
+-- it is per-call and rolled back on union branch failures.
+local param_spec_scope_mark = {}
+
+-- Private key under which a scope stores captured TypeVarTuple
+-- sequences. A table mapping each TypeVarTuple object to the list of
+-- types spanning the Unpack region in a matched value. The sequence
+-- is "free" (no length constraint) at the call level; binding it
+-- correlates a second occurrence (another Unpack(Ts) in the same
+-- call's params/returns).
+local tvt_scope_mark = {}
+
 -- Snapshots the innermost TypeVar binding scope so a speculative
 -- matcher branch can be rolled back when it fails. Returns nil (a
 -- no-op savepoint) when no scope is active -- the common plain
@@ -102,9 +119,9 @@ local witnesses_mark = {}
 -- primary caller: without a savepoint, a union member that binds a
 -- TypeVar from part of a value it ultimately rejects would leave the
 -- stale binding constraining the rest of the call, making union
--- member order observable. The witness sets are copied one level
--- deeper than the bindings: the branch mutates the inner arrays, so
--- restoring a shared reference would not roll them back.
+-- member order observable. The witness sets and ParamSpec/TypeVarTuple
+-- bindings are copied one level deeper: the branch mutates the inner
+-- arrays/tables, so restoring a shared reference would not roll them back.
 local function save_type_var_bindings()
   local scope = type_var_scope_stack[#type_var_scope_stack]
   if scope == nil then
@@ -122,6 +139,16 @@ local function save_type_var_bindings()
         witness_sets[var] = copy
       end
       snapshot[key] = witness_sets
+    elseif key == param_spec_scope_mark or key == tvt_scope_mark then
+      local bindings = {}
+      for var, list in pairs(value) do
+        local copy = {}
+        for i = 1, #list do
+          copy[i] = list[i]
+        end
+        bindings[var] = copy
+      end
+      snapshot[key] = bindings
     else
       snapshot[key] = value
     end
@@ -194,6 +221,104 @@ local function end_commutative_witnesses(scope)
   if depth ~= nil then
     scope[commutative_mark] = depth > 1 and depth - 1 or nil
   end
+end
+
+-- Binds a ParamSpec to a captured parameter list in the innermost
+-- scope. The captured list is a copy of the provided list (an array
+-- of type entries inferred from actual arguments). Returns true on
+-- success, false if the ParamSpec was already bound to a different
+-- list (occurs check / consistency violation). A nil scope is a no-op
+-- that returns true (plain isinstance with no binding scope).
+local function bind_param_spec(param_spec, param_list)
+  local scope = type_var_scope_stack[#type_var_scope_stack]
+  if scope == nil then
+    return true
+  end
+  local bindings = scope[param_spec_scope_mark]
+  if bindings == nil then
+    bindings = {}
+    scope[param_spec_scope_mark] = bindings
+  end
+  local existing = bindings[param_spec]
+  if existing ~= nil then
+    if #existing ~= #param_list then
+      return false
+    end
+    for i = 1, #param_list do
+      if existing[i] ~= param_list[i] then
+        return false
+      end
+    end
+    return true
+  end
+  local copy = {}
+  for i = 1, #param_list do
+    copy[i] = param_list[i]
+  end
+  bindings[param_spec] = copy
+  return true
+end
+
+-- Looks up a ParamSpec's captured parameter list in the innermost
+-- scope. Returns the list (an array of type entries) if bound, or nil.
+local function lookup_param_spec(param_spec)
+  local scope = type_var_scope_stack[#type_var_scope_stack]
+  if scope == nil then
+    return nil
+  end
+  local bindings = scope[param_spec_scope_mark]
+  if bindings == nil then
+    return nil
+  end
+  return bindings[param_spec]
+end
+
+-- Binds a TypeVarTuple to a captured sequence in the innermost scope.
+-- The captured sequence is a copy of the provided list (an array of
+-- types spanning the Unpack region). Returns true on success, false if
+-- the TypeVarTuple was already bound to a different sequence.
+local function bind_type_var_tuple(type_var_tuple, type_sequence)
+  local scope = type_var_scope_stack[#type_var_scope_stack]
+  if scope == nil then
+    return true
+  end
+  local bindings = scope[tvt_scope_mark]
+  if bindings == nil then
+    bindings = {}
+    scope[tvt_scope_mark] = bindings
+  end
+  local existing = bindings[type_var_tuple]
+  if existing ~= nil then
+    if #existing ~= #type_sequence then
+      return false
+    end
+    for i = 1, #type_sequence do
+      if existing[i] ~= type_sequence[i] then
+        return false
+      end
+    end
+    return true
+  end
+  local copy = {}
+  for i = 1, #type_sequence do
+    copy[i] = type_sequence[i]
+  end
+  bindings[type_var_tuple] = copy
+  return true
+end
+
+-- Looks up a TypeVarTuple's captured sequence in the innermost scope.
+-- Returns the sequence (an array of types) if bound, or nil.
+local function lookup_type_var_tuple(type_var_tuple)
+  local scope = type_var_scope_stack[#type_var_scope_stack]
+  if scope == nil then
+    return nil
+  end
+  local bindings = scope[tvt_scope_mark]
+  if bindings == nil then
+    return nil
+  end
+  return bindings[type_var_tuple]
 end
 
 local function any_type_check()
@@ -749,6 +874,20 @@ local unpack_mark = {}
 local function is_unpack(value)
   return type(value) == 'table'
      and rawget(value, unpack_mark) == true
+end
+
+-- Marker key identifying Concatenate sentinels below. A module-local
+-- table key cannot be forged (or observed) outside this module, so
+-- nothing else can accidentally look like a Concatenate. is_concatenate
+-- (exported below) is the public way to recognize one. Concatenate
+-- wraps a fixed prefix of types followed by a ParamSpec, allowing
+-- leading fixed parameters before a captured parameter list (mypy's
+-- Concatenate[A, B, P], where P is a ParamSpec).
+local concatenate_mark = {}
+
+local function is_concatenate(value)
+  return type(value) == 'table'
+     and rawget(value, concatenate_mark) == true
 end
 
 -- Raises ValueException when `entry` -- a single declared type
@@ -2730,6 +2869,70 @@ local function unpack_type_check(type_var_tuple)
   })
 end
 
+local function concatenate_type_check(...)
+  -- Concatenate(..., P): a wrapper holding a fixed prefix of types
+  -- followed by a ParamSpec, used in place of a Callable's parameter
+  -- list to express leading fixed parameters before a captured parameter
+  -- list -- the runtime analog of mypy's Concatenate[A, B, P]. It
+  -- enables partial application / wrapper patterns where a fixed set of
+  -- leading arguments is checked against known types, and the remainder
+  -- is captured as a ParamSpec (for type level unification with other
+  -- callables).
+  --
+  --   local P = ParamSpec('P')
+  --   local T = TypeVar('T')
+  --   -- A decorator that consumes one extra leading argument (ctx)
+  --   Callable({Callable(Concatenate(Context, P), {T})},
+  --            {Callable(P, {T})})
+  --
+  -- Decides the parameter position where the fixed prefix ends and the
+  -- ParamSpec begins through unification rules matching ParamSpec (see
+  -- llx.is_subtype.param_spec_compatible for the composition rules).
+  --
+  -- Concatenate is not itself a type matcher (it has no __isinstance),
+  -- so using it as one raises the standard non-matcher error; it is
+  -- only valid in place of a Callable's parameter list. Like ParamSpec,
+  -- it is type-level only in this first iteration (its composition lives
+  -- in signature_compatible), so a raw function is accepted gradually
+  -- (every parameter sequence is compatible with it until proved
+  -- otherwise by comparing declared types).
+  local args = {...}
+  if #args < 2 then
+    error('Concatenate: expected at least a prefix type and a ParamSpec, '
+      .. 'got ' .. #args .. ' arguments', 2)
+  end
+  local param_spec = args[#args]
+  if not is_param_spec(param_spec) then
+    error('Concatenate: last argument must be a ParamSpec, got '
+      .. type(param_spec), 2)
+  end
+  local prefix = {}
+  for i = 1, #args - 1 do
+    prefix[i] = args[i]
+  end
+  -- Build the name by rendering all arguments
+  local prefix_names = {}
+  for i = 1, #prefix do
+    prefix_names[i] = type_name_of(prefix[i])
+  end
+  local concat_name = 'Concatenate(' .. table.concat(prefix_names, ', ')
+                      .. ', ' .. type_name_of(param_spec) .. ')'
+  return setmetatable({
+    [concatenate_mark] = true,
+
+    -- Expose the prefix and ParamSpec so callers -- and llx.is_subtype --
+    -- can introspect and unify.
+    prefix = prefix,
+    param_spec = param_spec,
+
+    __name = concat_name,
+  }, {
+    __tostring = function(self)
+      return self.__name
+    end,
+  })
+end
+
 Any=any_type_check()
 Never=never_type_check()
 Union=union_type_check
@@ -2752,6 +2955,7 @@ TypeVar=type_var_type_check
 ParamSpec=param_spec_type_check
 TypeVarTuple=type_var_tuple_type_check
 Unpack=unpack_type_check
+Concatenate=concatenate_type_check
 AnyParams=any_params_sentinel
 -- These share their (local) implementation names, so the exports go
 -- through _ENV explicitly (a bare assignment would just write the
@@ -2759,11 +2963,18 @@ AnyParams=any_params_sentinel
 _ENV.is_rest=is_rest
 _ENV.is_any_params=is_any_params
 _ENV.is_param_spec=is_param_spec
+_ENV.is_concatenate=is_concatenate
 _ENV.is_type_var=is_type_var
 _ENV.is_type_var_tuple=is_type_var_tuple
 _ENV.is_unpack=is_unpack
 _ENV.matcher_kind=matcher_kind
 _ENV.enter_type_var_scope=enter_type_var_scope
 _ENV.exit_type_var_scope=exit_type_var_scope
+_ENV.save_type_var_bindings=save_type_var_bindings
+_ENV.restore_type_var_bindings=restore_type_var_bindings
+_ENV.bind_param_spec=bind_param_spec
+_ENV.lookup_param_spec=lookup_param_spec
+_ENV.bind_type_var_tuple=bind_type_var_tuple
+_ENV.lookup_type_var_tuple=lookup_type_var_tuple
 
 return _M

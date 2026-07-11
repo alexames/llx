@@ -91,51 +91,124 @@ local matchers_module = nil
 -- unreliable when embedded nils are present. A trailing VARARG entry
 -- in expected_types suppresses the count check: the fixed prefix is
 -- still type-checked and any number of extra values is allowed.
--- A Rest(T) marker (llx.types.matchers) is rejected anywhere in the
--- list: Rest is only meaningful inside a Tuple element type list,
--- and a signature position holding one could never match any value.
+-- An Unpack(Ts) entry splices a TypeVarTuple into the list: the spanned
+-- region is a free sequence (no length constraint), and Ts is bound to
+-- the types of values in that region for consistency checking on a
+-- second occurrence. A Rest(T) marker (llx.types.matchers) is rejected
+-- anywhere in the list: Rest is only meaningful inside a Tuple element
+-- type list, and a signature position holding one could never match.
 function check_returns_exact(expected_types, return_values, count)
   local expected_count = #expected_types
-  local variadic = expected_types[expected_count] == VARARG
-  local fixed_count = variadic and expected_count - 1 or expected_count
-  if fixed_count > 0 then
-    matchers_module = matchers_module or require 'llx.types.matchers'
+  matchers_module = matchers_module or require 'llx.types.matchers'
+
+  -- Detect Unpack(Ts) placement and validate constraints: at most one,
+  -- not combined with trailing VARARG/Rest.
+  local unpack_index = nil
+  local unpack_var = nil
+  for i = 1, expected_count do
+    if matchers_module.is_unpack(expected_types[i]) then
+      if unpack_index ~= nil then
+        error(ValueException(
+            'at most one Unpack(Ts) is allowed in the type list', 2))
+      end
+      unpack_index = i
+      unpack_var = expected_types[i].type_var_tuple
+    end
   end
-  for i=1, fixed_count do
-    local expected_type = expected_types[i]
-    if expected_type == VARARG then
-      error(ValueException(
-          "VARARG ('...') must be the last entry in the expected "
-          .. 'types list', 2))
-    end
-    if matchers_module.is_rest(expected_type) then
-      error(ValueException(
-          'Rest(T) is only valid inside Tuple; use a trailing '
-          .. "VARARG ('...') for variadic signatures", 2))
-    end
-    -- Unpack(Ts) and a bare TypeVarTuple are type-level-only markers
-    -- with no call-time meaning; reject them as the backstop for lists
-    -- that bypass the Signature constructor (which already rejects
-    -- them), the same policy as Rest(T) above.
-    if matchers_module.is_unpack(expected_type) then
-      error(ValueException(
-          'Unpack(Ts) is a type-level-only marker with no call-time '
-          .. 'meaning; use Tuple/Callable at the type level', 2))
-    end
-    if matchers_module.is_type_var_tuple(expected_type) then
-      error(ValueException(
-          'TypeVarTuple is only valid wrapped in Unpack(Ts) inside a '
-          .. 'Tuple or Callable', 2))
-    end
-    check_argument(i, return_values[i], expected_type)
+
+  local variadic = expected_count > 0
+      and expected_types[expected_count] == VARARG
+  if unpack_index ~= nil and variadic then
+    error(ValueException(
+        'Unpack(Ts) cannot be combined with a trailing VARARG', 2))
   end
-  if not variadic and count > expected_count then
-    error(InvalidArgumentException(
-        expected_count + 1,
-        string.format(
-            'expected at most %d value(s), got %d',
-            expected_count, count),
-        3))
+
+  local prefix_count = unpack_index and unpack_index - 1 or 0
+  local suffix_count = unpack_index
+      and expected_count - unpack_index
+      or 0
+
+  if unpack_index ~= nil then
+    -- TypeVarTuple splice: check minimum arity and bind the sequence.
+    local min_required = prefix_count + suffix_count
+    if count < min_required then
+      error(InvalidArgumentException(
+          min_required + 1,
+          string.format(
+              'expected at least %d value(s), got %d',
+              min_required, count),
+          3))
+    end
+    -- Check fixed prefix.
+    for i = 1, prefix_count do
+      local expected_type = expected_types[i]
+      if matchers_module.is_rest(expected_type) then
+        error(ValueException(
+            'Rest(T) is only valid inside Tuple', 2))
+      end
+      if matchers_module.is_type_var_tuple(expected_type) then
+        error(ValueException(
+            'TypeVarTuple must be wrapped in Unpack(Ts)', 2))
+      end
+      check_argument(i, return_values[i], expected_type)
+    end
+    -- Extract and bind the spanned sequence.
+    local span_count = count - prefix_count - suffix_count
+    local type_sequence = {}
+    for i = 1, span_count do
+      local value = return_values[prefix_count + i]
+      type_sequence[i] = getclass(value).__name
+    end
+    if not matchers_module.bind_type_var_tuple(unpack_var,
+                                              type_sequence) then
+      error(InvalidArgumentException(
+          prefix_count + 1,
+          'TypeVarTuple sequence does not match previously bound '
+          .. 'sequence', 3))
+    end
+    -- Check fixed suffix.
+    for j = 1, suffix_count do
+      local value_index = count - suffix_count + j
+      local expected_type = expected_types[unpack_index + j]
+      if matchers_module.is_rest(expected_type) then
+        error(ValueException(
+            'Rest(T) is only valid inside Tuple', 2))
+      end
+      if matchers_module.is_type_var_tuple(expected_type) then
+        error(ValueException(
+            'TypeVarTuple must be wrapped in Unpack(Ts)', 2))
+      end
+      check_argument(value_index, return_values[value_index],
+                     expected_type)
+    end
+  else
+    -- No Unpack: check prefix (up to trailing VARARG) and enforce arity.
+    local fixed_count = variadic and expected_count - 1 or expected_count
+    for i = 1, fixed_count do
+      local expected_type = expected_types[i]
+      if expected_type == VARARG then
+        error(ValueException(
+            "VARARG ('...') must be the last entry in the expected "
+            .. 'types list', 2))
+      end
+      if matchers_module.is_rest(expected_type) then
+        error(ValueException(
+            'Rest(T) is only valid inside Tuple', 2))
+      end
+      if matchers_module.is_type_var_tuple(expected_type) then
+        error(ValueException(
+            'TypeVarTuple must be wrapped in Unpack(Ts)', 2))
+      end
+      check_argument(i, return_values[i], expected_type)
+    end
+    if not variadic and count > expected_count then
+      error(InvalidArgumentException(
+          expected_count + 1,
+          string.format(
+              'expected at most %d value(s), got %d',
+              expected_count, count),
+          3))
+    end
   end
 end
 
