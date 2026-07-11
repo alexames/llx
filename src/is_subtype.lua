@@ -363,15 +363,102 @@ local function bind_param_spec(unify, ps, value)
   return true
 end
 
+-- Concatenate composition: when one side wraps a fixed prefix and a
+-- ParamSpec, split the other side to match the prefix length and
+-- compare. The prefix is contravariant (pointwise is_subtype(super, sub)),
+-- and the remainder is bound to the ParamSpec. Returns true if the
+-- split succeeds and the prefix matches.
+local function concatenate_compatible(sub_params, super_params, in_progress)
+  local unify = in_progress[unify_key]
+  local sub_concat = is_concatenate(sub_params)
+  local super_concat = is_concatenate(super_params)
+  -- Both sides are Concatenate; require identical structure (for now)
+  if sub_concat and super_concat then
+    local sub_prefix = rawget(sub_params, 'prefix')
+    local sub_ps = rawget(sub_params, 'param_spec')
+    local super_prefix = rawget(super_params, 'prefix')
+    local super_ps = rawget(super_params, 'param_spec')
+    if #sub_prefix ~= #super_prefix then
+      return false
+    end
+    for i = 1, #sub_prefix do
+      if not is_subtype_impl(super_prefix[i], sub_prefix[i],
+                             in_progress) then
+        return false
+      end
+    end
+    if rawequal(sub_ps, super_ps) then
+      return true
+    end
+    if unify.unifiable_params[sub_ps] then
+      return bind_param_spec(unify, sub_ps, super_ps)
+    end
+    if unify.unifiable_params[super_ps] then
+      return bind_param_spec(unify, super_ps, sub_ps)
+    end
+    return false
+  end
+  -- Exactly one side is Concatenate; extract its prefix and ParamSpec
+  local concat, other, is_sub
+  if sub_concat then
+    concat = sub_params
+    other = super_params
+    is_sub = true
+  else
+    concat = super_params
+    other = sub_params
+    is_sub = false
+  end
+  local prefix = rawget(concat, 'prefix')
+  local concat_ps = rawget(concat, 'param_spec')
+  -- Validate that the other side has enough elements for the prefix
+  if type(other) ~= 'table' or #other < #prefix then
+    return false
+  end
+  -- Compare the fixed prefix. The variance depends on which side is
+  -- Concatenate: if it's on the candidate side (sub), then the prefix
+  -- comparison is contravariant (is_subtype(super, sub) pointwise, with
+  -- super=other, sub=concat prefix); if it's on the super side, then
+  -- it's covariant (is_subtype(concat_prefix, other_prefix)).
+  for i = 1, #prefix do
+    if is_sub then
+      if not is_subtype_impl(other[i], prefix[i], in_progress) then
+        return false
+      end
+    else
+      if not is_subtype_impl(prefix[i], other[i], in_progress) then
+        return false
+      end
+    end
+  end
+  -- Capture the remainder of other into concat_ps
+  local remainder = {}
+  for i = #prefix + 1, #other do
+    remainder[i - #prefix] = other[i]
+  end
+  if unify.unifiable_params[concat_ps] then
+    return bind_param_spec(unify, concat_ps, remainder)
+  end
+  return false
+end
+
 -- Decides a parameter position where at least one side stands in as a
--- ParamSpec (after resolve_param_spec already substituted any *bound*
--- ParamSpec). A unifiable (candidate-side) ParamSpec captures its
--- counterpart's whole list; a ParamSpec that is not unifiable --
--- declared by super, or shared by both sides -- stays universal and
--- is compatible only with the identical ParamSpec object. Returns
--- true when the parameter position is satisfied (returns are still
--- compared by signature_rules afterward).
-local function param_spec_compatible(sub_params, super_params, unify)
+-- ParamSpec or Concatenate (after resolve_param_spec already substituted
+-- any *bound* ParamSpec). A unifiable (candidate-side) ParamSpec captures
+-- its counterpart's whole list; a ParamSpec that is not unifiable --
+-- declared by super, or shared by both sides -- stays universal and is
+-- compatible only with the identical ParamSpec object. A Concatenate
+-- wraps a fixed prefix and a ParamSpec; the prefix is compared
+-- contravariantly and the remainder is captured by the ParamSpec.
+-- Returns true when the parameter position is satisfied (returns are
+-- still compared by signature_rules afterward).
+local function param_spec_compatible(sub_params, super_params,
+                                     in_progress)
+  local unify = in_progress[unify_key]
+  -- Handle Concatenate composition if either side is a Concatenate
+  if is_concatenate(sub_params) or is_concatenate(super_params) then
+    return concatenate_compatible(sub_params, super_params, in_progress)
+  end
   local sub_ps = is_param_spec(sub_params)
   local super_ps = is_param_spec(super_params)
   -- The same ParamSpec object on both sides (the universal,
@@ -1294,8 +1381,10 @@ local function signature_rules(sub, super, in_progress)
   -- are skipped; returns are still compared.
   local params_spec =
       is_param_spec(sub_params) or is_param_spec(super_params)
-  if params_spec
-      and not param_spec_compatible(sub_params, super_params, unify)
+  local params_concat =
+      is_concatenate(sub_params) or is_concatenate(super_params)
+  if (params_spec or params_concat)
+      and not param_spec_compatible(sub_params, super_params, in_progress)
   then
     return false
   end
