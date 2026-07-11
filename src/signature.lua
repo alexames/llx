@@ -104,29 +104,45 @@ local function check_signature_fields(name, args)
   local param_list = args['params']
   local return_list = args['returns']
 
-  -- ParamSpec is allowed as the whole parameter list (captures the
-  -- observed argument list at call time); reject it in entry position.
+  -- Both params and returns must be present as fields; missing either
+  -- is caught here at the declaration site rather than later as a raw
+  -- "attempt to get length of a nil value" inside check_returns_exact.
+  if param_list == nil then
+    error(InvalidArgumentException(
+        'params', name .. ": expected a 'params' field, got nil", 2))
+  end
+  if return_list == nil then
+    error(InvalidArgumentException(
+        'returns', name .. ": expected a 'returns' field, got nil", 2))
+  end
+
+  -- AnyParams and ParamSpec are type-level-only markers with no
+  -- call-time enforcement meaning; reject them both as fields and
+  -- as entries. AnyParams is Callable's "do not compare" marker;
+  -- ParamSpec captures whole parameter lists for is_subtype/
+  -- signature_compatible relations. Neither can be enforced at
+  -- call time, so Signature/Function reject them.
   if is_any_params(param_list) then
     error(ValueException(
         name .. ': AnyParams is a Callable-only marker; declare '
         .. "an unchecked list as {'...'} instead", 2))
   end
   if is_param_spec(param_list) then
-    -- ParamSpec is now allowed at the call level: bind at check time.
-    return args
+    error(ValueException(
+        name .. ': ParamSpec is a type-level, Callable-only marker; '
+        .. 'type-level composition is not enforced at call time', 2))
   end
 
   -- AnyParams/ParamSpec in return list are never allowed.
   if is_any_params(return_list) then
     error(ValueException(
-        name .. ': AnyParams is only valid in place of the '
-        .. 'parameter list; declare a trailing VARARG (\'...\') for '
-        .. 'an unchecked return tail', 2))
+        name .. ': AnyParams is a Callable-only marker; declare '
+        .. "a trailing VARARG ('...') for an unchecked return tail", 2))
   end
   if is_param_spec(return_list) then
     error(ValueException(
-        name .. ': ParamSpec is only valid in place of the '
-        .. 'parameter list', 2))
+        name .. ': ParamSpec is a type-level, Callable-only marker; '
+        .. 'type-level composition is not enforced at call time', 2))
   end
 
   -- Validate both lists as regular type lists (no ParamSpec/AnyParams).
@@ -151,21 +167,25 @@ local function check_signature_fields(name, args)
       end
       if is_param_spec(entry) then
         error(ValueException(
-            name .. ': ParamSpec is only valid in place of the '
-            .. 'parameter list', 2))
+            name .. ': ParamSpec is a type-level, Callable-only '
+            .. 'marker; type-level composition is not enforced at '
+            .. 'call time', 2))
       end
       -- Unpack(Ts) at call time binds TypeVarTuple to the spanned
-      -- sequence. TypeVarTuple alone (unwrapped) is never valid.
+      -- sequence. However, Signature/Function enforce types on every
+      -- call, which per-call sequence witnessing cannot express, so
+      -- Unpack is rejected like ParamSpec.
       if is_unpack(entry) then
-        -- Unpack is allowed in params/returns; validation is done
-        -- at call time by check_returns_exact.
-        goto next_entry
+        error(ValueException(
+            name .. ': Unpack(Ts) is a type-level marker for '
+            .. 'variadic generics; per-call sequence witnessing is '
+            .. 'not implemented', 2))
       end
       if is_type_var_tuple(entry) then
         error(ValueException(
-            name .. ': TypeVarTuple must be wrapped in Unpack(Ts)', 2))
+            name .. ': TypeVarTuple is only valid wrapped in '
+            .. 'Unpack(Ts) at the type level', 2))
       end
-      ::next_entry::
     end
   end
   return args
