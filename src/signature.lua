@@ -28,6 +28,7 @@ local is_param_spec = matchers.is_param_spec
 local is_rest = matchers.is_rest
 local is_type_var_tuple = matchers.is_type_var_tuple
 local is_unpack = matchers.is_unpack
+local bind_param_spec = matchers.bind_param_spec
 
 local function type_name_of(t)
   -- String type names (and the VARARG '...' marker) are their own
@@ -100,57 +101,71 @@ local function check_signature_fields(name, args)
         1, name .. ': expected a table of signature fields '
         .. '(params=..., returns=...), got ' .. type(args), 2))
   end
-  for _, field in ipairs({'params', 'returns'}) do
-    local type_list = args[field]
-    if is_any_params(type_list) then
-      error(ValueException(
-          name .. ': AnyParams is a Callable-only marker; declare '
-          .. "an unchecked list as {'...'} instead", 2))
-    end
-    if is_param_spec(type_list) then
-      error(ValueException(
-          name .. ': ParamSpec is a type-level, Callable-only marker '
-          .. '(it captures a whole parameter list for is_subtype and '
-          .. 'has no call-time meaning); declare an unchecked list as '
-          .. "{'...'} instead", 2))
-    end
+  local param_list = args['params']
+  local return_list = args['returns']
+
+  -- ParamSpec is allowed as the whole parameter list (captures the
+  -- observed argument list at call time); reject it in entry position.
+  if is_any_params(param_list) then
+    error(ValueException(
+        name .. ': AnyParams is a Callable-only marker; declare '
+        .. "an unchecked list as {'...'} instead", 2))
+  end
+  if is_param_spec(param_list) then
+    -- ParamSpec is now allowed at the call level: bind at check time.
+    return args
+  end
+
+  -- AnyParams/ParamSpec in return list are never allowed.
+  if is_any_params(return_list) then
+    error(ValueException(
+        name .. ': AnyParams is only valid in place of the '
+        .. 'parameter list; declare a trailing VARARG (\'...\') for '
+        .. 'an unchecked return tail', 2))
+  end
+  if is_param_spec(return_list) then
+    error(ValueException(
+        name .. ': ParamSpec is only valid in place of the '
+        .. 'parameter list', 2))
+  end
+
+  -- Validate both lists as regular type lists (no ParamSpec/AnyParams).
+  for field_name, type_list in pairs({params = param_list,
+                                      returns = return_list}) do
     if type(type_list) ~= 'table' then
       error(InvalidArgumentException(
-          field, name .. ": expected a list of type entries for '"
-          .. field .. "', got " .. type(type_list), 2))
+          field_name, name .. ": expected a list of type entries for '"
+          .. field_name .. "', got " .. type(type_list), 2))
     end
     for i = 1, #type_list do
-      if is_rest(type_list[i]) then
+      local entry = type_list[i]
+      if is_rest(entry) then
         error(ValueException(
             name .. ': Rest(T) is only valid inside Tuple; use a '
             .. "trailing VARARG ('...') for variadic signatures", 2))
       end
-      if is_any_params(type_list[i]) then
+      if is_any_params(entry) then
         error(ValueException(
             name .. ': AnyParams is a Callable-only marker; declare '
             .. "an unchecked list as {'...'} instead", 2))
       end
-      if is_param_spec(type_list[i]) then
+      if is_param_spec(entry) then
         error(ValueException(
-            name .. ': ParamSpec is a type-level, Callable-only '
-            .. 'marker; it is not valid as a type list entry', 2))
+            name .. ': ParamSpec is only valid in place of the '
+            .. 'parameter list', 2))
       end
-      -- Unpack(Ts) and a bare TypeVarTuple are type-level-only
-      -- variadic-generic markers (llx.types.matchers): they carry no
-      -- call-time meaning (per-call sequence witnessing is out of
-      -- scope in this first iteration), so a Signature rejects them,
-      -- exactly as it rejects a ParamSpec. Use Tuple/Callable at the
-      -- type level, or a trailing VARARG ('...') for an unchecked tail.
-      if is_unpack(type_list[i]) then
+      -- Unpack(Ts) at call time binds TypeVarTuple to the spanned
+      -- sequence. TypeVarTuple alone (unwrapped) is never valid.
+      if is_unpack(entry) then
+        -- Unpack is allowed in params/returns; validation is done
+        -- at call time by check_returns_exact.
+        goto next_entry
+      end
+      if is_type_var_tuple(entry) then
         error(ValueException(
-            name .. ': Unpack(Ts) is a type-level, Tuple/Callable-only '
-            .. 'marker; it has no call-time meaning', 2))
+            name .. ': TypeVarTuple must be wrapped in Unpack(Ts)', 2))
       end
-      if is_type_var_tuple(type_list[i]) then
-        error(ValueException(
-            name .. ': TypeVarTuple is only valid wrapped in '
-            .. 'Unpack(Ts) inside a Tuple or Callable', 2))
-      end
+      ::next_entry::
     end
   end
   return args
@@ -204,8 +219,26 @@ Function = class 'Function' {
   -- survives; only the raw traceback gains the pcall frame).
   check_preconditions = function(self, arguments)
     local scope = enter_type_var_scope()
-    local ok, err = pcall(check_returns_exact, self.params, arguments,
-                          arguments.n or #arguments)
+    local ok, err
+    if is_param_spec(self.params) then
+      -- ParamSpec binding: extract types from actual arguments and bind.
+      ok, err = pcall(function()
+        local getclass_module = require 'llx.getclass'
+        local param_types = {}
+        local count = arguments.n or #arguments
+        for i = 1, count do
+          param_types[i] = getclass_module.getclass(arguments[i]).__name
+        end
+        if not bind_param_spec(self.params, param_types) then
+          error(ValueException(
+              'ParamSpec parameter list does not match previously '
+              .. 'bound parameter list', 3))
+        end
+      end)
+    else
+      ok, err = pcall(check_returns_exact, self.params, arguments,
+                      arguments.n or #arguments)
+    end
     exit_type_var_scope()
     if not ok then
       error(err, 0)
