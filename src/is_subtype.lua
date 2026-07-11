@@ -25,6 +25,7 @@ local Any = matchers.Any
 local Never = matchers.Never
 local VARARG = check_arguments.VARARG
 local is_any_params = matchers.is_any_params
+local is_concatenate = matchers.is_concatenate
 local is_param_spec = matchers.is_param_spec
 local is_rest = matchers.is_rest
 local is_type_var = matchers.is_type_var
