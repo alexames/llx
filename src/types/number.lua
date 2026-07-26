@@ -80,6 +80,8 @@ function metatable:__tostring()
   return 'Number'
 end;
 
+function metatable:__repr() return 'Number' end
+
 setmetatable(Number, metatable)
 
 return _M

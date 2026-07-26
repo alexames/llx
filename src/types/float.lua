@@ -31,6 +31,8 @@ function metatable:__tostring()
   return 'Float'
 end
 
+function metatable:__repr() return 'Float' end
+
 setmetatable(Float, metatable)
 
 return _M

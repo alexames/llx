@@ -4449,6 +4449,66 @@ describe('TypeVarTuple', function()
       expect(llx.is_unpack).to.be_equal_to(is_unpack)
     end)
   end)
+
+  describe('repr / parse (matcher serialization)', function()
+    -- Matchers carry __repr, so llx.repr renders a re-evaluable Lua
+    -- expression; matchers.parse is the inverse (evaluated in an env holding
+    -- the constructors, the primitive singletons, and any caller bindings).
+    local repr = llx.repr
+
+    local function reserialize(m) return repr(matchers.parse(repr(m))) end
+
+    it('renders leaves by name and round-trips them', function()
+      expect(repr(Any)).to.be_equal_to('Any')
+      expect(repr(Integer)).to.be_equal_to('Integer')
+      expect(reserialize(String)).to.be_equal_to('String')
+    end)
+
+    it('renders and round-trips ListOf / SetOf / Dict, incl. nesting',
+        function()
+      expect(repr(ListOf(Integer))).to.be_equal_to('ListOf(Integer)')
+      expect(repr(SetOf(String))).to.be_equal_to('SetOf(String)')
+      expect(repr(Dict(String, Integer)))
+        .to.be_equal_to('Dict(String, Integer)')
+      local nested = ListOf(Dict(String, ListOf(Number)))
+      expect(reserialize(nested))
+        .to.be_equal_to('ListOf(Dict(String, ListOf(Number)))')
+    end)
+
+    it('renders and round-trips Callable signatures', function()
+      expect(repr(Callable({Integer, Number}, {Boolean})))
+        .to.be_equal_to('Callable({Integer, Number}, {Boolean})')
+      expect(reserialize(Callable({}, {}))).to.be_equal_to('Callable({}, {})')
+      expect(repr(Callable({Integer}, {}, {strict = true})))
+        .to.be_equal_to('Callable({Integer}, {}, {strict = true})')
+    end)
+
+    it('parse overlays caller bindings onto the constructor env', function()
+      -- A leaf named 'Widget' resolves through the env the caller passes.
+      local m = matchers.parse('ListOf(Widget)', {Widget = Integer})
+      expect(is_subtype(m, ListOf(Integer))).to.be_true()
+      expect(is_subtype(ListOf(Integer), m)).to.be_true()
+    end)
+
+    it('parsed matchers obey the subtype relation with proper variance',
+        function()
+      -- Callable parameters are contravariant.
+      expect(is_subtype(matchers.parse('Callable({Number}, {Boolean})'),
+                        matchers.parse('Callable({Integer}, {Boolean})')))
+        .to.be_true()
+      -- ListOf is covariant, riding the Integer <: Number tower.
+      expect(is_subtype(matchers.parse('ListOf(Integer)'),
+                        matchers.parse('ListOf(Number)'))).to.be_true()
+      expect(is_subtype(matchers.parse('ListOf(Number)'),
+                        matchers.parse('ListOf(Integer)'))).to.be_false()
+    end)
+
+    it('refuses to serialize a variadic / generic parameter list', function()
+      expect(function() return repr(Callable({VARARG}, {})) end)
+        .to.throw('matchers.repr: variadic / generic type entries are not '
+          .. 'yet serializable')
+    end)
+  end)
 end)
 
 if llx.main_file() then

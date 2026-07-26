@@ -28,6 +28,7 @@ end
 setmetatable(Boolean, {
   __call = Boolean.__call,
   __tostring = Boolean.__tostring,
+  __repr = function() return 'Boolean' end,
 })
 
 return _M

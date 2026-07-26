@@ -15,6 +15,7 @@ end
 local metatable = {}
 
 function metatable:__tostring() return 'Nil' end;
+function metatable:__repr() return 'Nil' end;
 
 setmetatable(Nil, metatable)
 
