@@ -18,6 +18,14 @@ local is_callable = core.is_callable
 
 local _ENV, _M = environment.create_module_environment()
 
+-- Forward declarations for the serialization support at the bottom of this
+-- module: each matcher's metatable carries a __repr(self, ctx) that renders a
+-- re-evaluable Lua expression (see repr / parse below), recursing through
+-- these. Declared here so the matcher constructors above their definitions
+-- can close over them.
+local repr
+local make_repr_ctx
+
 local function type_name_of(t)
   -- String type names (and the VARARG '...' marker) are their own
   -- description. The explicit type check matters: llx extends the
@@ -330,6 +338,7 @@ local function any_type_check()
     end;
   }, {
     __tostring = function() return 'Any' end;
+    __repr = function() return 'Any' end;
   })
 end
 
@@ -347,6 +356,7 @@ local function never_type_check()
     end;
   }, {
     __tostring = function() return 'Never' end;
+    __repr = function() return 'Never' end;
   })
 end
 
@@ -491,6 +501,10 @@ local function union_type_check(type_list)
     __tostring = function(self)
       return self.__name
     end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      return 'Union(' .. ctx.list(self.type_list) .. ')'
+    end,
   })
 end
 
@@ -590,6 +604,20 @@ local function protocol_type_check(fields)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      local names = {}
+      for k in pairs(self.fields) do names[#names + 1] = k end
+      table.sort(names)
+      local parts = {}
+      for _, k in ipairs(names) do
+        local key = k:match('^[%a_][%w_]*$') and k
+            or ('[' .. string.format('%q', k) .. ']')
+        parts[#parts + 1] = key .. ' = ' .. ctx.type(self.fields[k])
+      end
+      if self.exact then parts[#parts + 1] = '__exact = true' end
+      return 'Protocol({' .. table.concat(parts, ', ') .. '})'
+    end,
   })
 end
 
@@ -638,6 +666,11 @@ local function dict_type_check(key_type, value_type)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      return 'Dict(' .. ctx.type(self.key_type) .. ', '
+                     .. ctx.type(self.value_type) .. ')'
+    end,
   })
 end
 
@@ -687,6 +720,10 @@ local function list_of_type_check(element_type)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      return 'ListOf(' .. ctx.type(self.element_type) .. ')'
+    end,
   })
 end
 
@@ -738,6 +775,10 @@ local function set_of_type_check(element_type)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      return 'SetOf(' .. ctx.type(self.element_type) .. ')'
+    end,
   })
 end
 
@@ -1268,6 +1309,16 @@ local function callable_type_check(param_types, return_types, options)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      -- Fixed-arity signatures only for now; a VARARG / ParamSpec /
+      -- AnyParams parameter list raises in ctx.list rather than emit an
+      -- unparseable spelling.
+      local s = 'Callable(' .. ctx.list(self.params)
+                             .. ', ' .. ctx.list(self.returns)
+      if self.strict then s = s .. ', {strict = true}' end
+      return s .. ')'
+    end,
   })
 end
 
@@ -1432,6 +1483,14 @@ local function iterator_type_check(...)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      local s = 'Iterator(' .. ctx.args(self.yields)
+      if self.strict then
+        s = s .. (#self.yields > 0 and ', ' or '') .. '{strict = true}'
+      end
+      return s .. ')'
+    end,
   })
 end
 
@@ -1572,6 +1631,21 @@ local function generator_type_check(contract)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      local parts = {}
+      if self.yields and #self.yields > 0 then
+        parts[#parts + 1] = 'yields = ' .. ctx.list(self.yields)
+      end
+      if self.accepts and #self.accepts > 0 then
+        parts[#parts + 1] = 'accepts = ' .. ctx.list(self.accepts)
+      end
+      if self.returns and #self.returns > 0 then
+        parts[#parts + 1] = 'returns = ' .. ctx.list(self.returns)
+      end
+      if self.strict then parts[#parts + 1] = 'strict = true' end
+      return 'Generator({' .. table.concat(parts, ', ') .. '})'
+    end,
   })
 end
 
@@ -1760,6 +1834,12 @@ local function tuple_type_check(element_types)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      -- Fixed-arity tuples only: an unpack / variadic tuple carries markers
+      -- its element list, which ctx.list rejects.
+      return 'Tuple(' .. ctx.list(self.element_types) .. ')'
+    end,
   })
 end
 
@@ -1805,6 +1885,14 @@ local function literal_type_check(value_list)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self)
+      -- Literal wraps VALUES, not types; render each with llx.repr (a
+      -- deferred require keeps matchers free of a load-time repr dependency).
+      local value_repr = require('llx.repr').repr
+      local parts = {}
+      for i = 1, #self.values do parts[i] = value_repr(self.values[i]) end
+      return 'Literal({' .. table.concat(parts, ', ') .. '})'
+    end,
   })
 end
 
@@ -2068,6 +2156,12 @@ local function new_type_check(name, base_type)
     __tostring = function(self)
       return self.__name
     end,
+
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      return 'NewType(' .. string.format('%q', self.__name) .. ', '
+                        .. ctx.type(self.base_type) .. ')'
+    end,
   })
 
   -- The wrapper metatable carries its brand so the matcher above can
@@ -2150,6 +2244,11 @@ local function class_of_type_check(base_class)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      if self.base_class == nil then return 'ClassOf()' end
+      return 'ClassOf(' .. ctx.type(self.base_class) .. ')'
+    end,
   })
 end
 
@@ -2933,6 +3032,124 @@ local function concatenate_type_check(...)
   })
 end
 
+-- ---------------------------------------------------------------------------
+-- Serialization: a type matcher <-> a Lua-expression string.
+--
+-- to_string(t, name_of) renders a matcher -- or a leaf type (a primitive
+-- singleton, a class, Any/Never) -- as a Lua *expression* that, evaluated in
+-- an environment holding the matcher constructors and the referenced leaf
+-- names, reconstructs an equal matcher:
+--
+--   ListOf(Integer)                <-> ListOf(Integer)
+--   Callable({Integer}, {Boolean}) <-> Callable({Integer}, {Boolean})
+--   String / Any / musica.Figure   <-> leaves, named by name_of
+--
+-- Structural matchers recurse; a *leaf* is named by the optional `name_of`
+-- callback (default: its __name), which lets a caller qualify a class it
+-- imported under a module (e.g. 'musica.Figure'). parse(expr, env) is the
+-- inverse -- see below. Variadic ('...') and generic (TypeVar/ParamSpec)
+-- entries are not serializable yet and raise rather than emit an
+-- unparseable string.
+--
+-- SCOPE (first cut): dispatch is driven by matcher_kind, which only
+-- ListOf/SetOf/Dict/Callable set. Those plus true leaves -- primitive
+-- singletons, classes, Any/Never -- serialize losslessly. Other composite
+-- matchers (Union, Optional, Tuple, ClassOf, ...) currently fall to the leaf
+-- path and emit their display __name, which is not guaranteed re-parseable;
+-- add them to `serializers` (keyed by however they are identified) as
+-- consumers need them.
+-- ---------------------------------------------------------------------------
+
+-- Default leaf naming: a leaf's own __name (Any/Never, primitive singletons).
+-- A caller passes a name_of to qualify a class reference it imported (so a
+-- Figure class serializes as 'musica.Figure', not the bare 'Figure').
+local function default_name_of(t)
+  local name = type(t) == 'table' and t.__name or nil
+  if type(name) ~= 'string' then
+    error('matchers.repr: no __repr and no string __name for '
+          .. describe_value(t) .. '; pass a name_of callback', 3)
+  end
+  return name
+end
+
+-- The recursion context handed to each matcher's __repr(self, ctx):
+--   ctx.type(x)  -- repr of a nested type / matcher
+--   ctx.list(xs) -- "{A, B, ...}" over a type list
+--   ctx.name     -- the active name_of (leaf class references)
+make_repr_ctx = function(name_of)
+  name_of = name_of or default_name_of
+  local ctx = {name = name_of}
+  function ctx.type(x) return repr(x, name_of) end
+  -- Comma-separated types "A, B, ..." (Iterator yields, Callable via ctx.list).
+  -- Rejects variadic / generic markers rather than an unparseable spelling.
+  function ctx.args(xs)
+    -- VARARG comes from llx.check_arguments, resolved via the shared cached
+    -- upvalue (a load-time require would cycle through types/init).
+    check_arguments_module = check_arguments_module
+        or require 'llx.check_arguments'
+    local VARARG = check_arguments_module.VARARG
+    local parts = {}
+    for i = 1, #xs do
+      local entry = xs[i]
+      if entry == VARARG or is_rest(entry) or is_unpack(entry)
+          or is_type_var(entry) or is_param_spec(entry) then
+        error('matchers.repr: variadic / generic type entries are not yet '
+              .. 'serializable', 0)
+      end
+      parts[i] = repr(entry, name_of)
+    end
+    return table.concat(parts, ', ')
+  end
+  -- Bracketed type list "{A, B, ...}" (Callable params/returns, Union, Tuple).
+  function ctx.list(xs) return '{' .. ctx.args(xs) .. '}' end
+  return ctx
+end
+
+-- repr(t, name_of) -> a Lua expression string that parse() (or hand-eval with
+-- the matcher constructors and referenced modules in scope) turns back into an
+-- equal matcher. Follows llx.repr's __repr protocol: llx.repr(matcher) yields
+-- the same string (with default, __name-based leaf naming). Structural
+-- matchers carry __repr(self, ctx) in their metatable; a leaf (primitive
+-- singleton, class, Any/Never) has none and is named by name_of.
+repr = function(t, name_of)
+  name_of = name_of or default_name_of
+  if type(t) == 'table' then
+    local mt_repr = core.getmetafield(t, '__repr')
+    if mt_repr then return mt_repr(t, make_repr_ctx(name_of)) end
+  end
+  return name_of(t)
+end
+
+-- parse(expr, env) compiles `return <expr>` in an environment seeded with
+-- every matcher constructor plus the primitive type singletons and Any/Never,
+-- overlaid with the caller's `env` (module and type bindings the expression
+-- references, e.g. `musica`). The chunk never sees the global environment, so
+-- a type expression can only reach what the seed and `env` grant.
+local function parse(expr, env)
+  local String  = require('llx.types.string')  . String
+  local Boolean = require('llx.types.boolean') . Boolean
+  local base = {
+    Any = Any, Never = Never, Union = Union, Optional = Optional,
+    Dict = Dict, ListOf = ListOf, SetOf = SetOf, Protocol = Protocol,
+    Callable = Callable, Iterator = Iterator, Generator = Generator,
+    Tuple = Tuple, Rest = Rest, Literal = Literal, NewType = NewType,
+    ClassOf = ClassOf, Lazy = Lazy, TypeVar = TypeVar, ParamSpec = ParamSpec,
+    TypeVarTuple = TypeVarTuple, Unpack = Unpack, Concatenate = Concatenate,
+    AnyParams = AnyParams,
+    String = String, Integer = Integer, Number = Number, Float = Float,
+    Boolean = Boolean, Nil = Nil,
+  }
+  if env then
+    for k, v in pairs(env) do base[k] = v end
+  end
+  local chunk, err = load('return ' .. tostring(expr), '=type-expr', 't', base)
+  if not chunk then
+    error('matchers.parse: could not compile type expression '
+          .. string.format('%q', tostring(expr)) .. ': ' .. tostring(err), 2)
+  end
+  return chunk()
+end
+
 Any=any_type_check()
 Never=never_type_check()
 Union=union_type_check
@@ -2960,6 +3177,12 @@ AnyParams=any_params_sentinel
 -- These share their (local) implementation names, so the exports go
 -- through _ENV explicitly (a bare assignment would just write the
 -- local back to itself).
+-- `repr` is intentionally NOT exported: llx.repr already serializes any
+-- matcher through the __repr metafield the constructors install, and a second
+-- top-level `repr` would collide in flatten_submodules. The module-local
+-- `repr` above backs those __repr methods' recursion; `parse` is the inverse
+-- and has no such clash.
+_ENV.parse=parse
 _ENV.is_rest=is_rest
 _ENV.is_any_params=is_any_params
 _ENV.is_param_spec=is_param_spec

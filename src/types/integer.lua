@@ -31,6 +31,8 @@ function metatable:__tostring()
   return 'Integer'
 end
 
+function metatable:__repr() return 'Integer' end
+
 setmetatable(Integer, metatable)
 
 return _M

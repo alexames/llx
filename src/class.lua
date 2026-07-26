@@ -459,6 +459,13 @@ local function create_class_table_proxy(class_table)
       return self.__name
     end,
 
+    -- A class used as a type serializes to its name (llx.repr), so a type
+    -- expression referencing it round-trips through an env that binds the
+    -- name (see llx.types.matchers repr / parse).
+    __repr = function(self)
+      return self.__name
+    end,
+
     __name = class_table.__name,
   }
   return setmetatable(class_table_proxy, class_table_proxy_metatable)

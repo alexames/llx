@@ -367,6 +367,8 @@ function string_metatable:__call(state, control)
   if control <= #self then return control, self:sub(control, control) end
 end
 
+function metatable:__repr() return 'String' end
+
 setmetatable(String, metatable)
 
 return _M
