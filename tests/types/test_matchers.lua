@@ -4503,6 +4503,35 @@ describe('TypeVarTuple', function()
                         matchers.parse('ListOf(Integer)'))).to.be_false()
     end)
 
+    it('round-trips the composite matchers', function()
+      local function rt(matcher)
+        expect(repr(matchers.parse(repr(matcher)))).to.be_equal_to(repr(matcher))
+      end
+      rt(Union({Integer, Boolean}))
+      rt(Optional(Integer))
+      rt(Tuple({Integer, String, Boolean}))
+      rt(Literal({1, 'a', true}))
+      rt(matchers.NewType('UserId', Integer))
+      rt(Protocol({name = String, age = Integer}))
+      rt(Iterator(Integer, String))
+      rt(Iterator(Integer, {strict = true}))
+      rt(Generator({yields = {Integer}, accepts = {String}}))
+      rt(Generator({}))
+    end)
+
+    it('round-trips class references and ClassOf via the parse env',
+        function()
+      local class = require('llx.class').class
+      local Widget = class 'Widget' {}
+      expect(repr(Widget)).to.be_equal_to('Widget')
+      expect(repr(ListOf(Widget))).to.be_equal_to('ListOf(Widget)')
+      expect(repr(ClassOf(Widget))).to.be_equal_to('ClassOf(Widget)')
+      -- The class binds through the env the caller supplies to parse.
+      local back = matchers.parse('ListOf(Widget)', {Widget = Widget})
+      expect(is_subtype(back, ListOf(Widget))).to.be_true()
+      expect(is_subtype(ListOf(Widget), back)).to.be_true()
+    end)
+
     it('refuses to serialize a variadic / generic parameter list', function()
       expect(function() return repr(Callable({VARARG}, {})) end)
         .to.throw('matchers.repr: variadic / generic type entries are not '

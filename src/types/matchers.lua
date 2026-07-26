@@ -501,6 +501,10 @@ local function union_type_check(type_list)
     __tostring = function(self)
       return self.__name
     end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      return 'Union(' .. ctx.list(self.type_list) .. ')'
+    end,
   })
 end
 
@@ -600,6 +604,20 @@ local function protocol_type_check(fields)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      local names = {}
+      for k in pairs(self.fields) do names[#names + 1] = k end
+      table.sort(names)
+      local parts = {}
+      for _, k in ipairs(names) do
+        local key = k:match('^[%a_][%w_]*$') and k
+            or ('[' .. string.format('%q', k) .. ']')
+        parts[#parts + 1] = key .. ' = ' .. ctx.type(self.fields[k])
+      end
+      if self.exact then parts[#parts + 1] = '__exact = true' end
+      return 'Protocol({' .. table.concat(parts, ', ') .. '})'
+    end,
   })
 end
 
@@ -1465,6 +1483,14 @@ local function iterator_type_check(...)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      local s = 'Iterator(' .. ctx.args(self.yields)
+      if self.strict then
+        s = s .. (#self.yields > 0 and ', ' or '') .. '{strict = true}'
+      end
+      return s .. ')'
+    end,
   })
 end
 
@@ -1605,6 +1631,21 @@ local function generator_type_check(contract)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      local parts = {}
+      if self.yields and #self.yields > 0 then
+        parts[#parts + 1] = 'yields = ' .. ctx.list(self.yields)
+      end
+      if self.accepts and #self.accepts > 0 then
+        parts[#parts + 1] = 'accepts = ' .. ctx.list(self.accepts)
+      end
+      if self.returns and #self.returns > 0 then
+        parts[#parts + 1] = 'returns = ' .. ctx.list(self.returns)
+      end
+      if self.strict then parts[#parts + 1] = 'strict = true' end
+      return 'Generator({' .. table.concat(parts, ', ') .. '})'
+    end,
   })
 end
 
@@ -1793,6 +1834,12 @@ local function tuple_type_check(element_types)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      -- Fixed-arity tuples only: an unpack / variadic tuple carries markers
+      -- its element list, which ctx.list rejects.
+      return 'Tuple(' .. ctx.list(self.element_types) .. ')'
+    end,
   })
 end
 
@@ -1838,6 +1885,14 @@ local function literal_type_check(value_list)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self)
+      -- Literal wraps VALUES, not types; render each with llx.repr (a
+      -- deferred require keeps matchers free of a load-time repr dependency).
+      local value_repr = require('llx.repr').repr
+      local parts = {}
+      for i = 1, #self.values do parts[i] = value_repr(self.values[i]) end
+      return 'Literal({' .. table.concat(parts, ', ') .. '})'
+    end,
   })
 end
 
@@ -2101,6 +2156,12 @@ local function new_type_check(name, base_type)
     __tostring = function(self)
       return self.__name
     end,
+
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      return 'NewType(' .. string.format('%q', self.__name) .. ', '
+                        .. ctx.type(self.base_type) .. ')'
+    end,
   })
 
   -- The wrapper metatable carries its brand so the matcher above can
@@ -2183,6 +2244,11 @@ local function class_of_type_check(base_class)
     end,
   }, {
     __tostring = function(self) return self.__name end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      if self.base_class == nil then return 'ClassOf()' end
+      return 'ClassOf(' .. ctx.type(self.base_class) .. ')'
+    end,
   })
 end
 
@@ -3014,7 +3080,9 @@ make_repr_ctx = function(name_of)
   name_of = name_of or default_name_of
   local ctx = {name = name_of}
   function ctx.type(x) return repr(x, name_of) end
-  function ctx.list(xs)
+  -- Comma-separated types "A, B, ..." (Iterator yields, Callable via ctx.list).
+  -- Rejects variadic / generic markers rather than emit an unparseable spelling.
+  function ctx.args(xs)
     -- VARARG comes from llx.check_arguments, resolved via the shared cached
     -- upvalue (a load-time require would cycle through types/init).
     check_arguments_module = check_arguments_module
@@ -3030,8 +3098,10 @@ make_repr_ctx = function(name_of)
       end
       parts[i] = repr(entry, name_of)
     end
-    return '{' .. table.concat(parts, ', ') .. '}'
+    return table.concat(parts, ', ')
   end
+  -- Bracketed type list "{A, B, ...}" (Callable params/returns, Union, Tuple).
+  function ctx.list(xs) return '{' .. ctx.args(xs) .. '}' end
   return ctx
 end
 
