@@ -3081,7 +3081,7 @@ make_repr_ctx = function(name_of)
   local ctx = {name = name_of}
   function ctx.type(x) return repr(x, name_of) end
   -- Comma-separated types "A, B, ..." (Iterator yields, Callable via ctx.list).
-  -- Rejects variadic / generic markers rather than emit an unparseable spelling.
+  -- Rejects variadic / generic markers rather than an unparseable spelling.
   function ctx.args(xs)
     -- VARARG comes from llx.check_arguments, resolved via the shared cached
     -- upvalue (a load-time require would cycle through types/init).

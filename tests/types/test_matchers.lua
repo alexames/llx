@@ -4505,7 +4505,8 @@ describe('TypeVarTuple', function()
 
     it('round-trips the composite matchers', function()
       local function rt(matcher)
-        expect(repr(matchers.parse(repr(matcher)))).to.be_equal_to(repr(matcher))
+        local s = repr(matcher)
+        expect(repr(matchers.parse(s))).to.be_equal_to(s)
       end
       rt(Union({Integer, Boolean}))
       rt(Optional(Integer))
