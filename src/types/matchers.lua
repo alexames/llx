@@ -342,6 +342,34 @@ local function any_type_check()
   })
 end
 
+-- The GRADUAL type (mypy's Any; gradual-typing literature's Dyn / "?"),
+-- distinct from Any above. Any is the strict TOP type: every type is a
+-- subtype of Any, but Any is a subtype of nothing, so a declared Any
+-- cannot flow back into a typed position without an explicit cast.
+-- Dynamic instead stands for "statically unknown": is_subtype treats it
+-- as BOTH a subtype and a supertype of every type, at every structurally
+-- compared position -- ListOf(Dynamic) and ListOf(Integer) are mutual
+-- subtypes, and a Callable parameter or return of Dynamic is compatible
+-- with any typed counterpart in both directions. (Positions inside the
+-- name-compared matchers -- Iterator, Generator, Protocol, ... -- are
+-- frozen into the name, for Dynamic exactly as for Any; see the
+-- is_subtype caveats.) Use it where unannotated / gradually
+-- typed values meet typed contracts and the check should defer to
+-- runtime rather than reject. At the value level it accepts every
+-- value, exactly like Any.
+local function dynamic_type_check()
+  return setmetatable({
+    __name = 'Dynamic';
+
+    __isinstance = function(self, value)
+      return true
+    end;
+  }, {
+    __tostring = function() return 'Dynamic' end;
+    __repr = function() return 'Dynamic' end;
+  })
+end
+
 local function never_type_check()
   -- The bottom type: no value is an instance of Never. It is the
   -- counterpart of Any (the top type), useful for exhaustiveness
@@ -3121,7 +3149,8 @@ repr = function(t, name_of)
 end
 
 -- parse(expr, env) compiles `return <expr>` in an environment seeded with
--- every matcher constructor plus the primitive type singletons and Any/Never,
+-- every matcher constructor plus the primitive type singletons and
+-- Any/Dynamic/Never,
 -- overlaid with the caller's `env` (module and type bindings the expression
 -- references, e.g. `musica`). The chunk never sees the global environment, so
 -- a type expression can only reach what the seed and `env` grant.
@@ -3129,7 +3158,8 @@ local function parse(expr, env)
   local String  = require('llx.types.string')  . String
   local Boolean = require('llx.types.boolean') . Boolean
   local base = {
-    Any = Any, Never = Never, Union = Union, Optional = Optional,
+    Any = Any, Dynamic = Dynamic, Never = Never,
+    Union = Union, Optional = Optional,
     Dict = Dict, ListOf = ListOf, SetOf = SetOf, Protocol = Protocol,
     Callable = Callable, Iterator = Iterator, Generator = Generator,
     Tuple = Tuple, Rest = Rest, Literal = Literal, NewType = NewType,
@@ -3151,6 +3181,7 @@ local function parse(expr, env)
 end
 
 Any=any_type_check()
+Dynamic=dynamic_type_check()
 Never=never_type_check()
 Union=union_type_check
 Optional=optional_type_check

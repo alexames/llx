@@ -22,6 +22,7 @@ local Integer = require 'llx.types.integer' . Integer
 local Number = require 'llx.types.number' . Number
 
 local Any = matchers.Any
+local Dynamic = matchers.Dynamic
 local Never = matchers.Never
 local VARARG = check_arguments.VARARG
 local is_any_params = matchers.is_any_params
@@ -804,6 +805,22 @@ end
 -- wraps it with Lazy resolution and the cycle-guard bookkeeping;
 -- the public is_subtype below documents the rules.
 local function subtype_rules(a, b, in_progress)
+  -- Dynamic is the GRADUAL type (llx.types.matchers.Dynamic; mypy's
+  -- Any): it stands for "statically unknown", so the relation defers
+  -- to runtime instead of rejecting -- Dynamic is both a subtype and
+  -- a supertype of every type. Checked first so it applies at every
+  -- position the structural rules recurse into (container elements,
+  -- tuple slots, Callable parameters and returns, union members),
+  -- making e.g. ListOf(Dynamic) and ListOf(Integer) mutual subtypes.
+  -- This is deliberately gradual, not sound -- exactly Any's
+  -- accept-direction policy, in both directions. It also precedes the
+  -- TypeVar rule: a variable checked against Dynamic is compatible
+  -- without binding, in either role, so a generic signature never
+  -- instantiates a variable to Dynamic merely because the counterpart
+  -- was unannotated.
+  if rawequal(a, Dynamic) or rawequal(b, Dynamic) then
+    return true
+  end
   -- TypeVars (llx.types.matchers.TypeVar). Outside a signature
   -- comparison a type variable stands for a per-call binding, not a
   -- concrete type, so the only sound relations are identity (a
@@ -1077,6 +1094,17 @@ end
 -- is expected. The relation is reflexive and covers:
 --
 -- - `Any` as the top type: everything is a subtype of `Any`.
+-- - `Dynamic` as the gradual type (mypy's `Any`): both a subtype and
+--   a supertype of every type, at every STRUCTURALLY COMPARED
+--   position -- the rule applies before the structural recursion, so
+--   `ListOf(Dynamic)` and `ListOf(Integer)` are mutual subtypes and a
+--   `Dynamic` Callable parameter or return is compatible with any
+--   typed counterpart in both directions. Inside the name-compared
+--   matchers listed in the Caveats below (Iterator, Generator,
+--   Protocol, ...) a nested Dynamic is frozen into the name like any
+--   other element type, exactly as nested Any is. Deliberately
+--   gradual, not sound: use it where statically unknown values meet
+--   typed contracts and the check should defer to runtime.
 -- - `Never` as the bottom type: `Never` is a subtype of everything,
 --   and nothing but `Never` itself (and an uninhabited union, which
 --   the union rule accepts vacuously) is a subtype of `Never`.
