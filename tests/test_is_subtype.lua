@@ -11,6 +11,7 @@ local generator_compatible =
 local VARARG = require 'llx.check_arguments' . VARARG
 
 local Any = matchers.Any
+local Dynamic = matchers.Dynamic
 local Never = matchers.Never
 local Union = matchers.Union
 local Optional = matchers.Optional
@@ -81,6 +82,72 @@ describe('is_subtype', function()
     it('should not treat Any as a subtype of a narrower type', function()
       expect(is_subtype(Any, String)).to.be_false()
       expect(is_subtype(Any, Animal)).to.be_false()
+    end)
+  end)
+
+  describe('Dynamic as the gradual type', function()
+    it('is both a subtype and a supertype of every type', function()
+      expect(is_subtype(Dynamic, String)).to.be_true()
+      expect(is_subtype(String, Dynamic)).to.be_true()
+      expect(is_subtype(Dynamic, Animal)).to.be_true()
+      expect(is_subtype(Animal, Dynamic)).to.be_true()
+      expect(is_subtype(Dynamic, Dynamic)).to.be_true()
+      -- Unlike Any, which only accepts (Any -> String is false above).
+      expect(is_subtype(Dynamic, Any)).to.be_true()
+      expect(is_subtype(Any, Dynamic)).to.be_true()
+      expect(is_subtype(Dynamic, Never)).to.be_true()
+      expect(is_subtype(Never, Dynamic)).to.be_true()
+      -- String type names participate too (the rule precedes the
+      -- table-only paths).
+      expect(is_subtype('String', Dynamic)).to.be_true()
+      expect(is_subtype(Dynamic, 'String')).to.be_true()
+    end)
+
+    it('applies at nested positions through the structural rules',
+        function()
+      -- Containers: covariant elements defer either way.
+      expect(is_subtype(ListOf(Dynamic), ListOf(Integer))).to.be_true()
+      expect(is_subtype(ListOf(Integer), ListOf(Dynamic))).to.be_true()
+      expect(is_subtype(Tuple{Dynamic, Integer},
+                        Tuple{String, Integer})).to.be_true()
+      expect(is_subtype(Tuple{String, Integer},
+                        Tuple{Dynamic, Integer})).to.be_true()
+      -- Dict keys are invariant (mutual subtypes) -- Dynamic satisfies
+      -- both directions.
+      expect(is_subtype(Dict(Dynamic, String),
+                        Dict(Integer, String))).to.be_true()
+      expect(is_subtype(Dict(Integer, String),
+                        Dict(Dynamic, String))).to.be_true()
+      -- A nested mismatch away from the Dynamic position still rejects.
+      expect(is_subtype(Tuple{Dynamic, String},
+                        Tuple{Integer, Integer})).to.be_false()
+    end)
+
+    it('defers Callable parameters and returns in both directions',
+        function()
+      expect(is_subtype(Callable({Dynamic}, {}),
+                        Callable({Integer}, {}))).to.be_true()
+      expect(is_subtype(Callable({Integer}, {}),
+                        Callable({Dynamic}, {}))).to.be_true()
+      expect(is_subtype(Callable({}, {Dynamic}),
+                        Callable({}, {Integer}))).to.be_true()
+      expect(is_subtype(Callable({}, {Integer}),
+                        Callable({}, {Dynamic}))).to.be_true()
+      -- Arity mismatches are still structural errors, not deferred.
+      expect(is_subtype(Callable({Dynamic}, {}),
+                        Callable({Integer, Integer}, {}))).to.be_false()
+    end)
+
+    it('is compatible with TypeVars without binding them', function()
+      local T = matchers.TypeVar('T')
+      expect(is_subtype(T, Dynamic)).to.be_true()
+      expect(is_subtype(Dynamic, T)).to.be_true()
+      -- A generic signature checked against a Dynamic counterpart stays
+      -- compatible, and the variable is free to bind to the CONCRETE
+      -- type at its other occurrence.
+      expect(signature_compatible(
+        {params = {ListOf(T)}, returns = {T}},
+        {params = {ListOf(Dynamic)}, returns = {Integer}})).to.be_true()
     end)
   end)
 

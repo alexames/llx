@@ -110,6 +110,41 @@ describe('Any', function()
 end)
 
 -- ---------------------------------------------------------------------------
+-- Dynamic (the gradual type)
+-- ---------------------------------------------------------------------------
+
+describe('Dynamic', function()
+  local Dynamic = matchers.Dynamic
+
+  describe('__name', function()
+    it('should have __name equal to "Dynamic"', function()
+      expect(Dynamic.__name).to.be_equal_to('Dynamic')
+    end)
+  end)
+
+  describe('__tostring', function()
+    it('should stringify as "Dynamic"', function()
+      expect(tostring(Dynamic)).to.be_equal_to('Dynamic')
+    end)
+  end)
+
+  describe('__isinstance', function()
+    -- At the value level Dynamic behaves exactly like Any: every value
+    -- is an instance. The two differ only in the is_subtype relation
+    -- (Any is the strict top; Dynamic is gradual both ways -- see
+    -- tests/test_is_subtype.lua).
+    it('should accept every value', function()
+      expect(isinstance(nil, Dynamic)).to.be_true()
+      expect(isinstance(true, Dynamic)).to.be_true()
+      expect(isinstance(42, Dynamic)).to.be_true()
+      expect(isinstance('hello', Dynamic)).to.be_true()
+      expect(isinstance({}, Dynamic)).to.be_true()
+      expect(isinstance(function() end, Dynamic)).to.be_true()
+    end)
+  end)
+end)
+
+-- ---------------------------------------------------------------------------
 -- Never
 -- ---------------------------------------------------------------------------
 
@@ -4460,8 +4495,14 @@ describe('TypeVarTuple', function()
 
     it('renders leaves by name and round-trips them', function()
       expect(repr(Any)).to.be_equal_to('Any')
+      expect(repr(matchers.Dynamic)).to.be_equal_to('Dynamic')
       expect(repr(Integer)).to.be_equal_to('Integer')
       expect(reserialize(String)).to.be_equal_to('String')
+      expect(reserialize(matchers.Dynamic)).to.be_equal_to('Dynamic')
+      -- parse resolves Dynamic to THE singleton, so the gradual
+      -- is_subtype rule (rawequal-based) recognizes a parsed copy.
+      expect(rawequal(matchers.parse('Dynamic'), matchers.Dynamic))
+        .to.be_true()
     end)
 
     it('renders and round-trips ListOf / SetOf / Dict, incl. nesting',
