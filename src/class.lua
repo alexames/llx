@@ -345,9 +345,122 @@ local anonymous_class_name = '<anonymous class>'
 -- @param class_table The table representing the class
 -- @param class_table_proxy Proxy table for the class
 -- @return A class definer object for defining Lua classes
+-- True while a superclass walk (try_get_superclass_value below) is
+-- resolving an inherited field. Field resolution indexes base class
+-- PROXIES, and a generic-declared base's proxy would otherwise
+-- interpret a type-shaped key as a subscription -- minting an alias as
+-- the "inherited value" of an instance or subclass field lookup.
+-- Subscription is something CALLERS do to a class; inherited-field
+-- resolution never is. Single-threaded, so a module-level flag is a
+-- sound reentrancy guard.
+local resolving_inherited_field = false
+
+-- Whether `v` can stand as a type argument in a subscription: a
+-- matcher (carries __isinstance directly), an llx class proxy, or a
+-- named type string. The pcall guards values whose metatables raise on
+-- indexing (llx module environments do).
+local function is_type_shaped(v)
+  if type(v) == 'string' then return v ~= '' end
+  if type(v) ~= 'table' then return false end
+  if rawget(v, '__isinstance') ~= nil then return true end
+  local ok, marked = pcall(function() return v.__is_llx_class end)
+  return ok and marked ~= nil and marked ~= false
+end
+
+-- Whether `k` spells a subscription's arguments, and the normalized
+-- argument list when it does: a type-shaped value is a single
+-- argument; a plain list whose every entry is type-shaped spells
+-- several (Lua has no tuple subscription). Everything else -- numeric
+-- keys (ipairs probes classes through __index), booleans, functions,
+-- arbitrary tables -- is NOT a subscription and keeps the plain
+-- field-lookup behavior.
+local function subscription_args(k)
+  if is_type_shaped(k) then return {k} end
+  if type(k) ~= 'table' or rawget(k, '__isinstance') ~= nil then
+    return nil
+  end
+  if k[1] == nil then return nil end
+  local args = {}
+  for i, entry in ipairs(k) do
+    if not is_type_shaped(entry) then return nil end
+    args[i] = entry
+  end
+  return args
+end
+
 local function create_class_definer(class_table, class_table_proxy)
   local class_definer = nil
   class_definer = {
+    --- Declares the class's type parameters (its generics), the llx
+    -- port of Python's `class Pool(Generic[T])` / PEP 695
+    -- `class Pool[T]`. Each argument is a parameter name string, or a
+    -- spec table {name, variance, bound}:
+    --
+    --   class 'Pool' : generic('T') { ... }
+    --   class 'Cache'
+    --     : generic({name = 'K'},
+    --               {name = 'V', variance = 'covariant'}) { ... }
+    --   class 'NumBox' : generic({name = 'T', bound = Number}) { ... }
+    --
+    -- variance is 'invariant' (default, Python's TypeVar default --
+    -- sound for mutable containers), 'covariant', or 'contravariant';
+    -- it drives how is_subtype relates two parameterizations of the
+    -- class. bound restricts what a parameter may be instantiated to
+    -- (checked at subscription time with is_subtype).
+    --
+    -- The declaration lands on the class as `__type_params__` (an
+    -- ordered list of {name, variance, bound}), readable through
+    -- normal class indexing -- the reflection surface UIs and
+    -- validators consume, mirroring Python's `__type_params__`. It
+    -- also arms SUBSCRIPTION on the class proxy: `Pool[Integer]`
+    -- (single parameter) or `Cache[{String, Integer}]` (several --
+    -- Lua has no tuple subscription, so several arguments ride in a
+    -- list) builds a parameterized alias via
+    -- llx.types.matchers.GenericAlias, validating arity and bounds.
+    -- Chainable with extends in either order.
+    generic = function(self, ...)
+      local params = {...}
+      assert(#params > 0, string.format(
+             '%s must declare at least one type parameter'
+             .. ' when calling generic',
+             class_table.__name))
+      assert(class_table.__type_params__ == nil, string.format(
+             '%s already declared its type parameters',
+             class_table.__name))
+      local normalized = {}
+      local seen = {}
+      for i, param in ipairs(params) do
+        local spec
+        if type(param) == 'string' then
+          spec = {name = param, variance = 'invariant'}
+        elseif type(param) == 'table' then
+          assert(type(param.name) == 'string' and param.name ~= '',
+                 string.format(
+                 '%s type parameter %d must carry a non-empty name',
+                 class_table.__name, i))
+          local variance = param.variance or 'invariant'
+          assert(variance == 'invariant' or variance == 'covariant'
+                 or variance == 'contravariant', string.format(
+                 "%s type parameter '%s' has unknown variance %q",
+                 class_table.__name, param.name, tostring(variance)))
+          spec = {name = param.name, variance = variance,
+                  bound = param.bound}
+        else
+          error(string.format(
+                '%s type parameter %d must be a name string or a'
+                .. ' {name, variance, bound} table, not %s',
+                class_table.__name, i, type(param)))
+        end
+        assert(not seen[spec.name], string.format(
+               "%s declares type parameter '%s' twice",
+               class_table.__name, spec.name))
+        seen[spec.name] = true
+        normalized[i] = spec
+      end
+      rawset(class_table, '__type_params__', normalized)
+      return class_definer
+    end,
+
     extends = function(self, ...)
       local arg = {...}
       assert(#arg > 0,
@@ -420,6 +533,8 @@ local function create_class_table_proxy(class_table)
     return next(class_table, index)
   end
 
+  local default_index = class_table.__index
+
   local class_table_proxy = {}
   local class_table_proxy_metatable = {
     __metatable = class_table_proxy;
@@ -435,7 +550,42 @@ local function create_class_table_proxy(class_table)
       return object
     end;
 
-    __index = class_table.__index;
+    -- Field lookups resolve through the class table's DEFAULT __index
+    -- captured at proxy-creation time (a class definition may later
+    -- override __index for its instances; the proxy must keep the
+    -- original resolution, exactly as it did when this metafield held
+    -- the function value directly), with one carve-out: SUBSCRIPTION
+    -- on a generic class. A TYPE-SHAPED key (a matcher, a class, or a
+    -- plain list of them / of type-name strings -- see
+    -- subscription_args) on a class whose __type_params__ resolve --
+    -- declared directly, or INHERITED from a generic base, exactly as
+    -- Python subclasses inherit __class_getitem__ -- builds a
+    -- parameterized alias via llx.types.matchers.GenericAlias
+    -- (required lazily; matchers is not a load-time dependency of the
+    -- class system), with THIS class as the alias origin: SubPool[T]
+    -- reflects origin SubPool, agreeing with the canonical
+    -- constructor and with __type_params__ reflection.
+    --
+    -- Everything else is a plain field lookup: string keys, numeric
+    -- keys (ipairs probes t[1] through __index and must keep
+    -- terminating cleanly), booleans, non-type tables, classes with
+    -- no type parameters, INSTANCE indexing (whose metatable is the
+    -- internal class table, not this proxy), and any lookup made by
+    -- the inherited-field walk (see resolving_inherited_field).
+    -- Residual shadowing: a value STORED on a generic class under a
+    -- type-shaped key is unreachable through subscription; keying
+    -- class fields by matcher objects is not a supported pattern.
+    __index = function(t, k)
+      if type(k) ~= 'string' and not resolving_inherited_field then
+        local args = subscription_args(k)
+        if args ~= nil
+            and default_index(t, '__type_params__') ~= nil then
+          local matchers = require 'llx.types.matchers'
+          return matchers.GenericAlias(class_table_proxy, args)
+        end
+      end
+      return default_index(t, k)
+    end;
 
     __newindex = function(self, k, v)
       rawset(class_table, k, v)
@@ -494,12 +644,28 @@ local function create_internal_class_table(name)
   -- @param k The key of the field to retrieve
   -- @return The value of the field if found, otherwise nil
   local function try_get_superclass_value(k)
-    -- Do any of the base classes have the field?
+    -- Do any of the base classes have the field? The walk indexes base
+    -- PROXIES, so the reentrancy flag (see its declaration) keeps a
+    -- generic base's subscription hook out of inherited-field
+    -- resolution; the previous value is restored (not cleared) so
+    -- nested walks compose.
     if class_table.__superclasses then
+      local previous = resolving_inherited_field
+      resolving_inherited_field = true
       for _, base in ipairs(class_table.__superclasses) do
-        local value = base[k]
-        if value ~= nil then return value end
+        -- pcall exists to restore the flag on an erroring base lookup
+        -- (Lua has no finally); the error itself re-raises unchanged.
+        local ok, value = pcall(function() return base[k] end)
+        if not ok then
+          resolving_inherited_field = previous
+          error(value, 0)
+        end
+        if value ~= nil then
+          resolving_inherited_field = previous
+          return value
+        end
       end
+      resolving_inherited_field = previous
     end
     return nil
   end

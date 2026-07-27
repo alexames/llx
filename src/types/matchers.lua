@@ -397,7 +397,8 @@ local reject_markers
 local reject_marker_entries
 
 -- Marker key under which a parameterized container matcher records
--- its kind ('ListOf', 'SetOf', 'Dict', or 'Callable'). llx.is_subtype
+-- its kind ('ListOf', 'SetOf', 'Dict', 'Callable', or
+-- 'GenericAlias'). llx.is_subtype
 -- needs to tell the kinds apart to apply the right structural rule,
 -- and the introspection fields alone cannot always do it (ListOf and
 -- SetOf both expose exactly element_type). A module-local table key
@@ -407,10 +408,11 @@ local reject_marker_entries
 local matcher_kind_mark = {}
 
 -- Returns the container kind of a parameterized matcher built by
--- this module ('ListOf', 'SetOf', 'Dict', or 'Callable'), or nil for
--- everything else. Tuples and unions are recognized by their
--- introspection fields instead (element_types/fixed_count and
--- type_list, which are unambiguous), so they carry no mark.
+-- this module ('ListOf', 'SetOf', 'Dict', 'Callable', or
+-- 'GenericAlias'), or nil for everything else. Tuples and unions are
+-- recognized by their introspection fields instead
+-- (element_types/fixed_count and type_list, which are unambiguous),
+-- so they carry no mark.
 local function matcher_kind(value)
   if type(value) == 'table' then
     return rawget(value, matcher_kind_mark)
@@ -808,6 +810,154 @@ local function set_of_type_check(element_type)
       return 'SetOf(' .. ctx.type(self.element_type) .. ')'
     end,
   })
+end
+
+-- Parameterized generic-class aliases: llx's port of Python's
+-- types.GenericAlias. A class that declared type parameters
+-- (`class 'Pool' : generic('T') { ... }`, which records
+-- `__type_params__` on the class -- see llx.class) is APPLIED to
+-- concrete type arguments to form an alias:
+--
+--   GenericAlias(Pool, {Integer})   -- canonical constructor
+--   Pool[Integer]                   -- subscription sugar (single arg)
+--   Cache[{String, Integer}]        -- subscription sugar (multi arg)
+--
+-- The alias carries `origin` (the class) and `type_args` (the applied
+-- types) for reflection -- get_origin / get_args below, mirroring
+-- Python's typing.get_origin / get_args -- so tooling can decompose a
+-- parameterized type generically instead of special-casing kinds.
+--
+-- Construction VALIDATES against the declaration: the argument count
+-- must match `__type_params__`, and every argument must satisfy its
+-- parameter's declared `bound` (checked with is_subtype; Dynamic
+-- satisfies any bound, keeping gradual code gradual).
+--
+-- Value-level semantics mirror Python's runtime erasure:
+-- isinstance(v, Pool[Integer]) checks isinstance(v, Pool) only -- a
+-- class's contents are its own business, and per-argument value
+-- checks would need a per-class protocol (a future __check_args__
+-- hook, if ever needed). The TYPE-level relation between aliases is
+-- where the arguments matter: is_subtype compares same-origin aliases
+-- argument-wise under each parameter's declared variance
+-- ('invariant' default, 'covariant', 'contravariant'), erases
+-- alias -> bare class, and treats bare class -> alias gradually (an
+-- unparameterized class reads as applied-to-Dynamic).
+--
+-- __repr emits the subscription spelling ('Pool[Integer]' /
+-- 'Cache[{String, Integer}]'), which is a plain Lua expression: an
+-- env binding the class name re-evaluates it through the subscription
+-- hook, so aliases round-trip through repr / parse with no parser
+-- support at all.
+local function generic_alias_type_check(origin, type_args)
+  assert(type(origin) == 'table' and origin.__is_llx_class,
+         'GenericAlias: origin must be an llx class, not '
+         .. type_name_of(origin))
+  local params = origin.__type_params__
+  assert(type(params) == 'table' and #params > 0,
+         'GenericAlias: class ' .. tostring(origin.__name)
+         .. ' declares no type parameters (use'
+         .. " class 'Name' : generic(...) to declare them)")
+  assert(type(type_args) == 'table',
+         'GenericAlias: type_args must be a list of types')
+  assert(#type_args == #params, string.format(
+         'GenericAlias: %s takes %d type parameter(s), got %d',
+         tostring(origin.__name), #params, #type_args))
+  local args = {}
+  for i, arg in ipairs(type_args) do
+    assert(type(arg) == 'table' or type(arg) == 'string', string.format(
+           'GenericAlias: type argument %d is not a type'
+           .. ' (got %s); expected a matcher, a class, or a type name',
+           i, type(arg)))
+    reject_markers(arg, 'GenericAlias')
+    local bound = params[i].bound
+    if bound ~= nil then
+      -- Deferred require: is_subtype requires this module at load.
+      local is_subtype = require('llx.is_subtype').is_subtype
+      assert(is_subtype(arg, bound), string.format(
+             'GenericAlias: type argument %d (%s) does not satisfy'
+             .. " %s's bound for parameter '%s' (%s)",
+             i, type_name_of(arg), tostring(origin.__name),
+             params[i].name, type_name_of(bound)))
+    end
+    args[i] = arg
+  end
+
+  local arg_names = {}
+  for i, arg in ipairs(args) do
+    arg_names[i] = type_name_of(arg)
+  end
+  local typename = tostring(origin.__name)
+    .. '[' .. table.concat(arg_names, ', ') .. ']'
+
+  return setmetatable({
+    [matcher_kind_mark] = 'GenericAlias',
+
+    __name = typename,
+
+    -- Reflection surface (get_origin / get_args below).
+    origin = origin,
+    type_args = args,
+
+    __isinstance = function(self, value)
+      -- Runtime erasure, exactly Python's reading: the alias checks
+      -- the origin class only. The arguments participate at the TYPE
+      -- level (is_subtype), not the value level.
+      return isinstance(value, origin)
+    end,
+  }, {
+    __tostring = function(self) return self.__name end,
+    -- Structural equality, mirroring Python's GenericAlias __eq__:
+    -- same origin (class identity through the proxies' __eq) and
+    -- pairwise-equal arguments -- so separately constructed
+    -- Pool[Integer] values compare equal and tooling can dedupe /
+    -- key by ==.
+    __eq = function(lhs, rhs)
+      if matcher_kind(lhs) ~= 'GenericAlias'
+          or matcher_kind(rhs) ~= 'GenericAlias' then
+        return false
+      end
+      if rawget(lhs, 'origin') ~= rawget(rhs, 'origin') then
+        return false
+      end
+      local lhs_args = rawget(lhs, 'type_args')
+      local rhs_args = rawget(rhs, 'type_args')
+      if #lhs_args ~= #rhs_args then return false end
+      for i = 1, #lhs_args do
+        if lhs_args[i] ~= rhs_args[i] then return false end
+      end
+      return true
+    end,
+    __repr = function(self, ctx)
+      ctx = ctx or make_repr_ctx()
+      if #self.type_args == 1 then
+        return ctx.type(self.origin) .. '['
+          .. ctx.type(self.type_args[1]) .. ']'
+      end
+      local parts = {}
+      for i, arg in ipairs(self.type_args) do
+        parts[i] = ctx.type(arg)
+      end
+      return ctx.type(self.origin) .. '[{'
+        .. table.concat(parts, ', ') .. '}]'
+    end,
+  })
+end
+
+-- Reflection over parameterized aliases, mirroring Python's
+-- typing.get_origin / typing.get_args: the class a parameterized type
+-- was built from, and the arguments it was applied to. Non-aliases
+-- yield nil, so tooling can probe any type value safely.
+local function get_origin_of(t)
+  if matcher_kind(t) ~= 'GenericAlias' then return nil end
+  return rawget(t, 'origin')
+end
+
+local function get_args_of(t)
+  if matcher_kind(t) ~= 'GenericAlias' then return nil end
+  local args = rawget(t, 'type_args')
+  local out = {}
+  for i, arg in ipairs(args) do out[i] = arg end
+  return out
 end
 
 -- Marker key identifying Rest(T) typed-tail wrappers, used by Tuple.
@@ -3079,8 +3229,11 @@ end
 -- entries are not serializable yet and raise rather than emit an
 -- unparseable string.
 --
--- SCOPE (first cut): dispatch is driven by matcher_kind, which only
--- ListOf/SetOf/Dict/Callable set. Those plus true leaves -- primitive
+-- SCOPE (first cut): dispatch is driven by matcher_kind, which the
+-- ListOf/SetOf/Dict/Callable/GenericAlias constructors set
+-- (GenericAlias serializes through its own __repr -- the subscription
+-- spelling Pool[Integer], re-evaluable wherever the env binds the
+-- class name). Those plus true leaves -- primitive
 -- singletons, classes, Any/Never -- serialize losslessly. Other composite
 -- matchers (Union, Optional, Tuple, ClassOf, ...) currently fall to the leaf
 -- path and emit their display __name, which is not guaranteed re-parseable;
@@ -3159,6 +3312,7 @@ local function parse(expr, env)
   local Boolean = require('llx.types.boolean') . Boolean
   local base = {
     Any = Any, Dynamic = Dynamic, Never = Never,
+    GenericAlias = GenericAlias,
     Union = Union, Optional = Optional,
     Dict = Dict, ListOf = ListOf, SetOf = SetOf, Protocol = Protocol,
     Callable = Callable, Iterator = Iterator, Generator = Generator,
@@ -3183,6 +3337,9 @@ end
 Any=any_type_check()
 Dynamic=dynamic_type_check()
 Never=never_type_check()
+GenericAlias=generic_alias_type_check
+get_origin=get_origin_of
+get_args=get_args_of
 Union=union_type_check
 Optional=optional_type_check
 Dict=dict_type_check
