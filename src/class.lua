@@ -408,7 +408,7 @@ local function create_class_definer(class_table, class_table_proxy)
     -- class. bound restricts what a parameter may be instantiated to
     -- (checked at subscription time with is_subtype).
     --
-    -- The declaration lands on the class as `__type_params__` (an
+    -- The declaration lands on the class as `__type_params` (an
     -- ordered list of {name, variance, bound}), readable through
     -- normal class indexing -- the reflection surface UIs and
     -- validators consume, mirroring Python's `__type_params__`. It
@@ -424,7 +424,7 @@ local function create_class_definer(class_table, class_table_proxy)
              '%s must declare at least one type parameter'
              .. ' when calling generic',
              class_table.__name))
-      assert(class_table.__type_params__ == nil, string.format(
+      assert(class_table.__type_params == nil, string.format(
              '%s already declared its type parameters',
              class_table.__name))
       local normalized = {}
@@ -457,7 +457,7 @@ local function create_class_definer(class_table, class_table_proxy)
         seen[spec.name] = true
         normalized[i] = spec
       end
-      rawset(class_table, '__type_params__', normalized)
+      rawset(class_table, '__type_params', normalized)
       return class_definer
     end,
 
@@ -557,14 +557,14 @@ local function create_class_table_proxy(class_table)
     -- the function value directly), with one carve-out: SUBSCRIPTION
     -- on a generic class. A TYPE-SHAPED key (a matcher, a class, or a
     -- plain list of them / of type-name strings -- see
-    -- subscription_args) on a class whose __type_params__ resolve --
+    -- subscription_args) on a class whose __type_params resolve --
     -- declared directly, or INHERITED from a generic base, exactly as
     -- Python subclasses inherit __class_getitem__ -- builds a
     -- parameterized alias via llx.types.matchers.GenericAlias
     -- (required lazily; matchers is not a load-time dependency of the
     -- class system), with THIS class as the alias origin: SubPool[T]
     -- reflects origin SubPool, agreeing with the canonical
-    -- constructor and with __type_params__ reflection.
+    -- constructor and with __type_params reflection.
     --
     -- Everything else is a plain field lookup: string keys, numeric
     -- keys (ipairs probes t[1] through __index and must keep
@@ -579,7 +579,7 @@ local function create_class_table_proxy(class_table)
       if type(k) ~= 'string' and not resolving_inherited_field then
         local args = subscription_args(k)
         if args ~= nil
-            and default_index(t, '__type_params__') ~= nil then
+            and default_index(t, '__type_params') ~= nil then
           local matchers = require 'llx.types.matchers'
           return matchers.GenericAlias(class_table_proxy, args)
         end

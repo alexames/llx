@@ -815,7 +815,7 @@ end
 -- Parameterized generic-class aliases: llx's port of Python's
 -- types.GenericAlias. A class that declared type parameters
 -- (`class 'Pool' : generic('T') { ... }`, which records
--- `__type_params__` on the class -- see llx.class) is APPLIED to
+-- `__type_params` on the class -- see llx.class) is APPLIED to
 -- concrete type arguments to form an alias:
 --
 --   GenericAlias(Pool, {Integer})   -- canonical constructor
@@ -828,7 +828,7 @@ end
 -- parameterized type generically instead of special-casing kinds.
 --
 -- Construction VALIDATES against the declaration: the argument count
--- must match `__type_params__`, and every argument must satisfy its
+-- must match `__type_params`, and every argument must satisfy its
 -- parameter's declared `bound` (checked with is_subtype; Dynamic
 -- satisfies any bound, keeping gradual code gradual).
 --
@@ -852,7 +852,7 @@ local function generic_alias_type_check(origin, type_args)
   assert(type(origin) == 'table' and origin.__is_llx_class,
          'GenericAlias: origin must be an llx class, not '
          .. type_name_of(origin))
-  local params = origin.__type_params__
+  local params = origin.__type_params
   assert(type(params) == 'table' and #params > 0,
          'GenericAlias: class ' .. tostring(origin.__name)
          .. ' declares no type parameters (use'

@@ -931,7 +931,7 @@ local function subtype_rules(a, b, in_progress)
       end
       local a_args = rawget(a, 'type_args')
       local b_args = rawget(b, 'type_args')
-      local params = a_origin.__type_params__ or {}
+      local params = a_origin.__type_params or {}
       for i, param in ipairs(params) do
         local variance = param.variance
         if variance == 'covariant' then

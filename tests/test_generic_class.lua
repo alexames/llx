@@ -1,5 +1,5 @@
 -- Tests for generic class parameters: the `: generic(...)` class
--- declaration, `__type_params__` reflection, subscription
+-- declaration, `__type_params` reflection, subscription
 -- (Pool[Integer] / Cache[{String, Integer}]), the GenericAlias
 -- matcher with its arity / bound validation, get_origin / get_args,
 -- value-level erasure, the is_subtype variance rules, and repr /
@@ -34,8 +34,8 @@ local SubPool = class 'SubPool' : extends(Pool) {}
 _ENV = unit.create_test_env(_ENV)
 
 describe('generic class declaration', function()
-  it('records __type_params__ with defaults for reflection', function()
-    local params = Pool.__type_params__
+  it('records __type_params with defaults for reflection', function()
+    local params = Pool.__type_params
     expect(#params).to.be_equal_to(1)
     expect(params[1].name).to.be_equal_to('T')
     expect(params[1].variance).to.be_equal_to('invariant')
@@ -43,10 +43,10 @@ describe('generic class declaration', function()
   end)
 
   it('records explicit variance and bounds', function()
-    expect(Cache.__type_params__[2].variance).to.be_equal_to('covariant')
-    expect(Sink.__type_params__[1].variance)
+    expect(Cache.__type_params[2].variance).to.be_equal_to('covariant')
+    expect(Sink.__type_params[1].variance)
       .to.be_equal_to('contravariant')
-    expect(NumBox.__type_params__[1].bound).to.be_equal_to(Number)
+    expect(NumBox.__type_params[1].bound).to.be_equal_to(Number)
   end)
 
   it('rejects malformed declarations', function()
@@ -59,7 +59,7 @@ describe('generic class declaration', function()
   end)
 
   it('leaves non-generic classes without params', function()
-    expect(Plain.__type_params__).to.be_nil()
+    expect(Plain.__type_params).to.be_nil()
   end)
 end)
 
@@ -137,12 +137,12 @@ describe('subscription and GenericAlias construction', function()
   end)
 
   it('subscribes subclasses with the SUBCLASS as origin', function()
-    -- __type_params__ inherit (as Python subclasses inherit
+    -- __type_params inherit (as Python subclasses inherit
     -- __class_getitem__), and the alias reflects the class actually
     -- subscribed -- agreeing with the canonical constructor.
     local alias = SubPool[Integer]
     expect(get_origin(alias) == SubPool).to.be_true()
-    expect(SubPool.__type_params__[1].name).to.be_equal_to('T')
+    expect(SubPool.__type_params[1].name).to.be_equal_to('T')
     expect(alias == GenericAlias(SubPool, {Integer})).to.be_true()
     -- Erasure follows the origin's class chain.
     expect(is_subtype(alias, SubPool)).to.be_true()
