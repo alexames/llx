@@ -57,8 +57,8 @@ local anonymous_class_name = '<anonymous class>'
 -- keep the name rule, as do string type names (a bare string cannot
 -- carry identity at all, so it matches classes and matchers by name
 -- alike). Same-kind pairs of the structurally compared matchers
--- (Tuple, Union, ListOf, SetOf, Dict, Callable) never reach this
--- fallback.
+-- (Tuple, Union, ListOf, SetOf, Dict, Callable, GenericAlias) never
+-- reach this fallback.
 local function type_equal(a, b)
   if rawequal(a, b) then return true end
   local a_type, b_type = type(a), type(b)
@@ -200,6 +200,16 @@ local function collect_type_vars(t, vars, seen, param_specs, tvts)
   if elements ~= nil then
     for _, element in ipairs(elements) do
       collect_type_vars(element, vars, seen, param_specs, tvts)
+    end
+  end
+  -- Generic-class alias arguments (matchers.GenericAlias): the
+  -- same-kind subtype rule decomposes them per declared variance, so
+  -- a TypeVar whose only occurrence is inside Pool[T] must be
+  -- collected here or the signature relation would never unify it.
+  local alias_args = rawget(t, 'type_args')
+  if alias_args ~= nil then
+    for _, alias_arg in ipairs(alias_args) do
+      collect_type_vars(alias_arg, vars, seen, param_specs, tvts)
     end
   end
   collect_type_vars(rawget(t, 'rest_type'), vars, seen,
@@ -888,7 +898,7 @@ local function subtype_rules(a, b, in_progress)
     return rawequal(a, b) or tuple_subtype(a, b, in_progress)
   end
   -- Parameterized matchers of the same kind (ListOf, SetOf, Dict,
-  -- Callable -- told apart by the kind mark their constructors
+  -- Callable, GenericAlias -- told apart by the kind mark their constructors
   -- record; see llx.types.matchers.matcher_kind) likewise compare
   -- structurally, taking precedence over the name fallback for the
   -- same reasons as Tuples, and the structural verdict -- either
@@ -900,6 +910,46 @@ local function subtype_rules(a, b, in_progress)
   local a_kind = matcher_kind(a)
   if a_kind ~= nil and a_kind == matcher_kind(b) then
     if rawequal(a, b) then
+      return true
+    end
+    if a_kind == 'GenericAlias' then
+      -- Parameterized generic-class aliases (matchers.GenericAlias:
+      -- Pool[Integer]). Two aliases relate only over the SAME origin
+      -- class; the arguments then compare under each declared
+      -- parameter's variance ('invariant' = mutual subtypes,
+      -- 'covariant', 'contravariant' -- see llx.class's generic).
+      -- Aliases of DIFFERENT origins are unrelated even when the
+      -- origins are: mapping arguments through an inheritance chain
+      -- (Python's static-checker treatment of Sub(Base[T])) is
+      -- deliberately deferred, and the erased relations below
+      -- (alias vs bare class) already cover the common
+      -- subclass-to-parameterized-base flows. The structural verdict
+      -- is final.
+      local a_origin = rawget(a, 'origin')
+      if a_origin ~= rawget(b, 'origin') then
+        return false
+      end
+      local a_args = rawget(a, 'type_args')
+      local b_args = rawget(b, 'type_args')
+      local params = a_origin.__type_params or {}
+      for i, param in ipairs(params) do
+        local variance = param.variance
+        if variance == 'covariant' then
+          if not is_subtype_impl(a_args[i], b_args[i], in_progress) then
+            return false
+          end
+        elseif variance == 'contravariant' then
+          if not is_subtype_impl(b_args[i], a_args[i], in_progress) then
+            return false
+          end
+        else
+          if not (is_subtype_impl(a_args[i], b_args[i], in_progress)
+                  and is_subtype_impl(b_args[i], a_args[i],
+                                      in_progress)) then
+            return false
+          end
+        end
+      end
       return true
     end
     if a_kind == 'ListOf' or a_kind == 'SetOf' then
@@ -969,6 +1019,28 @@ local function subtype_rules(a, b, in_progress)
       return false
     end
     return signature_compatible_impl(a, b, in_progress)
+  end
+  -- A parameterized alias against a BARE class (only -- any other
+  -- counterpart falls through to the standard rules, so unions still
+  -- walk members, Any / Dynamic / Never keep their verdicts, and
+  -- unrelated matchers land in the name fallback):
+  --
+  -- - alias <= class ERASES: Pool[Integer] is a Pool (and a subtype
+  --   of Pool's bases), whatever the arguments -- the value-level
+  --   reading, where an alias instance IS an origin instance.
+  -- - class <= alias is GRADUAL: a bare class reads as
+  --   applied-to-Dynamic (an unparameterized Pool makes no argument
+  --   promises), mirroring Python's treatment of bare generics as
+  --   Pool[Any] and this relation's other gradual choices. Sound
+  --   per-argument enforcement is exactly what spelling the alias on
+  --   both sides buys.
+  if a_kind == 'GenericAlias'
+      and type(b) == 'table' and b.__is_llx_class then
+    return is_subtype_impl(rawget(a, 'origin'), b, in_progress)
+  end
+  if matcher_kind(b) == 'GenericAlias'
+      and type(a) == 'table' and a.__is_llx_class then
+    return is_subtype_impl(a, rawget(b, 'origin'), in_progress)
   end
   -- Two unions also compare member-wise ahead of the name fallback:
   -- a union's name embeds only its members' *names*, so distinct
@@ -1140,6 +1212,14 @@ end
 --   another AnyParams Callable (its value set spans every
 --   parameter shape; the sound direction, a concrete list under an
 --   AnyParams supertype, holds). The structural verdict is final.
+-- - `GenericAlias` (a parameterized generic class, `Pool[Integer]`):
+--   two aliases of the SAME origin compare argument-wise under each
+--   declared type parameter's variance (invariant by default;
+--   see llx.class's `generic`); aliases of different origins are
+--   unrelated (inheritance-mapped arguments are deferred). Against a
+--   BARE class, an alias erases (`Pool[Integer]` is a subtype of
+--   `Pool` and its bases) and the reverse is gradual (a bare class
+--   reads as applied-to-Dynamic). The structural verdict is final.
 -- - `Lazy`: deferred references are forced (resolving and caching
 --   the underlying matcher) before comparison, so a Lazy compares
 --   exactly as the matcher it resolves to.
