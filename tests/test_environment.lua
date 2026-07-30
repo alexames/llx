@@ -96,6 +96,182 @@ describe('environment', function()
     end)
   end)
 
+  describe('false-valued module variables', function()
+    it('should read back as false from the environment', function()
+      local env, proxy = environment.create_module_environment()
+      env.flag = false
+      expect(env.flag).to.be_false()
+    end)
+
+    it('should read back as false from the proxy', function()
+      local env, proxy = environment.create_module_environment()
+      env.flag = false
+      expect(proxy.flag).to.be_false()
+    end)
+
+    it('should shadow a same-named global rather than falling '
+      .. 'through to it', function()
+      local env, proxy = environment.create_module_environment()
+      -- A global of the same name must not win: the module declared it.
+      _G.llx_test_false_shadow = 'the real global'
+      env.llx_test_false_shadow = false
+      local observed = env.llx_test_false_shadow
+      _G.llx_test_false_shadow = nil
+      expect(observed).to.be_false()
+    end)
+
+    it('should shadow a same-named using_module symbol', function()
+      local mod_a = {value = 'from_module'}
+      local env, proxy = environment.create_module_environment({mod_a})
+      env.value = false
+      expect(env.value).to.be_false()
+    end)
+
+    it('should not raise when no global of that name exists', function()
+      local env, proxy = environment.create_module_environment()
+      env.solitary_false_field = false
+      expect(function()
+        local _ = env.solitary_false_field
+      end).to_not.throw()
+    end)
+
+    it('should be reported by environment.has', function()
+      local env, proxy = environment.create_module_environment()
+      env.flag = false
+      expect(environment.has(proxy, 'flag')).to.be_true()
+    end)
+
+    it('should appear in pairs iteration over the proxy', function()
+      local env, proxy = environment.create_module_environment()
+      env.flag = false
+      local collected = {}
+      for k, v in pairs(proxy) do collected[k] = v end
+      expect(collected.flag).to.be_false()
+    end)
+
+    it('should destructure through the proxy __call', function()
+      local env, proxy = environment.create_module_environment()
+      env.enabled = false
+      env.name = 'thing'
+      local enabled, name = proxy {'enabled', 'name'}
+      expect(enabled).to.be_false()
+      expect(name).to.be_equal_to('thing')
+    end)
+
+    it('should still raise for a genuinely undefined name', function()
+      local env, proxy = environment.create_module_environment()
+      env.flag = false
+      expect(function()
+        local _ = env.definitely_not_defined_abc
+      end).to.throw()
+    end)
+  end)
+
+  describe('false-valued globals seen through the environment', function()
+    it('should read a false global as false, not raise', function()
+      local env, proxy = environment.create_module_environment()
+      _G.llx_test_false_global = false
+      local ok, observed = pcall(function()
+        return env.llx_test_false_global
+      end)
+      _G.llx_test_false_global = nil
+      expect(ok).to.be_true()
+      expect(observed).to.be_false()
+    end)
+
+    it('should read a false using_module symbol as false', function()
+      local mod_a = {disabled = false}
+      local env, proxy = environment.create_module_environment({mod_a})
+      expect(env.disabled).to.be_false()
+    end)
+  end)
+
+  describe('module code reading its own false state', function()
+    -- The regression this guards: a module that keeps boolean state at
+    -- module scope used to branch on the value of an unrelated global.
+    it('should branch on the module variable, not a same-named '
+      .. 'global', function()
+      _G.llx_test_verbose = 'I AM THE REAL GLOBAL'
+      local chunk = [==[
+        local environment = require 'llx.environment'
+        local _ENV, _M = environment.create_module_environment()
+        llx_test_verbose = false
+        function is_on()
+          if llx_test_verbose then return 'ON' else return 'OFF' end
+        end
+        function read() return llx_test_verbose end
+        return _M
+      ]==]
+      local mod = assert(load(chunk, 'false_state_probe'))()
+      local is_on, read = mod.is_on(), mod.read()
+      _G.llx_test_verbose = nil
+      expect(is_on).to.be_equal_to('OFF')
+      expect(read).to.be_false()
+    end)
+
+    it('should let a module toggle its own boolean state', function()
+      local chunk = [==[
+        local environment = require 'llx.environment'
+        local _ENV, _M = environment.create_module_environment()
+        done = false
+        function finish() done = true end
+        function reset() done = false end
+        function is_done() return done end
+        return _M
+      ]==]
+      local mod = assert(load(chunk, 'toggle_probe'))()
+      expect(mod.is_done()).to.be_false()
+      mod.finish()
+      expect(mod.is_done()).to.be_true()
+      mod.reset()
+      expect(mod.is_done()).to.be_false()
+    end)
+  end)
+
+  describe('nil-valued module variables are not representable', function()
+    -- Pins the contract documented at the top of src/environment.lua: writes
+    -- go through rawset, so nil declares nothing. Module state that is
+    -- legitimately absent belongs in a module-scope local, not here.
+    it('should not declare a name assigned nil', function()
+      local env, proxy = environment.create_module_environment()
+      env.absent = nil
+      expect(environment.has(proxy, 'absent')).to.be_false()
+      expect(function()
+        local _ = env.absent
+      end).to.throw()
+    end)
+
+    it('should un-declare a live variable assigned nil', function()
+      local env, proxy = environment.create_module_environment()
+      env.present = 'here'
+      expect(environment.has(proxy, 'present')).to.be_true()
+      env.present = nil
+      expect(environment.has(proxy, 'present')).to.be_false()
+      expect(function()
+        local _ = env.present
+      end).to.throw()
+    end)
+
+    it('should drop an un-declared name from pairs iteration', function()
+      local env, proxy = environment.create_module_environment()
+      env.kept = 1
+      env.dropped = 2
+      env.dropped = nil
+      local collected = {}
+      for k, v in pairs(proxy) do collected[k] = v end
+      expect(collected.kept).to.be_equal_to(1)
+      expect(collected.dropped).to.be_nil()
+    end)
+
+    it('should distinguish nil from false: false stays declared', function()
+      local env, proxy = environment.create_module_environment()
+      env.flag = false
+      expect(environment.has(proxy, 'flag')).to.be_true()
+      env.flag = nil
+      expect(environment.has(proxy, 'flag')).to.be_false()
+    end)
+  end)
+
   describe('globals are accessible from environment', function()
     it('should provide access to standard library functions', function()
       local env, proxy = environment.create_module_environment()
