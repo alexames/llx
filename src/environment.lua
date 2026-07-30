@@ -29,7 +29,7 @@
 -- print(global_variable)  -- Output: Global value
 --
 -- -- Access non-existing variable in the scoped environment
--- print(non_existing_variable)  -- Output: nil
+-- print(non_existing_variable)  -- Raises: module does not contain field ...
 --
 -- return _M
 --------------------------------------------------------------------------------
@@ -37,6 +37,13 @@
 -- Inside the modules, the values can be accessed like normal. However, anything
 -- not marked local will end up in the _ENV table, which is returned (and thus
 -- exported) at the end.
+--
+-- A name resolves in the order module -> using -> globals, and a module
+-- variable shadows a same-named global whatever its value, including `false`.
+-- Note that a module variable cannot hold nil: the environment stores writes
+-- with rawset, so `x = nil` declares nothing and assigning nil to a live
+-- variable un-declares it. State that is legitimately absent should be a
+-- `local` (module-scope locals hold nil fine) or use a sentinel value.
 --
 -- Values that were global in the module scope are not accessable from code that
 -- includes it unless accessed through the module's returned table. For example:
@@ -62,7 +69,11 @@ local function make_module_metatable(module)
       local result = {}
       for i, v in ipairs(t) do
         local module_value = rawget(module, v)
-        assert(module_value)
+        -- Compare against nil, not truthiness: destructuring a field that
+        -- legitimately holds `false` must yield false, not raise.
+        if module_value == nil then
+          error(string.format("module does not contain field '%s'", v), 2)
+        end
         result[i] = module_value
       end
       return table.unpack(result)
@@ -149,12 +160,18 @@ local function create_module_environment(using_modules)
   end
 
   local environment = setmetatable({}, {
+    -- Resolution order is module -> using -> globals, and each source is
+    -- tested for nil rather than truthiness. An `or` chain here would skip
+    -- past a module variable holding `false` and silently resolve the name
+    -- against a same-named global instead.
     __index = function(self, k)
-      local result = rawget(module, k) or rawget(using_table, k) or _ENV[k]
-      if result == nil then
-        error(string.format("module does not contain field '%s'", k), 2)
-      end
-      return result
+      local result = rawget(module, k)
+      if result ~= nil then return result end
+      result = rawget(using_table, k)
+      if result ~= nil then return result end
+      result = _ENV[k]
+      if result ~= nil then return result end
+      error(string.format("module does not contain field '%s'", k), 2)
     end,
     __newindex = function(self, k, v)
       rawset(module, k, v)
