@@ -29,8 +29,10 @@ local Boolean = llx.Boolean
 local Float = llx.Float
 local Integer = llx.Integer
 local Nil = llx.Nil
+local List = llx.List
 local Number = llx.Number
 local String = llx.String
+local Table = llx.Table
 local isinstance = llx.isinstance
 
 local Animal = class 'Animal' { }
@@ -791,6 +793,420 @@ describe('is_subtype', function()
       T2 = Union{Integer, ListOf(Lazy(function() return T2 end))}
       expect(is_subtype(T1, T1)).to.be_true()
       expect(function() return is_subtype(T1, T2) end).to.throw()
+    end)
+  end)
+
+  describe('Schema structural rules', function()
+    local Schema = llx.Schema
+
+    it('should compare numeric windows by containment, not by name',
+        function()
+      -- The regression these rules exist for: both schemas are
+      -- untitled, so both are named 'Schema' and the name fallback
+      -- related them in BOTH directions.
+      local narrow = Schema{type = Number, minimum = 0, maximum = 10}
+      local wide = Schema{type = Number, minimum = 0, maximum = 100}
+      expect(is_subtype(narrow, wide)).to.be_true()
+      expect(is_subtype(wide, narrow)).to.be_false()
+    end)
+
+    it('should not relate distinct schemas sharing a title', function()
+      -- The other direction of the name fallback: a shared title made
+      -- schemas of different types compare equal.
+      expect(is_subtype(Schema{title = 'T', type = Number},
+                        Schema{title = 'T', type = String}))
+          .to.be_false()
+    end)
+
+    it('should not relate distinct untitled schemas', function()
+      expect(is_subtype(Schema{type = Number}, Schema{type = String}))
+          .to.be_false()
+      expect(is_subtype(Schema{type = Number}, Schema{type = Number}))
+          .to.be_true()
+    end)
+
+    it('should relate schema types through the ordinary relation',
+        function()
+      -- The `type` field recurses, so the numeric tower, unions and
+      -- Optional all come for free rather than being reimplemented.
+      expect(is_subtype(Schema{type = Integer}, Schema{type = Number}))
+          .to.be_true()
+      expect(is_subtype(Schema{type = Number}, Schema{type = Integer}))
+          .to.be_false()
+      expect(is_subtype(Schema{type = Number},
+                        Schema{type = Optional{Number}})).to.be_true()
+      expect(is_subtype(Schema{type = Optional{Number}},
+                        Schema{type = Number})).to.be_false()
+    end)
+
+    it('should treat an absent bound as unconstrained', function()
+      expect(is_subtype(Schema{type = Number, minimum = 5},
+                        Schema{type = Number})).to.be_true()
+      expect(is_subtype(Schema{type = Number},
+                        Schema{type = Number, minimum = 0})).to.be_false()
+    end)
+
+    it('should rank an exclusive bound tighter at an equal value',
+        function()
+      expect(is_subtype(Schema{type = Number, exclusive_minimum = 0},
+                        Schema{type = Number, minimum = 0})).to.be_true()
+      expect(is_subtype(Schema{type = Number, minimum = 0},
+                        Schema{type = Number, exclusive_minimum = 0}))
+          .to.be_false()
+      expect(is_subtype(Schema{type = Number, exclusive_maximum = 10},
+                        Schema{type = Number, maximum = 10})).to.be_true()
+      expect(is_subtype(Schema{type = Number, maximum = 10},
+                        Schema{type = Number, exclusive_maximum = 10}))
+          .to.be_false()
+    end)
+
+    it('should require multiple_of divisors to divide', function()
+      expect(is_subtype(Schema{type = Number, multiple_of = 4},
+                        Schema{type = Number, multiple_of = 2}))
+          .to.be_true()
+      expect(is_subtype(Schema{type = Number, multiple_of = 2},
+                        Schema{type = Number, multiple_of = 4}))
+          .to.be_false()
+      -- A non-positive divisor constrains nothing coherently, and 0
+      -- would raise on %; it relates to nothing rather than being
+      -- interpreted.
+      expect(is_subtype(Schema{type = Number, multiple_of = 0},
+                        Schema{type = Number, multiple_of = 0}))
+          .to.be_false()
+    end)
+
+    it('should nest string length windows and require equal patterns',
+        function()
+      expect(is_subtype(Schema{type = String, min_length = 2,
+                               max_length = 5},
+                        Schema{type = String, min_length = 1,
+                               max_length = 10})).to.be_true()
+      expect(is_subtype(Schema{type = String, min_length = 1},
+                        Schema{type = String, min_length = 2}))
+          .to.be_false()
+      expect(is_subtype(Schema{type = String, pattern = '^%d+$'},
+                        Schema{type = String, pattern = '^%d+$'}))
+          .to.be_true()
+      -- Regex containment is undecidable here, so a different pattern
+      -- is rejected even though this one is genuinely narrower.
+      expect(is_subtype(Schema{type = String, pattern = '^%d%d$'},
+                        Schema{type = String, pattern = '^%d+$'}))
+          .to.be_false()
+    end)
+
+    it('should require one_of sets to be subsets', function()
+      expect(is_subtype(Schema{type = Number, one_of = {1, 2}},
+                        Schema{type = Number, one_of = {1, 2, 3}}))
+          .to.be_true()
+      expect(is_subtype(Schema{type = Number, one_of = {1, 4}},
+                        Schema{type = Number, one_of = {1, 2, 3}}))
+          .to.be_false()
+      expect(is_subtype(Schema{type = Number},
+                        Schema{type = Number, one_of = {1}})).to.be_false()
+    end)
+
+    it('should relate predicates only by identity', function()
+      local predicate = function(v) return v > 0 end
+      expect(is_subtype(Schema{type = Number, predicate = predicate},
+                        Schema{type = Number, predicate = predicate}))
+          .to.be_true()
+      expect(is_subtype(Schema{type = Number,
+                               predicate = function(v) return v > 0 end},
+                        Schema{type = Number, predicate = predicate}))
+          .to.be_false()
+      expect(is_subtype(Schema{type = Number},
+                        Schema{type = Number, predicate = predicate}))
+          .to.be_false()
+    end)
+
+    it('should allow width subtyping over table properties', function()
+      local wide = Schema{type = Table,
+                          properties = {x = {type = Number},
+                                        y = {type = Number}},
+                          required = {'x', 'y'}}
+      local narrow = Schema{type = Table,
+                            properties = {x = {type = Number}},
+                            required = {'x'}}
+      expect(is_subtype(wide, narrow)).to.be_true()
+      -- narrow does not guarantee y, which wide requires.
+      expect(is_subtype(narrow, wide)).to.be_false()
+    end)
+
+    it('should recurse into shared table properties', function()
+      local function shape(field_type)
+        return Schema{type = Table, properties = {x = {type = field_type}},
+                      required = {'x'}}
+      end
+      expect(is_subtype(shape(Integer), shape(Number))).to.be_true()
+      expect(is_subtype(shape(Number), shape(Integer))).to.be_false()
+      expect(is_subtype(shape(Integer), shape(String))).to.be_false()
+    end)
+
+    it('should reject a property the sink constrains and the source '
+      .. 'leaves unspecified', function()
+      -- The source admits any value at x, including ones the sink
+      -- rejects, so this is the sound-leaning direction.
+      local unspecified = Schema{type = Table, properties = {}}
+      expect(is_subtype(unspecified,
+                        Schema{type = Table,
+                               properties = {x = {type = Number}}}))
+          .to.be_false()
+      -- Unless the sink's field forbids nothing.
+      expect(is_subtype(unspecified,
+                        Schema{type = Table,
+                               properties = {x = {type = Any}}}))
+          .to.be_true()
+    end)
+
+    it('should compare nested definition tables as schemas', function()
+      -- A nested property need not be wrapped by Schema(): llx's own
+      -- check_field reads a plain {type = ...} table, and generators
+      -- emit nested definitions that way.
+      local strict_inner = Schema{
+          type = Table,
+          properties = {n = {type = Number, minimum = 0, maximum = 5}},
+          required = {'n'}}
+      local loose_inner = Schema{
+          type = Table,
+          properties = {n = {type = Number, minimum = 0, maximum = 50}},
+          required = {'n'}}
+      expect(is_subtype(strict_inner, loose_inner)).to.be_true()
+      expect(is_subtype(loose_inner, strict_inner)).to.be_false()
+    end)
+
+    it('should erase against a bare type in one direction', function()
+      expect(is_subtype(Schema{type = Number, minimum = 0}, Number))
+          .to.be_true()
+      expect(is_subtype(Number, Schema{type = Number, minimum = 0}))
+          .to.be_false()
+      -- A schema that constrains nothing IS its type.
+      expect(is_subtype(Number, Schema{type = Number})).to.be_true()
+    end)
+
+    it('should keep Any, Dynamic and Never verdicts', function()
+      local narrow = Schema{type = Number, minimum = 0}
+      expect(is_subtype(narrow, Any)).to.be_true()
+      expect(is_subtype(narrow, Dynamic)).to.be_true()
+      expect(is_subtype(Dynamic, narrow)).to.be_true()
+      expect(is_subtype(Never, narrow)).to.be_true()
+    end)
+
+    it('should reach schema members through a union counterpart',
+        function()
+      -- The union walk must reach the schema-pair rule rather than
+      -- erasing past the member's constraints.
+      local narrow = Schema{type = Number, minimum = 0, maximum = 10}
+      local wide = Schema{type = Number, minimum = 0, maximum = 100}
+      expect(is_subtype(narrow, Union{wide, String})).to.be_true()
+      expect(is_subtype(wide, Union{narrow, String})).to.be_false()
+      expect(is_subtype(Union{narrow, narrow}, wide)).to.be_true()
+    end)
+
+    it('should stay reflexive for a recursive schema', function()
+      -- Decided by identity before any property walk, exactly as a
+      -- recursive Tuple or union is.
+      local recursive = Schema{type = Table, properties = {}}
+      recursive.properties.self = recursive
+      expect(is_subtype(recursive, recursive)).to.be_true()
+    end)
+
+    it('should raise on structural comparison of distinct recursive '
+      .. 'schemas rather than overflowing the stack', function()
+      -- The property walk recurses through is_subtype_impl, so the
+      -- cycle guard sees the self-dependent pair and raises the
+      -- documented error -- the same contract as recursive Lazy unions.
+      local first = Schema{type = Table, properties = {}}
+      first.properties.self = first
+      local second = Schema{type = Table, properties = {}}
+      second.properties.self = second
+      expect(function() return is_subtype(first, second) end).to.throw()
+      local ok, err = pcall(is_subtype, first, second)
+      expect(ok).to.be_false()
+      expect(string.find(tostring(err),
+          'cyclic type comparison', 1, true) ~= nil).to.be_true()
+    end)
+
+    it('should ignore a constraint the declared type never enforces',
+        function()
+      -- Constraints are enforced only by the declared type's __validate
+      -- hook (llx.schema's check_field dispatches through it), so a
+      -- numeric bound on a Union-typed schema is dead -- crediting it
+      -- would accept values the supertype rejects.
+      local dead = Schema{type = Union{Integer, Float}, minimum = 5}
+      local live = Schema{type = Number, minimum = 5}
+      expect(is_subtype(dead, live)).to.be_false()
+      -- Table's properties/required are dead on a List-typed schema,
+      -- whose own __validate reads items/prefix_items instead.
+      local list_props = Schema{type = List,
+                                properties = {x = {type = Number}},
+                                required = {'x'}}
+      local table_props = Schema{type = Table,
+                                 properties = {x = {type = Number}},
+                                 required = {'x'}}
+      expect(is_subtype(list_props, table_props)).to.be_false()
+    end)
+
+    it('should not credit required without a matching property spec',
+        function()
+      -- Table's __validate checks `required` only for names that also
+      -- appear in `properties` (the presence check lives inside the
+      -- pairs(properties) walk), so a bare required name guarantees
+      -- nothing.
+      local bare = Schema{type = Table, required = {'x'}}
+      local demands = Schema{type = Table,
+                             properties = {x = {type = Any}},
+                             required = {'x'}}
+      expect(is_subtype(bare, demands)).to.be_false()
+      expect(is_subtype(Schema{type = Table, properties = {},
+                               required = {'x'}}, demands)).to.be_false()
+      -- With the spec present on both sides it is a real guarantee.
+      expect(is_subtype(demands, demands)).to.be_true()
+    end)
+
+    it('should ignore prefix_items with no items alongside it',
+        function()
+      -- List's __validate returns early when `items` is nil, so a
+      -- prefix-only list schema constrains nothing.
+      local prefix_only = Schema{type = List,
+                                 prefix_items = {{type = Number}}}
+      local enforced = Schema{type = List, items = {type = Any},
+                              prefix_items = {{type = Number}}}
+      expect(is_subtype(prefix_only, enforced)).to.be_false()
+      -- A longer prefix is narrower, so it still relates.
+      expect(is_subtype(
+          Schema{type = List, items = {type = Any},
+                 prefix_items = {{type = Number}, {type = Number}}},
+          enforced)).to.be_true()
+    end)
+
+    it('should treat a type-less schema as undecidable, not as top',
+        function()
+      -- check_field raises on a nil schema type, so such a schema
+      -- accepts nothing; relating two of them by their titles would
+      -- reintroduce exactly the name-fallback bug.
+      expect(is_subtype(Schema{title = 'a'}, Schema{title = 'b'}))
+          .to.be_false()
+      expect(is_subtype(Schema{title = 'b'}, Schema{title = 'a'}))
+          .to.be_false()
+      expect(is_subtype(Schema{type = Number}, Schema{title = 'a'}))
+          .to.be_false()
+    end)
+
+    it('should treat a NaN bound as the absent bound it behaves as',
+        function()
+      -- number.lua compares with < / >, and every comparison against
+      -- NaN is false, so a NaN bound rejects nothing.
+      local nan = 0 / 0
+      expect(is_subtype(Schema{type = Number, minimum = nan},
+                        Schema{type = Number, minimum = 5}))
+          .to.be_false()
+      expect(is_subtype(Schema{type = Number, maximum = nan},
+                        Schema{type = Number, maximum = 5}))
+          .to.be_false()
+      expect(is_subtype(Schema{type = Number, minimum = 5},
+                        Schema{type = Number, minimum = nan}))
+          .to.be_true()
+    end)
+
+    it('should compare negative multiple_of by magnitude', function()
+      -- Lua's % is floored, so x % -2 == 0 exactly when x % 2 == 0.
+      expect(is_subtype(Schema{type = Number, multiple_of = -4},
+                        Schema{type = Number, multiple_of = 2}))
+          .to.be_true()
+      expect(is_subtype(Schema{type = Number, multiple_of = 4},
+                        Schema{type = Number, multiple_of = -2}))
+          .to.be_true()
+      expect(is_subtype(Schema{type = Number, multiple_of = -2},
+                        Schema{type = Number, multiple_of = -2}))
+          .to.be_true()
+    end)
+
+    it('should return a verdict rather than raise on malformed bounds',
+        function()
+      expect(is_subtype(Schema{type = Number, minimum = 'five'},
+                        Schema{type = Number, minimum = 5}))
+          .to.be_false()
+      expect(is_subtype(Schema{type = Number, multiple_of = 'two'},
+                        Schema{type = Number, multiple_of = 2}))
+          .to.be_false()
+      expect(is_subtype(Schema{type = Number, one_of = 3},
+                        Schema{type = Number, one_of = {1, 2}}))
+          .to.be_false()
+    end)
+
+    it('should narrow a union-typed schema through type_schemas',
+        function()
+      -- type_schemas is enforced by the Union matcher, so it is a real
+      -- narrowing that must not be read as "constrains nothing".
+      local union = Union{Number, String}
+      local strict = Schema{type = union, type_schemas = {
+          Number = {type = Number, minimum = 5},
+          String = {type = String, min_length = 3}}}
+      expect(is_subtype(Number, strict)).to.be_false()
+      expect(is_subtype(union, strict)).to.be_false()
+      expect(is_subtype(Schema{type = union}, strict)).to.be_false()
+      expect(is_subtype(strict, Schema{type = union})).to.be_true()
+    end)
+
+    it('should relate an unconstrained schema to its union type',
+        function()
+      -- The erasure direction must survive the union member walk.
+      expect(is_subtype(Schema{type = Optional{Number}},
+                        Optional{Number})).to.be_true()
+      expect(is_subtype(Optional{Number},
+                        Schema{type = Optional{Number}})).to.be_true()
+      expect(is_subtype(Schema{type = Union{Number, String}},
+                        Union{Number, String})).to.be_true()
+    end)
+
+    it('should keep comparing a schema to a string type name by name',
+        function()
+      -- Signature declarations may name a type by string, which can only
+      -- ever be __name equality.
+      local titled = Schema{type = Integer, title = 'PositiveInt'}
+      expect(is_subtype(titled, 'PositiveInt')).to.be_true()
+      expect(is_subtype('PositiveInt', titled)).to.be_true()
+      expect(is_subtype(titled, 'SomethingElse')).to.be_false()
+    end)
+
+    it('should give the same verdict at top level and nested',
+        function()
+      -- Plain definition tables are schemas at every depth, so a
+      -- comparison cannot change answer just by being wrapped.
+      local narrow = {type = Number, maximum = 10}
+      local wide = {type = Number, maximum = 100}
+      expect(is_subtype(narrow, wide)).to.be_true()
+      expect(is_subtype(wide, narrow)).to.be_false()
+      expect(is_subtype(
+          Schema{type = Table, properties = {x = narrow}},
+          Schema{type = Table, properties = {x = wide}})).to.be_true()
+      expect(is_subtype(
+          Schema{type = Table, properties = {x = wide}},
+          Schema{type = Table, properties = {x = narrow}})).to.be_false()
+      -- Including the same-__name case the old fallback got wrong.
+      expect(is_subtype({type = Number, maximum = 10, __name = 'C'},
+                        {type = Number, maximum = 100, __name = 'C'}))
+          .to.be_true()
+      expect(is_subtype({type = Number, maximum = 100, __name = 'C'},
+                        {type = Number, maximum = 10, __name = 'C'}))
+          .to.be_false()
+    end)
+
+    it('should not leak the schema marker into the schema table',
+        function()
+      -- llx.export hands schema tables to UI consumers that enumerate
+      -- their keys, so the marker lives on the metatable.
+      local schema = Schema{type = Number, minimum = 0}
+      expect(rawget(schema, '__is_llx_schema')).to.be_nil()
+      local keys = {}
+      for key in pairs(schema) do
+        keys[key] = true
+      end
+      expect(keys.__is_llx_schema).to.be_nil()
+      expect(llx.is_schema(schema)).to.be_true()
+      expect(llx.is_schema({type = Number})).to.be_true()
+      expect(llx.is_schema(Number)).to.be_false()
+      expect(llx.is_schema(42)).to.be_false()
     end)
   end)
 end)

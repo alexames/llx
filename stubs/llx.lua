@@ -11,6 +11,7 @@
 ---@field class fun(name: string|table): llx.ClassDefiner
 ---@field isinstance fun(value: any, type_checker: any): boolean
 ---@field is_subtype fun(a: any, b: any): boolean
+---@field is_schema fun(value: any): boolean
 ---@field signature_compatible fun(sub: table, super: table): boolean
 ---@field generator_compatible fun(sub: table, super: table): boolean
 ---@field Schema fun(schema: table): llx.Schema

@@ -309,7 +309,11 @@ res:is_err()                               --> true
 -- values but invariant keys (a key is both read back by iteration
 -- and taken by lookups, so neither widening direction is sound),
 -- unions member-wise, and two Callables by the signature variance
--- rules (parameters contravariant, returns covariant). Distinct
+-- rules (parameters contravariant, returns covariant). Two Schemas
+-- compare as containment of the value sets they accept -- their types
+-- relate recursively, then every constraint the supertype imposes must
+-- be met at least as strictly (bounds nest, `properties` recurse with
+-- width subtyping), and against a bare type a schema erases. Distinct
 -- classes sharing a name stay distinct, through containers too
 -- (classes compare by identity plus hierarchy); matchers without a
 -- structural rule (Iterator, Protocol, NewType, ...) still compare

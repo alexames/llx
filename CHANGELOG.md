@@ -305,6 +305,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `is_subtype` now compares two schemas structurally instead of by
+  name, fixing verdicts that were wrong in both directions. A schema
+  narrows a type with value-level constraints, but it carried no
+  type-level rule, so a schema pair fell through to the `__name`
+  fallback -- and every untitled schema is named `'Schema'`, so
+  unrelated shapes came out as mutual subtypes
+  (`Schema{type = Number, maximum = 10}` and
+  `Schema{type = Number, maximum = 100}` each a subtype of the other),
+  while two schemas sharing a `title` compared equal whatever their
+  fields said (`Schema{title = 'T', type = Number}` a subtype of
+  `Schema{title = 'T', type = String}`). The relation is now
+  containment of the value sets the schemas accept: the `type` fields
+  relate recursively (so a schema's `Union`/`Optional`/class/
+  numeric-tower spelling is decided by the existing rules), then every
+  constraint the supertype imposes must be met at least as strictly --
+  numeric and length windows nest, `multiple_of` divisors divide (by
+  magnitude, since Lua's floored `%` makes a negative divisor constrain
+  the same set as its absolute value), `one_of` sets are subsets,
+  `pattern`s and `predicate`s must be identical (neither regex nor
+  arbitrary-function containment is decidable), table `properties`
+  recurse with width subtyping, and a union-typed schema's
+  `type_schemas` recurse per member. Sound-leaning throughout: an
+  unprovable case is false, so a field the supertype constrains and the
+  subtype leaves unspecified relates only when the supertype's
+  constraint forbids nothing. Against a bare type a schema erases (every
+  value of `Schema{type = T, ...}` is a `T`) and the reverse holds only
+  for a schema that constrains nothing.
+
+  Every rule mirrors the value level, which is where "satisfies" is
+  defined, including two cases that are easy to get wrong. A
+  type-specific constraint is enforced only by the declared type's
+  `__validate` hook, so a `minimum` on a `Union`-typed schema,
+  `properties` on a `List`-typed one, and `prefix_items` with no `items`
+  beside it are all dead -- never read at the value level, and therefore
+  never credited as a narrowing here. `required` is likewise enforced
+  only for names that also appear in `properties`, so a bare required
+  name is not a presence guarantee. A schema with no `type` accepts
+  nothing (`check_field` raises on it) and is treated as undecidable
+  rather than as a top type. Malformed bounds now yield a verdict
+  instead of raising a raw comparison error out of `is_subtype`, and a
+  NaN bound is treated as the absent bound it behaves as.
+
+  Nested definitions need not be `Schema()` wrappers -- a plain
+  `{type = ..., <constraints>}` table is compared as a schema at any
+  depth, matching what `check_field` already accepts at the value level
+  and what `llx.export`'s `ensure_schema` hands back unwrapped. The new
+  `llx.is_schema(value)` predicate exposes that test. `Schema()` marks
+  its wrapper on the wrapper's *metatable* rather than as a key, so the
+  marker never appears in `pairs()`, `repr`, or the key enumeration
+  `llx.export` consumers rely on.
+
+  **Breaking:** schema pairs that related only through the name fallback
+  no longer relate -- most visibly two structurally identical schemas
+  built by the same factory but carrying distinct `predicate` closures,
+  and any pair sharing a `title` without sharing a shape. Both were
+  wrong answers, but code that depended on them (including as a
+  `TypeVar` bound, where a too-wide instantiation is now correctly
+  refused) will see verdicts flip. Downstream consumers that pinned the
+  old name-fallback behavior need updating in step; Composer's
+  node-graph type bridge is one, and pins it deliberately as a tripwire
+  for exactly this change.
 - A malformed catch type in the try/catch DSL no longer masks the
   exception being handled. Since #67 made `isinstance` raise on
   non-matcher type arguments, a catch clause whose type was not a

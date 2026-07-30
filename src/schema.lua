@@ -132,6 +132,14 @@ function Schema(definition)
   wrapper.__name = wrapper.__name or wrapper.title or 'Schema'
   setmetatable(wrapper, {
     __tostring = function(self) return self.__name end,
+    -- Identity marker for llx.is_subtype's structural schema rule (every
+    -- untitled schema shares the __name 'Schema', so the name fallback
+    -- cannot tell two apart). It lives on the METATABLE, not the
+    -- wrapper: consumers enumerate a schema's own keys -- llx.export
+    -- hands the table to UI code that reads `type`, `default`,
+    -- `ui_hint` and the constraints directly -- and an extra key there
+    -- would show up in pairs(), repr, and every key-driven walk.
+    __is_llx_schema = true,
   })
 
   return wrapper
