@@ -811,6 +811,539 @@ local function tuple_subtype(a, b, in_progress)
                             rawget(b, 'element_types'), in_progress)
 end
 
+-- ---------------------------------------------------------------------
+-- Schema structural subtyping (llx.schema.Schema).
+--
+-- A schema NARROWS a type with value-level constraints, so the relation
+-- between two schemas is containment of the value sets they accept:
+-- every value satisfying `a` must satisfy `b`. That is decided per
+-- constraint against what `b` imposes -- a bound `b` does not set
+-- constrains nothing, and `a` may be arbitrarily stricter.
+--
+-- Without this rule two schemas fall through to the __name fallback,
+-- which is wrong in BOTH directions: every untitled schema is named
+-- 'Schema' (so unrelated shapes compare mutually equal), while two
+-- schemas sharing a `title` compare equal whatever their fields say.
+--
+-- EVERY RULE HERE MIRRORS THE VALUE LEVEL, which is where "satisfies"
+-- is defined (llx.schema's check_field / check_constraints and the
+-- per-type __validate hooks). Two consequences are easy to get wrong
+-- and are handled explicitly below:
+--
+-- - Type-specific constraints are enforced ONLY by the __validate hook
+--   of the schema's declared `type`. A `minimum` on a Union-typed
+--   schema, `properties` on a List-typed one, or `prefix_items` with no
+--   `items` alongside it are all DEAD -- the value level never reads
+--   them. A dead constraint must not be credited as a narrowing on the
+--   subtype side (that would accept values the supertype rejects), nor
+--   demanded on the supertype side. See schema_enforces / effective.
+-- - A schema with no `type` accepts NOTHING: check_field raises on it.
+--   It is treated as undecidable rather than as a top type.
+--
+-- The rule is SOUND-leaning: where containment cannot be established --
+-- an arbitrary `predicate`, two different `pattern`s, a field `a` leaves
+-- unconstrained -- it returns false rather than admit a value `b`
+-- rejects. The structural verdict is final, like Tuple's.
+-- ---------------------------------------------------------------------
+
+-- Every key that narrows a schema's value set, paired with the constraint
+-- group whose declared type must enforce it (nil = type-agnostic, always
+-- enforced by check_constraints). A key outside this table (title,
+-- __name, __isinstance, default, ui_hint) is metadata and does not
+-- affect the relation.
+local schema_constraint_groups = {
+  minimum = 'numeric',
+  exclusive_minimum = 'numeric',
+  maximum = 'numeric',
+  exclusive_maximum = 'numeric',
+  multiple_of = 'numeric',
+  min_length = 'length',
+  max_length = 'length',
+  pattern = 'length',
+  properties = 'shape',
+  required = 'shape',
+  items = 'items',
+  prefix_items = 'items',
+  type_schemas = 'union',
+  one_of = false,
+  predicate = false,
+}
+
+-- Which declared type enforces which constraint group. Resolved lazily
+-- and memoized: llx.types.list pulls in llx.class, and requiring that
+-- graph at this module's load time risks a cycle. Integer and Float
+-- alias Number's hook (llx.types.integer / .float assign it directly),
+-- so one function identity covers the whole numeric tower.
+local constraint_hooks_cache = nil
+local function constraint_hooks()
+  if constraint_hooks_cache == nil then
+    constraint_hooks_cache = {
+      numeric = require('llx.types.number').Number.__validate,
+      length = require('llx.types.string').String.__validate,
+      shape = require('llx.types.table').Table.__validate,
+      items = require('llx.types.list').List.__validate,
+    }
+  end
+  return constraint_hooks_cache
+end
+
+-- The __validate hook a declared type will actually run, or nil when it
+-- has none (in which case every type-specific constraint on a schema of
+-- that type is dead). pcall-guarded: llx module proxies raise on a
+-- missing field rather than returning nil.
+--
+-- Memoized per type object, weakly, because this is the hot path: a
+-- comparison consults it once per constraint group per schema, and
+-- consumers call the relation per link per frame. `false` records "no
+-- hook" so a negative answer is cached too. Weak keys let a type object
+-- that goes away take its entry with it.
+local validate_hook_cache = setmetatable({}, {__mode = 'k'})
+
+local function validate_hook(schema_type)
+  if type(schema_type) ~= 'table' then
+    return nil
+  end
+  local cached = validate_hook_cache[schema_type]
+  if cached ~= nil then
+    return cached or nil
+  end
+  local ok, hook = pcall(function() return schema_type.__validate end)
+  if not ok or type(hook) ~= 'function' then
+    validate_hook_cache[schema_type] = false
+    return nil
+  end
+  validate_hook_cache[schema_type] = hook
+  return hook
+end
+
+-- True when `s`'s declared type really enforces `group`, so a constraint
+-- in that group is live rather than dead metadata. The 'union' group is
+-- the odd one out: the Union matcher builds its __validate per instance,
+-- so it cannot be recognized by function identity like the others, and
+-- being union-typed is the condition instead.
+local function schema_enforces(s, group)
+  local schema_type = rawget(s, 'type')
+  if group == 'union' then
+    return union_members(schema_type) ~= nil
+  end
+  local hook = validate_hook(schema_type)
+  return hook ~= nil and hook == constraint_hooks()[group]
+end
+
+-- `s`'s value for a constraint key, or nil when the key is dead for
+-- `s`'s declared type. A false/nil `group` marks a type-agnostic
+-- constraint (check_constraints runs one_of / predicate whatever the
+-- type is).
+local function effective(s, key, group)
+  if group and not schema_enforces(s, group) then
+    return nil
+  end
+  return rawget(s, key)
+end
+
+-- `prefix_items` is read only inside List's __validate *after* it has
+-- returned early on a missing `items` (see llx.types.list), so a
+-- prefix-only list schema constrains nothing.
+local function effective_prefix_items(s)
+  if effective(s, 'items', 'items') == nil then
+    return nil
+  end
+  return rawget(s, 'prefix_items')
+end
+
+-- `type_schemas` (per-member schemas for a union-typed schema) is
+-- enforced by the Union matcher's own __validate; see schema_enforces.
+local function effective_type_schemas(s)
+  return effective(s, 'type_schemas', 'union')
+end
+
+-- A schema: either a wrapper built by llx.schema.Schema (marked on its
+-- METATABLE, so the marker never shows up in pairs() / repr / the key
+-- enumeration llx.export's consumers rely on) or a plain
+-- {type = ..., <constraints>} definition table. The structural arm
+-- matters: check_field accepts a bare definition table exactly as it
+-- accepts a wrapper, nested definitions are routinely written that way,
+-- and llx.export's ensure_schema hands back an already-__isinstance
+-- table unwrapped. Recognizing both keeps one verdict at every depth.
+local function is_schema(t)
+  if type(t) ~= 'table' then
+    return false
+  end
+  local mt = getmetatable(t)
+  if mt ~= nil and rawget(mt, '__is_llx_schema') == true then
+    return true
+  end
+  return rawget(t, 'type') ~= nil
+end
+
+-- True when `s` narrows nothing, so it accepts exactly the values of its
+-- own `type` and is interchangeable with that bare type. Dead
+-- constraints do not count -- the value level ignores them too, so a
+-- `minimum` on a Union-typed schema narrows nothing.
+local function schema_is_unconstrained(s)
+  for key, group in pairs(schema_constraint_groups) do
+    if rawget(s, key) ~= nil then
+      local live
+      if key == 'prefix_items' then
+        -- The one key with a second condition: List's __validate returns
+        -- early on a missing `items`, so a prefix-only list schema
+        -- constrains nothing.
+        live = effective_prefix_items(s)
+      else
+        live = effective(s, key, group)
+      end
+      if live ~= nil then
+        return false
+      end
+    end
+  end
+  return true
+end
+
+-- True when `s` accepts EVERY value: unconstrained, and typed at the top
+-- (Any) or gradual (Dynamic). Used where `a` leaves a field `b`
+-- constrains unspecified -- only a `b` field that forbids nothing can
+-- accept whatever `a` lets through there. A schema with no `type` is not
+-- permissive but unsatisfiable (check_field raises on it), so it is
+-- excluded.
+local function schema_accepts_anything(s)
+  local schema_type = rawget(s, 'type')
+  if schema_type == nil then
+    return false
+  end
+  if not (rawequal(schema_type, Any) or rawequal(schema_type, Dynamic)) then
+    return false
+  end
+  return schema_is_unconstrained(s)
+end
+
+-- A bound is usable only when it is a real number. This is not
+-- defensive trimming, it is the value level: number.lua compares with
+-- `<` / `>`, so a NaN bound never rejects anything (an absent bound) and
+-- a non-numeric one would raise a raw comparison error out of
+-- is_subtype instead of yielding a verdict.
+local function numeric_bound(value)
+  if type(value) ~= 'number' or value ~= value then
+    return nil
+  end
+  return value
+end
+
+-- The effective floor `s` imposes as (value, inclusive), or nil for
+-- none. `minimum` and `exclusive_minimum` may both be present; the
+-- tighter (greater) one wins, and at equal values the exclusive bound is
+-- the tighter of the two.
+local function schema_lower_bound(s)
+  local inclusive = numeric_bound(effective(s, 'minimum', 'numeric'))
+  local exclusive =
+      numeric_bound(effective(s, 'exclusive_minimum', 'numeric'))
+  if exclusive ~= nil and (inclusive == nil or exclusive >= inclusive) then
+    return exclusive, false
+  end
+  if inclusive ~= nil then
+    return inclusive, true
+  end
+  return nil
+end
+
+-- Symmetric to schema_lower_bound; the tighter ceiling is the lesser.
+local function schema_upper_bound(s)
+  local inclusive = numeric_bound(effective(s, 'maximum', 'numeric'))
+  local exclusive =
+      numeric_bound(effective(s, 'exclusive_maximum', 'numeric'))
+  if exclusive ~= nil and (inclusive == nil or exclusive <= inclusive) then
+    return exclusive, false
+  end
+  if inclusive ~= nil then
+    return inclusive, true
+  end
+  return nil
+end
+
+-- `a`'s floor is at least as high as `b`'s, so `a` admits no value below
+-- what `b` permits. A `b` with no floor constrains nothing; an `a` with
+-- no floor under a `b` that has one admits values `b` rejects.
+local function lower_contained(a, b)
+  local b_value, b_inclusive = schema_lower_bound(b)
+  if b_value == nil then
+    return true
+  end
+  local a_value, a_inclusive = schema_lower_bound(a)
+  if a_value == nil then
+    return false
+  end
+  if a_value > b_value then
+    return true
+  end
+  if a_value < b_value then
+    return false
+  end
+  -- Equal bounds: `a` is contained unless it admits the endpoint `b`
+  -- excludes.
+  return b_inclusive or not a_inclusive
+end
+
+local function upper_contained(a, b)
+  local b_value, b_inclusive = schema_upper_bound(b)
+  if b_value == nil then
+    return true
+  end
+  local a_value, a_inclusive = schema_upper_bound(a)
+  if a_value == nil then
+    return false
+  end
+  if a_value < b_value then
+    return true
+  end
+  if a_value > b_value then
+    return false
+  end
+  return b_inclusive or not a_inclusive
+end
+
+-- A usable divisor. Lua's `%` is floored, so `x % -n == 0` exactly when
+-- `x % n == 0`: a negative divisor constrains the same set as its
+-- magnitude, and only the magnitude matters here. Zero would raise on
+-- an integer `%`, and NaN rejects every value, so neither yields a
+-- containment we can reason about.
+local function divisor(value)
+  local n = numeric_bound(value)
+  if n == nil or n == 0 then
+    return nil
+  end
+  return n < 0 and -n or n
+end
+
+-- Every value `a` admits is a multiple of `b`'s divisor exactly when
+-- `a`'s divisor is itself a multiple of `b`'s. A `b` divisor we cannot
+-- reason about is refused rather than interpreted.
+local function multiple_of_contained(a, b)
+  local b_raw = effective(b, 'multiple_of', 'numeric')
+  if b_raw == nil then
+    return true
+  end
+  local b_divisor = divisor(b_raw)
+  if b_divisor == nil then
+    return false
+  end
+  local a_divisor = divisor(effective(a, 'multiple_of', 'numeric'))
+  if a_divisor == nil then
+    return false
+  end
+  return a_divisor % b_divisor == 0
+end
+
+-- `b`'s length window contains `a`'s, and `b`'s pattern is `a`'s. Regex
+-- containment is undecidable here, so an identical pattern is required --
+-- the sound-leaning choice.
+local function length_contained(a, b)
+  local b_min = numeric_bound(effective(b, 'min_length', 'length'))
+  if b_min ~= nil then
+    local a_min = numeric_bound(effective(a, 'min_length', 'length'))
+    if a_min == nil or a_min < b_min then
+      return false
+    end
+  end
+  local b_max = numeric_bound(effective(b, 'max_length', 'length'))
+  if b_max ~= nil then
+    local a_max = numeric_bound(effective(a, 'max_length', 'length'))
+    if a_max == nil or a_max > b_max then
+      return false
+    end
+  end
+  local b_pattern = effective(b, 'pattern', 'length')
+  if b_pattern ~= nil
+      and effective(a, 'pattern', 'length') ~= b_pattern then
+    return false
+  end
+  return true
+end
+
+-- With `b` restricting values to a fixed set, `a` must restrict to a
+-- subset of it. An `a` that lists nothing admits values outside `b`'s
+-- set. A non-list `one_of` cannot be walked, so it is refused rather
+-- than raising out of is_subtype.
+local function one_of_contained(a, b)
+  local b_values = effective(b, 'one_of', nil)
+  if b_values == nil then
+    return true
+  end
+  if type(b_values) ~= 'table' then
+    return false
+  end
+  local a_values = effective(a, 'one_of', nil)
+  if type(a_values) ~= 'table' then
+    return false
+  end
+  for _, a_value in ipairs(a_values) do
+    local found = false
+    for _, b_value in ipairs(b_values) do
+      if a_value == b_value then
+        found = true
+        break
+      end
+    end
+    if not found then
+      return false
+    end
+  end
+  return true
+end
+
+-- An arbitrary Lua predicate is opaque -- nothing can be proven about
+-- the set it accepts -- so containment holds only when `a` runs the very
+-- same predicate.
+local function predicate_contained(a, b)
+  local b_predicate = effective(b, 'predicate', nil)
+  if b_predicate == nil then
+    return true
+  end
+  return effective(a, 'predicate', nil) == b_predicate
+end
+
+local function list_contains(list, value)
+  for i = 1, #list do
+    if list[i] == value then
+      return true
+    end
+  end
+  return false
+end
+
+-- Whether a nested schema position `b_entry` constrains nothing, so an
+-- `a` that leaves the same position unspecified still relates.
+local function position_forbids_nothing(b_entry)
+  return is_schema(b_entry) and schema_accepts_anything(b_entry)
+end
+
+-- Table shape. Width subtyping: `a` may carry properties beyond `b`'s.
+-- Shared properties recurse. A field `b` constrains but `a` leaves
+-- unspecified is the unsound case -- `a` admits any value there,
+-- including ones `b` rejects -- so it holds only when `b`'s field
+-- forbids nothing.
+--
+-- `required` is subtler than it looks: Table's __validate enforces it
+-- only for names that ALSO appear in `properties` (the presence check
+-- lives inside the `pairs(properties)` walk), so a name required without
+-- a property spec is never enforced and cannot be credited as a
+-- presence guarantee.
+local function properties_contained(a, b, in_progress)
+  local a_properties = effective(a, 'properties', 'shape')
+  local b_properties = effective(b, 'properties', 'shape')
+  local b_required = effective(b, 'required', 'shape')
+  if b_required ~= nil and b_properties ~= nil then
+    local a_required = effective(a, 'required', 'shape')
+    for _, name in ipairs(b_required) do
+      if b_properties[name] ~= nil then
+        local guaranteed = a_required ~= nil
+            and a_properties ~= nil
+            and a_properties[name] ~= nil
+            and list_contains(a_required, name)
+        if not guaranteed then
+          return false
+        end
+      end
+    end
+  end
+  if b_properties == nil then
+    return true
+  end
+  for name, b_property in pairs(b_properties) do
+    local a_property = a_properties ~= nil and a_properties[name] or nil
+    if a_property == nil then
+      if not position_forbids_nothing(b_property) then
+        return false
+      end
+    elseif not is_subtype_impl(a_property, b_property, in_progress) then
+      return false
+    end
+  end
+  return true
+end
+
+-- List shape: `items` applies to every element, `prefix_items` per
+-- position (and only alongside `items`; see effective_prefix_items).
+-- Both are covariant -- a list schema describes values its holder
+-- observes -- and an element constraint `b` sets that `a` lacks holds
+-- only when `b`'s constraint forbids nothing, as for a table property.
+-- A longer `a` prefix is narrower, so only a SHORTER one is refused.
+local function items_contained(a, b, in_progress)
+  local b_items = effective(b, 'items', 'items')
+  if b_items ~= nil then
+    local a_items = effective(a, 'items', 'items')
+    if a_items == nil then
+      if not position_forbids_nothing(b_items) then
+        return false
+      end
+    elseif not is_subtype_impl(a_items, b_items, in_progress) then
+      return false
+    end
+  end
+  local b_prefix = effective_prefix_items(b)
+  if b_prefix ~= nil then
+    local a_prefix = effective_prefix_items(a)
+    if a_prefix == nil or #a_prefix < #b_prefix then
+      return false
+    end
+    for i = 1, #b_prefix do
+      if not is_subtype_impl(a_prefix[i], b_prefix[i], in_progress) then
+        return false
+      end
+    end
+  end
+  return true
+end
+
+-- Per-union-member schemas. Same shape as properties: every member `b`
+-- constrains must be constrained at least as strictly by `a`, and a
+-- member `a` leaves unspecified relates only when `b`'s entry forbids
+-- nothing.
+local function type_schemas_contained(a, b, in_progress)
+  local b_schemas = effective_type_schemas(b)
+  if b_schemas == nil then
+    return true
+  end
+  local a_schemas = effective_type_schemas(a)
+  for name, b_entry in pairs(b_schemas) do
+    local a_entry = a_schemas ~= nil and a_schemas[name] or nil
+    if a_entry == nil then
+      if not position_forbids_nothing(b_entry) then
+        return false
+      end
+    elseif not is_subtype_impl(a_entry, b_entry, in_progress) then
+      return false
+    end
+  end
+  return true
+end
+
+-- The relation between two schemas. The declared types relate first
+-- (every value `a` admits is an `a.type`, and must be usable as a
+-- `b.type` -- which is where Union / Optional / class / numeric-tower
+-- rules all come in, since a schema spells those in its `type` field),
+-- then each constraint group `b` imposes. A schema with no declared type
+-- accepts nothing (check_field raises on it), so it is undecidable here
+-- rather than a top type.
+local function schema_subtype(a, b, in_progress)
+  local a_type = rawget(a, 'type')
+  local b_type = rawget(b, 'type')
+  if a_type == nil or b_type == nil then
+    return false
+  end
+  if not is_subtype_impl(a_type, b_type, in_progress) then
+    return false
+  end
+  return lower_contained(a, b)
+     and upper_contained(a, b)
+     and multiple_of_contained(a, b)
+     and length_contained(a, b)
+     and one_of_contained(a, b)
+     and predicate_contained(a, b)
+     and properties_contained(a, b, in_progress)
+     and items_contained(a, b, in_progress)
+     and type_schemas_contained(a, b, in_progress)
+end
+
 -- The relation proper, applied to resolved operands. is_subtype_impl
 -- wraps it with Lazy resolution and the cycle-guard bookkeeping;
 -- the public is_subtype below documents the rules.
@@ -887,6 +1420,48 @@ local function subtype_rules(a, b, in_progress)
   -- either).
   if rawequal(a, Never) then
     return true
+  end
+  -- Schemas (llx.schema.Schema) compare structurally, ahead of the name
+  -- fallback: every untitled schema is named 'Schema', so that fallback
+  -- relates unrelated shapes in both directions, and two schemas sharing
+  -- a title compare equal whatever their fields say. See schema_subtype
+  -- above; like the other structural rules the verdict is final.
+  --
+  -- A string counterpart is excluded throughout: a string type name
+  -- carries no structure to compare against, and a Signature declaration
+  -- may name a schema by its title -- which is exactly the __name
+  -- equality type_equal implements further down.
+  local a_is_schema = type(b) ~= 'string' and is_schema(a)
+  local b_is_schema = type(a) ~= 'string' and is_schema(b)
+  if a_is_schema and b_is_schema then
+    return rawequal(a, b) or schema_subtype(a, b, in_progress)
+  end
+  -- A schema against a bare type. A schema only ever NARROWS its type,
+  -- so it erases in one direction -- every value of Schema{type = T} is
+  -- a T -- while the reverse holds only for a schema that constrains
+  -- nothing, since a bare T admits values any real constraint rejects.
+  if a_is_schema then
+    -- A union counterpart gets the member walk FIRST, so a schema member
+    -- is decided by the schema-pair rule above instead of being erased
+    -- past its constraints. Erasure is still tried afterwards, so an
+    -- unconstrained schema over a union type stays a subtype of that
+    -- union. Each member is a speculative alternative, so a failed
+    -- branch rolls its TypeVar instantiations back.
+    local b_union = union_members(b)
+    if b_union ~= nil then
+      for _, member in ipairs(b_union) do
+        local savepoint = unify_savepoint(in_progress)
+        if is_subtype_impl(a, member, in_progress) then
+          return true
+        end
+        unify_rollback(in_progress, savepoint)
+      end
+    end
+    return is_subtype_impl(rawget(a, 'type'), b, in_progress)
+  end
+  if b_is_schema and union_members(a) == nil then
+    return schema_is_unconstrained(b)
+       and is_subtype_impl(a, rawget(b, 'type'), in_progress)
   end
   -- Tuples compare structurally when both sides are Tuple matchers,
   -- taking precedence over the name fallback: names freeze Lazy
@@ -1220,6 +1795,34 @@ end
 --   BARE class, an alias erases (`Pool[Integer]` is a subtype of
 --   `Pool` and its bases) and the reverse is gradual (a bare class
 --   reads as applied-to-Dynamic). The structural verdict is final.
+-- - `Schema` (`llx.schema.Schema`): two schemas compare as containment
+--   of the value sets they accept -- their `type` fields relate
+--   recursively (which is where a schema's Union / Optional / class /
+--   numeric-tower spelling is decided), then every constraint `b`
+--   imposes must be met at least as strictly by `a`: numeric and
+--   length windows must nest, `multiple_of` divisors must divide,
+--   `one_of` sets must be subsets, `pattern`s and `predicate`s must be
+--   identical (neither regex nor arbitrary-function containment is
+--   decidable), table `properties` recurse with width subtyping (`a`
+--   may add fields), and a union-typed schema's `type_schemas` recurse
+--   per member. Sound-leaning: an unprovable case is false, so a field
+--   `b` constrains that `a` leaves unspecified relates only when `b`'s
+--   constraint forbids nothing. Against a bare type a schema erases
+--   (every value of `Schema{type = T, ...}` is a `T`) and the reverse
+--   holds only for a schema that constrains nothing; against a string
+--   type name a schema keeps the `__name` comparison, since a string
+--   carries no structure. Every rule mirrors the value level, so a
+--   constraint the declared type's `__validate` never reads (a
+--   `minimum` on a Union-typed schema, `properties` on a List-typed
+--   one, `prefix_items` with no `items`, a `required` name with no
+--   `properties` entry) is dead and is credited to neither side, and a
+--   schema with no `type` -- which `check_field` raises on, so it
+--   accepts nothing -- is undecidable rather than a top type. A plain
+--   `{type = ..., <constraints>}` definition table counts as a schema
+--   at any depth, exactly as `check_field` accepts one. The structural
+--   verdict is final -- without it every untitled schema (all named
+--   `'Schema'`) would relate to every other through the name fallback
+--   below.
 -- - `Lazy`: deferred references are forced (resolving and caching
 --   the underlying matcher) before comparison, so a Lazy compares
 --   exactly as the matcher it resolves to.
@@ -1827,5 +2430,18 @@ function generator_compatible(sub, super)
     and signature_compatible_impl(completion_sub, completion_super,
                                   in_progress)
 end
+
+--- Returns true when `value` is a schema for subtyping purposes.
+--
+-- True for a wrapper built by `llx.schema.Schema` (recognized by the
+-- marker on its metatable) and for a plain `{type = ..., <constraints>}`
+-- definition table, which `matches_schema` accepts just the same and
+-- which nested definitions are routinely written as. Exposed because the
+-- marker is deliberately not a key on the schema itself, so callers
+-- cannot test for one without this.
+--
+-- @param value The value to test
+-- @return True when `value` would be compared by the schema rules
+_ENV.is_schema = is_schema
 
 return _M
