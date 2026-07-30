@@ -846,14 +846,27 @@ end
 -- rejects. The structural verdict is final, like Tuple's.
 -- ---------------------------------------------------------------------
 
--- Every key that narrows a schema's value set. A key outside this list
--- (title, __name, __isinstance, default, ui_hint) is metadata and does
--- not affect the relation.
-local schema_constraint_keys = {
-  'minimum', 'exclusive_minimum', 'maximum', 'exclusive_maximum',
-  'multiple_of', 'min_length', 'max_length', 'pattern',
-  'properties', 'required', 'items', 'prefix_items',
-  'type_schemas', 'one_of', 'predicate',
+-- Every key that narrows a schema's value set, paired with the constraint
+-- group whose declared type must enforce it (nil = type-agnostic, always
+-- enforced by check_constraints). A key outside this table (title,
+-- __name, __isinstance, default, ui_hint) is metadata and does not
+-- affect the relation.
+local schema_constraint_groups = {
+  minimum = 'numeric',
+  exclusive_minimum = 'numeric',
+  maximum = 'numeric',
+  exclusive_maximum = 'numeric',
+  multiple_of = 'numeric',
+  min_length = 'length',
+  max_length = 'length',
+  pattern = 'length',
+  properties = 'shape',
+  required = 'shape',
+  items = 'items',
+  prefix_items = 'items',
+  type_schemas = 'union',
+  one_of = false,
+  predicate = false,
 }
 
 -- Which declared type enforces which constraint group. Resolved lazily
@@ -878,29 +891,51 @@ end
 -- has none (in which case every type-specific constraint on a schema of
 -- that type is dead). pcall-guarded: llx module proxies raise on a
 -- missing field rather than returning nil.
+--
+-- Memoized per type object, weakly, because this is the hot path: a
+-- comparison consults it once per constraint group per schema, and
+-- consumers call the relation per link per frame. `false` records "no
+-- hook" so a negative answer is cached too. Weak keys let a type object
+-- that goes away take its entry with it.
+local validate_hook_cache = setmetatable({}, {__mode = 'k'})
+
 local function validate_hook(schema_type)
   if type(schema_type) ~= 'table' then
     return nil
   end
+  local cached = validate_hook_cache[schema_type]
+  if cached ~= nil then
+    return cached or nil
+  end
   local ok, hook = pcall(function() return schema_type.__validate end)
   if not ok or type(hook) ~= 'function' then
+    validate_hook_cache[schema_type] = false
     return nil
   end
+  validate_hook_cache[schema_type] = hook
   return hook
 end
 
 -- True when `s`'s declared type really enforces `group`, so a constraint
--- in that group is live rather than dead metadata.
+-- in that group is live rather than dead metadata. The 'union' group is
+-- the odd one out: the Union matcher builds its __validate per instance,
+-- so it cannot be recognized by function identity like the others, and
+-- being union-typed is the condition instead.
 local function schema_enforces(s, group)
-  local hook = validate_hook(rawget(s, 'type'))
+  local schema_type = rawget(s, 'type')
+  if group == 'union' then
+    return union_members(schema_type) ~= nil
+  end
+  local hook = validate_hook(schema_type)
   return hook ~= nil and hook == constraint_hooks()[group]
 end
 
 -- `s`'s value for a constraint key, or nil when the key is dead for
--- `s`'s declared type. `group` nil marks a type-agnostic constraint
--- (check_constraints runs one_of / predicate whatever the type is).
+-- `s`'s declared type. A false/nil `group` marks a type-agnostic
+-- constraint (check_constraints runs one_of / predicate whatever the
+-- type is).
 local function effective(s, key, group)
-  if group ~= nil and not schema_enforces(s, group) then
+  if group and not schema_enforces(s, group) then
     return nil
   end
   return rawget(s, key)
@@ -917,14 +952,9 @@ local function effective_prefix_items(s)
 end
 
 -- `type_schemas` (per-member schemas for a union-typed schema) is
--- enforced by the Union matcher's own __validate. Union builds that hook
--- per instance, so it cannot be recognized by function identity like the
--- others; a union-typed schema is the condition.
+-- enforced by the Union matcher's own __validate; see schema_enforces.
 local function effective_type_schemas(s)
-  if union_members(rawget(s, 'type')) == nil then
-    return nil
-  end
-  return rawget(s, 'type_schemas')
+  return effective(s, 'type_schemas', 'union')
 end
 
 -- A schema: either a wrapper built by llx.schema.Schema (marked on its
@@ -948,31 +978,19 @@ end
 
 -- True when `s` narrows nothing, so it accepts exactly the values of its
 -- own `type` and is interchangeable with that bare type. Dead
--- constraints do not count -- the value level ignores them too.
+-- constraints do not count -- the value level ignores them too, so a
+-- `minimum` on a Union-typed schema narrows nothing.
 local function schema_is_unconstrained(s)
-  for _, key in ipairs(schema_constraint_keys) do
-    if rawget(s, key) ~= nil and effective(s, key, nil) ~= nil then
-      -- Re-read through the group gate so a dead constraint (a
-      -- `minimum` on a Union-typed schema, say) is not mistaken for a
-      -- narrowing.
+  for key, group in pairs(schema_constraint_groups) do
+    if rawget(s, key) ~= nil then
       local live
       if key == 'prefix_items' then
+        -- The one key with a second condition: List's __validate returns
+        -- early on a missing `items`, so a prefix-only list schema
+        -- constrains nothing.
         live = effective_prefix_items(s)
-      elseif key == 'type_schemas' then
-        live = effective_type_schemas(s)
-      elseif key == 'minimum' or key == 'exclusive_minimum'
-          or key == 'maximum' or key == 'exclusive_maximum'
-          or key == 'multiple_of' then
-        live = effective(s, key, 'numeric')
-      elseif key == 'min_length' or key == 'max_length'
-          or key == 'pattern' then
-        live = effective(s, key, 'length')
-      elseif key == 'properties' or key == 'required' then
-        live = effective(s, key, 'shape')
-      elseif key == 'items' then
-        live = effective(s, key, 'items')
       else
-        live = rawget(s, key)
+        live = effective(s, key, group)
       end
       if live ~= nil then
         return false
