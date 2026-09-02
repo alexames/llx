@@ -305,6 +305,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `llx.unit` no longer installs its classes as globals. `Mock`,
+  `TestLogger` and `HierarchicalLogger` were assigned at module scope
+  without `local`, so requiring the framework wrote three names into
+  `_G`. That is invisible in an ordinary run and a load-time
+  `writes disallowed` error under
+  `llx.strict.lock_global_table()`, which left the framework unusable
+  in exactly the host where a global-hygiene defect most needs a test.
+  All three were already exported from their module tables
+  (`llx.unit.Mock`, and `TestLogger`/`HierarchicalLogger` from
+  `llx.unit.test_logger`), and `unit.create_test_env` binds `Mock`
+  itself, so no documented spelling changes; only code that read the
+  names straight off `_G` is affected.
+- A new suite runs every module the rockspec maps with a globals table
+  of its own and reports the names it writes there, so the next leak of
+  this kind fails the tests rather than surfacing in a host. A
+  metatable on `_G` cannot see one on its own: `__newindex` fires only
+  for a name `_G` does not already hold, and the suite's own header
+  loads the framework it is checking, so a leak is already present by
+  the time the check runs and its rewrite passes in silence. A private
+  table holds nothing, so it records every module-scope write whatever
+  the name and whatever the value, and a proxy standing in for `_G`
+  catches the `_G.name = ...` spelling too -- the only one that can leak
+  from a `create_module_environment` module, which is most of the tree.
+  A write made with `rawset` escapes both this and a locked host, so
+  neither promises to see it. The suite also requires `llx.unit` under
+  `llx.strict.lock_global_table()`, which is the reported failure
+  itself. `llx.flow_control.switchcase`, which installs
+  `switch`/`case`/`type_switch`/`default` as globals by design and is
+  for that reason not aggregated into `llx.flow_control`, is the one
+  exemption, and the suite pins the exact set it installs.
 - `is_subtype` now compares two schemas structurally instead of by
   name, fixing verdicts that were wrong in both directions. A schema
   narrows a type with value-level constraints, but it carried no

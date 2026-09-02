@@ -60,6 +60,7 @@ require 'llx.tests.flow_control.test_switchcase'
 require 'llx.tests.flow_control.test_trycatch'
 
 -- strict/ tests
+require 'llx.tests.strict.test_locked_module_loads'
 require 'llx.tests.strict.test_strict'
 
 -- collections/ tests
