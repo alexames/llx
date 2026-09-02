@@ -13,7 +13,7 @@ local reset = llx.debug.reset
 local printf = llx.printf
 
 --- Logger used for displaying test results to stdout.
-TestLogger = class 'TestLogger' {
+local TestLogger = class 'TestLogger' {
   --- Returns the current test suite name.
   test_suite_name = function(self)
     return self.test_suite.__class_name
@@ -250,7 +250,7 @@ local function print_tree(items, indent)
 end
 
 --- Hierarchical logger for displaying test results with nested describe blocks.
-HierarchicalLogger = class 'HierarchicalLogger' {
+local HierarchicalLogger = class 'HierarchicalLogger' {
   __init = function(self)
     self.test_suites = {}
     self.current_suite = nil
