@@ -1,11 +1,12 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
 
 local function disallow_writes(t, k, v)
-  local error_string = string.format(
+  local error_string = compat.format(
     'writes disallowed (attempted to write to [%s] = %s)', tostring(k),
     tostring(v))
   error(error_string, 2)

@@ -2,7 +2,7 @@ local llx = require 'llx'
 local unit = require 'llx.unit'
 local matchers = require 'llx.unit.matchers'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 local Equals = matchers.equals
 local Not = matchers.negate
@@ -171,5 +171,5 @@ describe('unit test framework', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

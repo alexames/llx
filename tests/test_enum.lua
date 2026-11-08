@@ -5,7 +5,7 @@ local enum = require 'llx.enum' . enum
 local hash = require 'llx.hash' . hash
 local HashTable = require 'llx.hash_table' . HashTable
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('enum', function()
   describe('creation', function()
@@ -367,32 +367,40 @@ describe('enum.Flag', function()
     end)
   end)
 
-  describe('composition operators', function()
-    it('should combine via |', function()
+  describe('composition methods', function()
+    it('should combine via union', function()
       local P = Flag 'P' { Read = 1, Write = 2, Execute = 4 }
-      expect((P.Read | P.Write).value).to.be_equal_to(3)
+      expect(P.Read:union(P.Write).value).to.be_equal_to(3)
     end)
 
-    it('should intersect via &', function()
+    it('should intersect via intersection', function()
       local P = Flag 'P' { Read = 1, Write = 2, Execute = 4 }
-      expect(((P.Read | P.Write) & P.Read).value).to.be_equal_to(1)
+      expect(P.Read:union(P.Write):intersection(P.Read).value)
+        .to.be_equal_to(1)
     end)
 
-    it('should xor via ~', function()
+    it('should xor via symmetric_difference', function()
       local P = Flag 'P' { Read = 1, Write = 2, Execute = 4 }
-      expect(((P.Read | P.Write) ~ P.Write).value).to.be_equal_to(1)
+      expect(P.Read:union(P.Write):symmetric_difference(P.Write).value)
+        .to.be_equal_to(1)
+    end)
+
+    it('should clear bits via difference', function()
+      local P = Flag 'P' { Read = 1, Write = 2, Execute = 4 }
+      expect(P.Read:union(P.Write):difference(P.Read).value)
+        .to.be_equal_to(2)
     end)
 
     it('should clear bits via -', function()
       local P = Flag 'P' { Read = 1, Write = 2, Execute = 4 }
-      expect(((P.Read | P.Write) - P.Read).value).to.be_equal_to(2)
+      expect((P.Read:union(P.Write) - P.Read).value).to.be_equal_to(2)
     end)
   end)
 
   describe(':has()', function()
     it('should return true for a flag that is set', function()
       local P = Flag 'P' { Read = 1, Write = 2 }
-      expect((P.Read | P.Write):has(P.Read)).to.be_true()
+      expect(P.Read:union(P.Write):has(P.Read)).to.be_true()
     end)
 
     it('should return false for a flag that is not set', function()
@@ -402,8 +410,8 @@ describe('enum.Flag', function()
 
     it('should require all bits when checking a combined flag', function()
       local P = Flag 'P' { Read = 1, Write = 2 }
-      expect((P.Read | P.Write):has(P.Read | P.Write)).to.be_true()
-      expect(P.Read:has(P.Read | P.Write)).to.be_false()
+      expect(P.Read:union(P.Write):has(P.Read:union(P.Write))).to.be_true()
+      expect(P.Read:has(P.Read:union(P.Write))).to.be_false()
     end)
   end)
 
@@ -415,7 +423,7 @@ describe('enum.Flag', function()
 
     it('should print combined flags as Name.A|B|...', function()
       local P = Flag 'P' { Read = 1, Write = 2 }
-      expect(tostring(P.Read | P.Write)).to.be_equal_to('P.Read|Write')
+      expect(tostring(P.Read:union(P.Write))).to.be_equal_to('P.Read|Write')
     end)
 
     it('should print empty value as <none>', function()
@@ -427,13 +435,13 @@ describe('enum.Flag', function()
   describe('__eq, __hash, __tointeger', function()
     it('should compare equal for same value', function()
       local P = Flag 'P' { A = 1, B = 2 }
-      expect(P.A | P.B).to.be_equal_to(P.B | P.A)
+      expect(P.A:union(P.B)).to.be_equal_to(P.B:union(P.A))
     end)
 
     it('should hash equal for equal flag values', function()
       local P = Flag 'P' { A = 1, B = 2 }
       local hash = require 'llx.hash'.hash
-      expect(hash(P.A | P.B)).to.be_equal_to(hash(P.B | P.A))
+      expect(hash(P.A:union(P.B))).to.be_equal_to(hash(P.B:union(P.A)))
     end)
 
     it('should convert to integer via __tointeger', function()
@@ -445,5 +453,5 @@ describe('enum.Flag', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

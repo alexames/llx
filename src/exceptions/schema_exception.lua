@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local class = require 'llx.class' . class
 local environment = require 'llx.environment'
 local Exception = require 'llx.exceptions.exception' . Exception
@@ -9,7 +10,7 @@ local _ENV, _M = environment.create_module_environment()
 SchemaException = class 'SchemaException' : extends(Exception) {
   __init = function(self, path, failure_reason, level)
     local path_str = #path > 0 and ('`'..table.concat(path, '.')..'`') or 'root'
-    local what = string.format('error at %s: %s',
+    local what = compat.format('error at %s: %s',
                                path_str, failure_reason)
     Exception.__init(self, what, (level or 1) + 1)
     self.path = path
@@ -28,11 +29,11 @@ SchemaFieldTypeMismatchException =
       if #value_repr > 50 then
         value_repr = value_repr:sub(1, 47) .. '...'
       end
-      failure_reason = string.format(
+      failure_reason = compat.format(
           '%s expected, got %s (%s)',
           expected_type.__name, actual_type.__name, value_repr)
     else
-      failure_reason = string.format(
+      failure_reason = compat.format(
           '%s expected, got %s',
           expected_type.__name, actual_type.__name)
     end
@@ -57,7 +58,7 @@ SchemaConstraintFailureException =
 SchemaMissingFieldException =
     class 'SchemaMissingFieldException' : extends(SchemaException) {
   __init = function(self, path, field_key, level)
-    local failure_reason = string.format(
+    local failure_reason = compat.format(
         'missing required field %s', field_key)
     SchemaException.__init(self, path, failure_reason, (level or 1) + 1)
   end,

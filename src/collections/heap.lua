@@ -7,6 +7,7 @@
 -- O(log n); peek is O(1).
 -- @module llx.collections.heap
 
+local compat = require 'llx.compat'
 local class = require 'llx.class' . class
 local environment = require 'llx.environment'
 
@@ -30,7 +31,7 @@ Heap = class 'Heap' {
       data[i] = opts[i]
     end
     -- Heapify: sift down from the last non-leaf to the root.
-    for i = #data // 2, 1, -1 do
+    for i = compat.floordiv(#data, 2), 1, -1 do
       self:_sift_down(i)
     end
   end,
@@ -39,7 +40,7 @@ Heap = class 'Heap' {
     local data = self._data
     local less = self._less
     while index > 1 do
-      local parent = index // 2
+      local parent = compat.floordiv(index, 2)
       if less(data[index], data[parent]) then
         data[index], data[parent] = data[parent], data[index]
         index = parent
@@ -143,8 +144,8 @@ Heap = class 'Heap' {
     for i = 1, #self._data do a._data[i] = self._data[i] end
     for i = 1, #other._data do b._data[i] = other._data[i] end
     -- Re-heapify both copies (they share the underlying order).
-    for i = #a._data // 2, 1, -1 do a:_sift_down(i) end
-    for i = #b._data // 2, 1, -1 do b:_sift_down(i) end
+    for i = compat.floordiv(#a._data, 2), 1, -1 do a:_sift_down(i) end
+    for i = compat.floordiv(#b._data, 2), 1, -1 do b:_sift_down(i) end
     while #a._data > 0 do
       if a:pop() ~= b:pop() then return false end
     end
@@ -163,7 +164,7 @@ function nlargest(sequence, n)
   local heap = Heap{}
   for i = 1, #sequence do
     local v = sequence[i]
-    if #heap < n then
+    if compat.len(heap) < n then
       heap:push(v)
     elseif v > heap:peek() then
       heap:pop()
@@ -172,8 +173,8 @@ function nlargest(sequence, n)
   end
   -- Drain into a list in descending order.
   local result = {}
-  while #heap > 0 do
-    result[#heap] = heap:pop()
+  while compat.len(heap) > 0 do
+    result[compat.len(heap)] = heap:pop()
   end
   return result
 end
@@ -187,7 +188,7 @@ function nsmallest(sequence, n)
   local heap = Heap{less = function(a, b) return a > b end}
   for i = 1, #sequence do
     local v = sequence[i]
-    if #heap < n then
+    if compat.len(heap) < n then
       heap:push(v)
     elseif v < heap:peek() then
       heap:pop()
@@ -195,8 +196,8 @@ function nsmallest(sequence, n)
     end
   end
   local result = {}
-  while #heap > 0 do
-    result[#heap] = heap:pop()
+  while compat.len(heap) > 0 do
+    result[compat.len(heap)] = heap:pop()
   end
   return result
 end

@@ -8,6 +8,7 @@
 -- to handle the first-use case manually.
 -- @module llx.collections.default_dict
 
+local compat = require 'llx.compat'
 local class = require 'llx.class' . class
 local environment = require 'llx.environment'
 
@@ -58,7 +59,7 @@ DefaultDict = class 'DefaultDict' {
 
   keys = function(self)
     local result = {}
-    for k in pairs(self._data) do
+    for k in compat.pairs(self._data) do
       result[#result + 1] = k
     end
     return result
@@ -66,7 +67,7 @@ DefaultDict = class 'DefaultDict' {
 
   values = function(self)
     local result = {}
-    for _, v in pairs(self._data) do
+    for _, v in compat.pairs(self._data) do
       result[#result + 1] = v
     end
     return result
@@ -79,21 +80,21 @@ DefaultDict = class 'DefaultDict' {
 
   __len = function(self)
     local n = 0
-    for _ in pairs(self._data) do n = n + 1 end
+    for _ in compat.pairs(self._data) do n = n + 1 end
     return n
   end,
 
   __pairs = function(self)
-    return pairs(self._data)
+    return compat.pairs(self._data)
   end,
 
   -- Equal iff same set of keys map to same values. Factory
   -- functions do not participate.
   __eq = function(self, other)
-    for k, v in pairs(self._data) do
+    for k, v in compat.pairs(self._data) do
       if other._data[k] ~= v then return false end
     end
-    for k, v in pairs(other._data) do
+    for k, v in compat.pairs(other._data) do
       if self._data[k] ~= v then return false end
     end
     return true
@@ -102,7 +103,7 @@ DefaultDict = class 'DefaultDict' {
   __hash = function(self, result)
     local hash = require 'llx.hash'
     local keys = {}
-    for k in pairs(self._data) do
+    for k in compat.pairs(self._data) do
       keys[#keys + 1] = k
     end
     table.sort(keys, function(a, b)
@@ -117,7 +118,7 @@ DefaultDict = class 'DefaultDict' {
 
   __tostring = function(self)
     local parts = {}
-    for k, v in pairs(self._data) do
+    for k, v in compat.pairs(self._data) do
       parts[#parts + 1] =
         tostring(k) .. '=' .. tostring(v)
     end

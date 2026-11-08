@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 local ExceptionGroup = require 'llx.exceptions.exception_group' . ExceptionGroup
 local getmetafield = require 'llx.core' . getmetafield
@@ -35,7 +36,7 @@ function Table:__validate(schema, path, level, check_field)
   local required = schema.required
   local exception_list = {}
   if properties then
-    for key, property in pairs(properties) do
+    for key, property in compat.pairs(properties) do
       local value = self[key]
       if value == nil then
         if required and contains(required, key) then
@@ -116,7 +117,7 @@ end
 
 function Table:copy(destination)
   local destination = destination or {}
-  for k, v in pairs(self) do
+  for k, v in compat.pairs(self) do
     destination[k] = v
   end
   return destination
@@ -144,7 +145,7 @@ function Table:deepcopy(destination)
       setmetatable(dst, mt)
     end
 
-    for k, v in pairs(src) do
+    for k, v in compat.pairs(src) do
       if type(v) == 'table' then
         if visited[v] then
           dst[k] = visited[v]
@@ -164,13 +165,13 @@ function Table:deepcopy(destination)
 end
 
 function Table:apply(xform)
-  for k, v in pairs(self) do
+  for k, v in compat.pairs(self) do
     self[k] = xform(v)
   end
 end
 
 function Table:find(value)
-  for k, v in pairs(self) do
+  for k, v in compat.pairs(self) do
     if v == value then
       return k, v
     end
@@ -178,7 +179,7 @@ function Table:find(value)
 end
 
 function Table:find_if(predicate)
-  for k, v in pairs(self) do
+  for k, v in compat.pairs(self) do
     if predicate(k, v) then
       return k, v
     end
@@ -213,7 +214,7 @@ end
 function Table:keys()
   local List = require('llx.types.list').List
   local result = List{}
-  for k in pairs(self) do
+  for k in compat.pairs(self) do
     result[#result + 1] = k
   end
   return result
@@ -225,7 +226,7 @@ end
 function Table:entries()
   local List = require('llx.types.list').List
   local result = List{}
-  for k, v in pairs(self) do
+  for k, v in compat.pairs(self) do
     result[#result + 1] = List{k, v}
   end
   return result
@@ -255,7 +256,7 @@ function Table.merge(...)
   local result = {}
   for i = 1, select('#', ...) do
     local t = select(i, ...)
-    for k, v in pairs(t) do
+    for k, v in compat.pairs(t) do
       result[k] = v
     end
   end
@@ -287,7 +288,7 @@ function Table:omit(keys_list)
     exclude[keys_list[i]] = true
   end
   local result = {}
-  for k, v in pairs(self) do
+  for k, v in compat.pairs(self) do
     if not exclude[k] then
       result[k] = v
     end
@@ -300,7 +301,7 @@ end
 -- @usage Table.invert({a='x', b='y'})  -- returns {x='a', y='b'}
 function Table:invert()
   local result = {}
-  for k, v in pairs(self) do
+  for k, v in compat.pairs(self) do
     result[v] = k
   end
   return result
@@ -312,7 +313,7 @@ end
 -- @usage Table.size({a=1, b=2})  -- returns 2
 function Table:size()
   local n = 0
-  for _ in pairs(self) do
+  for _ in compat.pairs(self) do
     n = n + 1
   end
   return n
@@ -330,7 +331,7 @@ end
 -- @return A new table with transformed keys
 function Table:map_keys(f)
   local result = {}
-  for k, v in pairs(self) do
+  for k, v in compat.pairs(self) do
     result[f(k)] = v
   end
   return result
@@ -341,7 +342,7 @@ end
 -- @return A new table with transformed values
 function Table:map_values(f)
   local result = {}
-  for k, v in pairs(self) do
+  for k, v in compat.pairs(self) do
     result[k] = f(v)
   end
   return result
@@ -354,10 +355,10 @@ end
 -- @return A new table with defaults filled in
 function Table.defaults(t, ...)
   local result = {}
-  for k, v in pairs(t) do result[k] = v end
+  for k, v in compat.pairs(t) do result[k] = v end
   for i = 1, select('#', ...) do
     local defaults = select(i, ...)
-    for k, v in pairs(defaults) do
+    for k, v in compat.pairs(defaults) do
       if result[k] == nil then
         result[k] = v
       end
@@ -374,10 +375,10 @@ function Table.deep_equal(a, b)
   if a == b then return true end
   if type(a) ~= 'table' or type(b) ~= 'table' then return false end
 
-  for k, v in pairs(a) do
+  for k, v in compat.pairs(a) do
     if not Table.deep_equal(v, b[k]) then return false end
   end
-  for k in pairs(b) do
+  for k in compat.pairs(b) do
     if a[k] == nil then return false end
   end
   return true
@@ -448,7 +449,7 @@ end
 function Table.update(target, ...)
   for i = 1, select('#', ...) do
     local source = select(i, ...)
-    for k, v in pairs(source) do
+    for k, v in compat.pairs(source) do
       target[k] = v
     end
   end
@@ -466,7 +467,7 @@ function Table.deep_merge(...)
   for i = 1, select('#', ...) do
     local source = select(i, ...)
     if type(source) == 'table' then
-      for k, v in pairs(source) do
+      for k, v in compat.pairs(source) do
         if type(v) == 'table' and type(result[k]) == 'table' then
           result[k] = Table.deep_merge(result[k], v)
         else

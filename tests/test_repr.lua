@@ -4,7 +4,7 @@ local llx = require 'llx'
 local repr_module = require 'llx.repr'
 local repr = repr_module.repr
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('repr', function()
   describe('nil values', function()
@@ -113,5 +113,5 @@ describe('repr', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

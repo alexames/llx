@@ -5,7 +5,7 @@ local exceptions = require 'llx.exceptions'
 local isinstance = require 'llx.isinstance' . isinstance
 local types = require 'llx.types.matchers'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('catch', function()
   it('should return a table with exception and handler fields', function()
@@ -108,5 +108,5 @@ describe('catch', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

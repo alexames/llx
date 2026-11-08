@@ -11,7 +11,7 @@ local String = types.String
 local Boolean = types.Boolean
 local Table = types.Table
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('type_check_decorator', function()
   describe('pass-through with no expected types', function()
@@ -264,5 +264,5 @@ describe('type_check_decorator', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -1,12 +1,13 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 
 require 'llx.types.list'
 require 'llx.types.table'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('table utilities', function()
   describe('keys', function()
@@ -18,7 +19,7 @@ describe('table utilities', function()
 
     it('should return empty list for empty table', function()
       local result = llx.Table.keys({})
-      expect(#result).to.be_equal_to(0)
+      expect(compat.len(result)).to.be_equal_to(0)
     end)
 
     it('should include integer keys', function()
@@ -39,7 +40,7 @@ describe('table utilities', function()
 
     it('should return empty list for empty table', function()
       local result = llx.Table.entries({})
-      expect(#result).to.be_equal_to(0)
+      expect(compat.len(result)).to.be_equal_to(0)
     end)
   end)
 
@@ -409,5 +410,5 @@ describe('table utilities', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

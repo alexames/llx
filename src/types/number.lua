@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 local SchemaConstraintFailureException =
     require 'llx.exceptions.schema_exception'
@@ -18,7 +19,7 @@ end
 function Number:__validate(schema, path, level, check_field)
   if schema.multiple_of then
     if self % schema.multiple_of ~= 0 then
-      local failure_reason = string.format(
+      local failure_reason = compat.format(
           'expected multiple of %s, got %s', schema.multiple_of, self)
       return false, SchemaConstraintFailureException(
           path, failure_reason, level + 1)
@@ -26,7 +27,7 @@ function Number:__validate(schema, path, level, check_field)
   end
   if schema.minimum then
     if self < schema.minimum then
-      local failure_reason = string.format(
+      local failure_reason = compat.format(
           'expected minimum value (inclusive) of %s, got %s', schema.minimum,
           self)
       return false, SchemaConstraintFailureException(
@@ -35,7 +36,7 @@ function Number:__validate(schema, path, level, check_field)
   end
   if schema.exclusive_minimum then
     if self <= schema.exclusive_minimum then
-      local failure_reason = string.format(
+      local failure_reason = compat.format(
           'expected minimum value (exclusive) of %s, got %s',
           schema.exclusive_minimum, self)
       return false, SchemaConstraintFailureException(
@@ -44,7 +45,7 @@ function Number:__validate(schema, path, level, check_field)
   end
   if schema.maximum then
     if self > schema.maximum then
-      local failure_reason = string.format(
+      local failure_reason = compat.format(
           'expected maximum value (inclusive) '
           .. 'of %s, got %s',
           schema.maximum, self)
@@ -54,7 +55,7 @@ function Number:__validate(schema, path, level, check_field)
   end
   if schema.exclusive_maximum then
     if self >= schema.exclusive_maximum then
-      local failure_reason = string.format(
+      local failure_reason = compat.format(
           'expected maximum value (exclusive) of %s, got %s',
           schema.exclusive_maximum, self)
       return false, SchemaConstraintFailureException(

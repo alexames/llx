@@ -1,9 +1,10 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local DefaultDict = require 'llx.collections.default_dict' . DefaultDict
 local hash = require 'llx.hash' . hash
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('DefaultDict', function()
   describe('construction', function()
@@ -14,7 +15,7 @@ describe('DefaultDict', function()
 
     it('should accept a factory and start empty', function()
       local dd = DefaultDict(function() return 0 end)
-      expect(#dd).to.be_equal_to(0)
+      expect(compat.len(dd)).to.be_equal_to(0)
     end)
   end)
 
@@ -112,7 +113,7 @@ describe('DefaultDict', function()
       local dd = DefaultDict(function() return 0 end)
       dd:set('a', 1)
       dd:clear()
-      expect(#dd).to.be_equal_to(0)
+      expect(compat.len(dd)).to.be_equal_to(0)
     end)
   end)
 
@@ -122,7 +123,7 @@ describe('DefaultDict', function()
       dd:set('a', 1)
       dd:set('b', 2)
       local sum = 0
-      for _, v in pairs(dd) do sum = sum + v end
+      for _, v in compat.pairs(dd) do sum = sum + v end
       expect(sum).to.be_equal_to(3)
     end)
   end)
@@ -161,5 +162,5 @@ describe('DefaultDict', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

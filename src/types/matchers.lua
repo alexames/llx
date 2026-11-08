@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local core = require 'llx.core'
 local environment = require 'llx.environment'
 
@@ -136,10 +137,10 @@ local function save_type_var_bindings()
     return nil
   end
   local snapshot = {}
-  for key, value in pairs(scope) do
+  for key, value in compat.pairs(scope) do
     if key == witnesses_mark then
       local witness_sets = {}
-      for var, list in pairs(value) do
+      for var, list in compat.pairs(value) do
         local copy = {}
         for i = 1, #list do
           copy[i] = list[i]
@@ -149,7 +150,7 @@ local function save_type_var_bindings()
       snapshot[key] = witness_sets
     elseif key == param_spec_scope_mark or key == tvt_scope_mark then
       local bindings = {}
-      for var, list in pairs(value) do
+      for var, list in compat.pairs(value) do
         local copy = {}
         for i = 1, #list do
           copy[i] = list[i]
@@ -178,12 +179,12 @@ local function restore_type_var_bindings(snapshot)
   if scope == nil then
     return
   end
-  for var in pairs(scope) do
+  for var in compat.pairs(scope) do
     if snapshot[var] == nil then
       scope[var] = nil
     end
   end
-  for var, binding in pairs(snapshot) do
+  for var, binding in compat.pairs(snapshot) do
     scope[var] = binding
   end
 end
@@ -589,7 +590,7 @@ local function protocol_type_check(fields)
   -- unsatisfiable (neither carries __isinstance), so it is rejected
   -- at construction like any other composite type position.
   local declared = {}
-  for k, v in pairs(fields) do
+  for k, v in compat.pairs(fields) do
     if k ~= '__exact' then
       reject_markers(v, 'Protocol')
       declared[k] = v
@@ -597,7 +598,7 @@ local function protocol_type_check(fields)
   end
   -- Capture field names for the type name; sort for stability.
   local field_names = {}
-  for k in pairs(declared) do field_names[#field_names + 1] = k end
+  for k in compat.pairs(declared) do field_names[#field_names + 1] = k end
   table.sort(field_names, function(a, b)
     return tostring(a) < tostring(b)
   end)
@@ -614,7 +615,7 @@ local function protocol_type_check(fields)
 
     __isinstance = function(self, value)
       if type(value) ~= 'table' then return false end
-      for field_name, expected_type in pairs(declared) do
+      for field_name, expected_type in compat.pairs(declared) do
         if not isinstance(value[field_name], expected_type) then
           return false
         end
@@ -637,12 +638,12 @@ local function protocol_type_check(fields)
     __repr = function(self, ctx)
       ctx = ctx or make_repr_ctx()
       local names = {}
-      for k in pairs(self.fields) do names[#names + 1] = k end
+      for k in compat.pairs(self.fields) do names[#names + 1] = k end
       table.sort(names)
       local parts = {}
       for _, k in ipairs(names) do
         local key = k:match('^[%a_][%w_]*$') and k
-            or ('[' .. string.format('%q', k) .. ']')
+            or ('[' .. compat.format('%q', k) .. ']')
         parts[#parts + 1] = key .. ' = ' .. ctx.type(self.fields[k])
       end
       if self.exact then parts[#parts + 1] = '__exact = true' end
@@ -658,7 +659,7 @@ local function dict_type_check(key_type, value_type)
                    ', ' .. type_name_of(value_type) .. '>'
 
   local function entries_match(value)
-    for k, v in pairs(value) do
+    for k, v in compat.pairs(value) do
       if not isinstance(k, key_type) then return false end
       if not isinstance(v, value_type) then return false end
     end
@@ -741,7 +742,7 @@ local function list_of_type_check(element_type)
         end
       end
       for key in next, value do
-        if math.type(key) ~= 'integer'
+        if compat.math_type(key) ~= 'integer'
             or key < 1 or key > count then
           return false
         end
@@ -762,7 +763,7 @@ local function set_of_type_check(element_type)
   local typename = 'SetOf<' .. type_name_of(element_type) .. '>'
 
   local function elements_match(value)
-    for element in pairs(value) do
+    for element in compat.pairs(value) do
       if not isinstance(element, element_type) then
         return false
       end
@@ -848,6 +849,25 @@ end
 -- env binding the class name re-evaluates it through the subscription
 -- hook, so aliases round-trip through repr / parse with no parser
 -- support at all.
+-- Shared by every alias's metatable: Lua 5.1 compares two tables with
+-- __eq only when both metatables hold the same function.
+local function generic_alias_eq(lhs, rhs)
+  if matcher_kind(lhs) ~= 'GenericAlias'
+      or matcher_kind(rhs) ~= 'GenericAlias' then
+    return false
+  end
+  if rawget(lhs, 'origin') ~= rawget(rhs, 'origin') then
+    return false
+  end
+  local lhs_args = rawget(lhs, 'type_args')
+  local rhs_args = rawget(rhs, 'type_args')
+  if #lhs_args ~= #rhs_args then return false end
+  for i = 1, #lhs_args do
+    if lhs_args[i] ~= rhs_args[i] then return false end
+  end
+  return true
+end
+
 local function generic_alias_type_check(origin, type_args)
   assert(type(origin) == 'table' and origin.__is_llx_class,
          'GenericAlias: origin must be an llx class, not '
@@ -859,12 +879,12 @@ local function generic_alias_type_check(origin, type_args)
          .. " class 'Name' : generic(...) to declare them)")
   assert(type(type_args) == 'table',
          'GenericAlias: type_args must be a list of types')
-  assert(#type_args == #params, string.format(
+  assert(#type_args == #params, compat.format(
          'GenericAlias: %s takes %d type parameter(s), got %d',
          tostring(origin.__name), #params, #type_args))
   local args = {}
   for i, arg in ipairs(type_args) do
-    assert(type(arg) == 'table' or type(arg) == 'string', string.format(
+    assert(type(arg) == 'table' or type(arg) == 'string', compat.format(
            'GenericAlias: type argument %d is not a type'
            .. ' (got %s); expected a matcher, a class, or a type name',
            i, type(arg)))
@@ -873,7 +893,7 @@ local function generic_alias_type_check(origin, type_args)
     if bound ~= nil then
       -- Deferred require: is_subtype requires this module at load.
       local is_subtype = require('llx.is_subtype').is_subtype
-      assert(is_subtype(arg, bound), string.format(
+      assert(is_subtype(arg, bound), compat.format(
              'GenericAlias: type argument %d (%s) does not satisfy'
              .. " %s's bound for parameter '%s' (%s)",
              i, type_name_of(arg), tostring(origin.__name),
@@ -911,22 +931,7 @@ local function generic_alias_type_check(origin, type_args)
     -- pairwise-equal arguments -- so separately constructed
     -- Pool[Integer] values compare equal and tooling can dedupe /
     -- key by ==.
-    __eq = function(lhs, rhs)
-      if matcher_kind(lhs) ~= 'GenericAlias'
-          or matcher_kind(rhs) ~= 'GenericAlias' then
-        return false
-      end
-      if rawget(lhs, 'origin') ~= rawget(rhs, 'origin') then
-        return false
-      end
-      local lhs_args = rawget(lhs, 'type_args')
-      local rhs_args = rawget(rhs, 'type_args')
-      if #lhs_args ~= #rhs_args then return false end
-      for i = 1, #lhs_args do
-        if lhs_args[i] ~= rhs_args[i] then return false end
-      end
-      return true
-    end,
+    __eq = generic_alias_eq,
     __repr = function(self, ctx)
       ctx = ctx or make_repr_ctx()
       if #self.type_args == 1 then
@@ -1467,18 +1472,17 @@ local function callable_type_check(param_types, return_types, options)
         if params_any or params_spec or params_unpack then
           return true
         end
-        local info = debug.getinfo(value, 'u')
+        local nparams, isvararg = compat.function_parameters(value)
         if strict then
           if params_variadic then
-            return info.isvararg == true
-               and info.nparams == params_fixed
+            return isvararg == true and nparams == params_fixed
           end
-          return not info.isvararg and info.nparams == #param_types
+          return not isvararg and nparams == #param_types
         end
         if params_variadic then
           return true
         end
-        return info.isvararg or info.nparams <= #param_types
+        return isvararg or nparams <= #param_types
       end
       -- Any other callable (a table or userdata with a __call
       -- metamethod) is accepted; no arity information is recoverable.
@@ -1564,7 +1568,7 @@ local function iterator_type_check(...)
       error('Iterator: expected a yield type or a non-empty '
         .. 'options table ({strict = ...}), got an empty table', 2)
     end
-    for key in pairs(last) do
+    for key in compat.pairs(last) do
       if key ~= 'strict' then
         error("Iterator: unknown option '" .. tostring(key) .. "'", 2)
       end
@@ -1715,7 +1719,7 @@ local function generator_type_check(contract)
     error('Generator: expected a contract table with optional '
       .. 'yields, accepts, and returns lists (and a strict flag)', 2)
   end
-  for key in pairs(contract) do
+  for key in compat.pairs(contract) do
     if key ~= 'yields' and key ~= 'accepts' and key ~= 'returns'
         and key ~= 'strict' then
       error("Generator: unknown contract key '" .. tostring(key)
@@ -1871,7 +1875,7 @@ local function tuple_unpack_type_check(element_types, unpack_index)
       -- proper sequence is required (# gives the length), like the
       -- plain Tuple above.
       if type(value) ~= 'table' then return false end
-      local length = #value
+      local length = compat.len(value)
       if length < prefix_count + suffix_count then return false end
       for i = 1, prefix_count do
         if not isinstance(value[i], element_types[i]) then
@@ -1990,7 +1994,7 @@ local function tuple_type_check(element_types)
       -- positional slot (use Union/Optional element types only
       -- with explicit non-nil sentinels).
       if type(value) ~= 'table' then return false end
-      local length = #value
+      local length = compat.len(value)
       if variadic then
         if length < fixed_count then return false end
       elseif length ~= fixed_count then
@@ -2101,6 +2105,39 @@ local function newtype_unwrap(value)
   return value
 end
 
+-- The comparison metamethods are shared by every brand's metatable:
+-- Lua 5.1 compares two tables through __eq, __lt or __le only when both
+-- metatables hold the same function, and equality is erased across
+-- brands.
+local function newtype_eq(a, b)
+  -- Equality is on the underlying values, so two brands over the
+  -- same representation compare equal when their payloads do
+  -- (matching Python, where NewType is erased and equality falls
+  -- through to the base value). A branded value never equals an
+  -- unbranded one, though: for primitive payloads Lua already
+  -- never consults __eq across types, and for table payloads the
+  -- wrapper refuses explicitly, keeping == uniform across payload
+  -- types and consistent with __hash (llx.hash mixes the outer
+  -- type name into a table's hash, so a wrapper and its raw table
+  -- payload can never hash equally).
+  local a_branded =
+      type(a) == 'table' and rawget(a, newtype_raw_key) ~= nil
+  local b_branded =
+      type(b) == 'table' and rawget(b, newtype_raw_key) ~= nil
+  if not (a_branded and b_branded) then
+    return false
+  end
+  return newtype_unwrap(a) == newtype_unwrap(b)
+end
+
+local function newtype_lt(a, b)
+  return newtype_unwrap(a) < newtype_unwrap(b)
+end
+
+local function newtype_le(a, b)
+  return newtype_unwrap(a) <= newtype_unwrap(b)
+end
+
 -- Cached upvalue for the deferred require of llx.getclass, which owns
 -- the shared value-description helper (deferred to avoid a load-time
 -- cycle: llx.getclass requires llx.types and therefore this module).
@@ -2192,29 +2229,8 @@ local function new_type_check(name, base_type)
     __pow = function(a, b)
       return newtype_unwrap(a) ^ newtype_unwrap(b)
     end,
-    __idiv = function(a, b)
-      return newtype_unwrap(a) // newtype_unwrap(b)
-    end,
-    __band = function(a, b)
-      return newtype_unwrap(a) & newtype_unwrap(b)
-    end,
-    __bor = function(a, b)
-      return newtype_unwrap(a) | newtype_unwrap(b)
-    end,
-    __bxor = function(a, b)
-      return newtype_unwrap(a) ~ newtype_unwrap(b)
-    end,
-    __shl = function(a, b)
-      return newtype_unwrap(a) << newtype_unwrap(b)
-    end,
-    __shr = function(a, b)
-      return newtype_unwrap(a) >> newtype_unwrap(b)
-    end,
     __unm = function(a)
       return -newtype_unwrap(a)
-    end,
-    __bnot = function(a)
-      return ~newtype_unwrap(a)
     end,
     __concat = function(a, b)
       return newtype_unwrap(a) .. newtype_unwrap(b)
@@ -2222,32 +2238,9 @@ local function new_type_check(name, base_type)
     __len = function(a)
       return #newtype_unwrap(a)
     end,
-    __eq = function(a, b)
-      -- Equality is on the underlying values, so two brands over the
-      -- same representation compare equal when their payloads do
-      -- (matching Python, where NewType is erased and equality falls
-      -- through to the base value). A branded value never equals an
-      -- unbranded one, though: for primitive payloads Lua already
-      -- never consults __eq across types, and for table payloads the
-      -- wrapper refuses explicitly, keeping == uniform across payload
-      -- types and consistent with __hash (llx.hash mixes the outer
-      -- type name into a table's hash, so a wrapper and its raw table
-      -- payload can never hash equally).
-      local a_branded =
-          type(a) == 'table' and rawget(a, newtype_raw_key) ~= nil
-      local b_branded =
-          type(b) == 'table' and rawget(b, newtype_raw_key) ~= nil
-      if not (a_branded and b_branded) then
-        return false
-      end
-      return newtype_unwrap(a) == newtype_unwrap(b)
-    end,
-    __lt = function(a, b)
-      return newtype_unwrap(a) < newtype_unwrap(b)
-    end,
-    __le = function(a, b)
-      return newtype_unwrap(a) <= newtype_unwrap(b)
-    end,
+    __eq = newtype_eq,
+    __lt = newtype_lt,
+    __le = newtype_le,
     __call = function(self, ...)
       return newtype_unwrap(self)(...)
     end,
@@ -2279,6 +2272,7 @@ local function new_type_check(name, base_type)
         .. 'mutate the underlying value', 2)
     end,
   }
+  compat.add_integer_operator_metamethods(wrapper_metatable, newtype_unwrap)
 
   matcher = setmetatable({
     [newtype_mark] = true,
@@ -2337,7 +2331,7 @@ local function new_type_check(name, base_type)
 
     __repr = function(self, ctx)
       ctx = ctx or make_repr_ctx()
-      return 'NewType(' .. string.format('%q', self.__name) .. ', '
+      return 'NewType(' .. compat.format('%q', self.__name) .. ', '
                         .. ctx.type(self.base_type) .. ')'
     end,
   })
@@ -2617,7 +2611,7 @@ local getclass_module = nil
 -- primitives). Binding narrowly is what makes params={T, T} reject
 -- f(1, 1.5): the witness 1 binds T to Integer, which 1.5 fails.
 local function infer_type_var_binding(value)
-  local number_type = math.type(value)
+  local number_type = compat.math_type(value)
   if number_type == 'integer' then
     return Integer
   end
@@ -2916,7 +2910,7 @@ local function type_var_type_check(name, opts)
   if type(opts) ~= 'table' then
     error('TypeVar: expected an options table, got ' .. type(opts), 2)
   end
-  for key in pairs(opts) do
+  for key in compat.pairs(opts) do
     if key ~= 'bound' then
       error("TypeVar: unknown option '" .. tostring(key) .. "'", 2)
     end
@@ -3324,12 +3318,13 @@ local function parse(expr, env)
     Boolean = Boolean, Nil = Nil,
   }
   if env then
-    for k, v in pairs(env) do base[k] = v end
+    for k, v in compat.pairs(env) do base[k] = v end
   end
-  local chunk, err = load('return ' .. tostring(expr), '=type-expr', 't', base)
+  local chunk, err =
+      compat.load('return ' .. tostring(expr), '=type-expr', 't', base)
   if not chunk then
     error('matchers.parse: could not compile type expression '
-          .. string.format('%q', tostring(expr)) .. ': ' .. tostring(err), 2)
+          .. compat.format('%q', tostring(expr)) .. ': ' .. tostring(err), 2)
   end
   return chunk()
 end

@@ -12,6 +12,7 @@
 -- being expanded structurally.
 -- @module llx.pretty
 
+local compat = require 'llx.compat'
 local core = require 'llx.core'
 local environment = require 'llx.environment'
 
@@ -43,12 +44,12 @@ local function format_primitive(v)
   local t = type(v)
   if t == 'nil' then return 'nil' end
   if t == 'boolean' then return tostring(v) end
-  if t == 'string' then return string.format('%q', v) end
+  if t == 'string' then return compat.format('%q', v) end
   if t == 'number' then
     if v ~= v then return 'nan' end
     if v == math.huge then return 'math.huge' end
     if v == -math.huge then return '-math.huge' end
-    if math.type(v) == 'integer' then return tostring(v) end
+    if compat.math_type(v) == 'integer' then return tostring(v) end
     return tostring(v)
   end
   -- function, thread, userdata: fall back to tostring; not
@@ -128,9 +129,9 @@ local function format_impl(value, opts, depth, visited, indent_str, available)
     entries[#entries + 1] = {key = i, value = value[i], is_seq = true}
   end
   local rest_keys = {}
-  for k in pairs(value) do
+  for k in compat.pairs(value) do
     if not (type(k) == 'number'
-            and math.type(k) == 'integer'
+            and compat.math_type(k) == 'integer'
             and k >= 1 and k <= n) then
       rest_keys[#rest_keys + 1] = k
     end
@@ -189,8 +190,8 @@ local DEFAULT_OPTS = {
 local function resolve_opts(opts)
   if opts == nil then return DEFAULT_OPTS end
   local result = {}
-  for k, v in pairs(DEFAULT_OPTS) do result[k] = v end
-  for k, v in pairs(opts) do result[k] = v end
+  for k, v in compat.pairs(DEFAULT_OPTS) do result[k] = v end
+  for k, v in compat.pairs(opts) do result[k] = v end
   return result
 end
 

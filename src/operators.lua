@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
@@ -41,37 +42,37 @@ end
 
 -- the floor division (//) operation.
 function idiv(a, b)
-  return a // b
+  return compat.floordiv(a, b)
 end
 
 -- the bitwise AND (&) operation.
 function band(a, b)
-  return a & b
+  return compat.band(a, b)
 end
 
 -- the bitwise OR (|) operation.
 function bor(a, b)
-  return a | b
+  return compat.bor(a, b)
 end
 
 -- the bitwise exclusive OR (binary ~) operation.
 function bxor(a, b)
-  return a ~ b
+  return compat.bxor(a, b)
 end
 
 -- the bitwise NOT (unary ~) operation.
 function bnot(a)
-  return ~a
+  return compat.bnot(a)
 end
 
 -- the bitwise left shift (<<) operation.
 function shl(a, b)
-  return a << b
+  return compat.lshift(a, b)
 end
 
 -- the bitwise right shift (>>) operation.
 function shr(a, b)
-  return a >> b
+  return compat.rshift(a, b)
 end
 
 -- the concatenation (..) operation.
@@ -147,9 +148,9 @@ end
 -- @param ... Arguments to pass to the method
 -- @return A function that calls obj:name(...)
 function methodcaller(name, ...)
-  local args = table.pack(...)
+  local args = compat.pack(...)
   return function(obj)
-    return obj[name](obj, table.unpack(args, 1, args.n))
+    return obj[name](obj, compat.unpack(args, 1, args.n))
   end
 end
 

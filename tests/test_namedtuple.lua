@@ -1,10 +1,11 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local namedtuple = require 'llx.namedtuple' . namedtuple
 local hash = require 'llx.hash' . hash
 local HashTable = require 'llx.hash_table' . HashTable
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('namedtuple', function()
   describe('factory validation', function()
@@ -47,7 +48,7 @@ describe('namedtuple', function()
     it('should accept zero fields', function()
       local Empty = namedtuple('Empty', {})
       local e = Empty()
-      expect(#e).to.be_equal_to(0)
+      expect(compat.len(e)).to.be_equal_to(0)
     end)
   end)
 
@@ -99,7 +100,7 @@ describe('namedtuple', function()
   describe('__len', function()
     it('should return field count', function()
       local Point = namedtuple('Point', {'x', 'y', 'z'})
-      expect(#Point(1, 2, 3)).to.be_equal_to(3)
+      expect(compat.len(Point(1, 2, 3))).to.be_equal_to(3)
     end)
   end)
 
@@ -137,12 +138,12 @@ describe('namedtuple', function()
       local Triple = namedtuple('Triple', {'a', 'b', 'c'})
       local t = Triple(10, 20, 30)
       local sum = 0
-      for i = 1, #t do sum = sum + t[i] end
+      for i = 1, compat.len(t) do sum = sum + t[i] end
       expect(sum).to.be_equal_to(60)
     end)
   end)
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

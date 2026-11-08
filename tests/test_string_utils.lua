@@ -1,12 +1,13 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 
 require 'llx.types.string'
 require 'llx.types.list'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('string utilities', function()
   describe('split', function()
@@ -197,7 +198,7 @@ describe('string utilities', function()
 
     it('should return empty list for empty string', function()
       local result = string.words('')
-      expect(#result).to.be_equal_to(0)
+      expect(compat.len(result)).to.be_equal_to(0)
     end)
   end)
 
@@ -396,5 +397,5 @@ describe('string utilities', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

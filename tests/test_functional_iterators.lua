@@ -1,6 +1,7 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 
 require 'llx.core'
@@ -10,7 +11,7 @@ require 'llx.types.list'
 require 'llx.types.table'
 require 'llx.types.string'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('functional iterators', function()
   describe('sliding_window', function()
@@ -40,7 +41,7 @@ describe('functional iterators', function()
       for i, a, b, c in llx.functional.sliding_window(llx.List{1, 2}, 3) do
         result:insert(llx.List{a, b, c})
       end
-      expect(#result).to.be_equal_to(0)
+      expect(compat.len(result)).to.be_equal_to(0)
     end)
 
     it('should return one window when sequence length '
@@ -114,7 +115,7 @@ describe('functional iterators', function()
 
     it('should return empty lists for empty input', function()
       local results = {llx.functional.unzip(llx.List{})}
-      expect(#results).to.be_equal_to(0)
+      expect(compat.len(results)).to.be_equal_to(0)
     end)
 
     it('should handle single-element tuples', function()
@@ -213,7 +214,7 @@ describe('functional iterators', function()
     it('should return a List with the same elements', function()
       local input = llx.List{1, 2, 3, 4, 5}
       local result = llx.functional.shuffle(input)
-      expect(#result).to.be_equal_to(5)
+      expect(compat.len(result)).to.be_equal_to(5)
       local sorted_result = result:sort()
       expect(sorted_result).to.be_equal_to(llx.List{1, 2, 3, 4, 5})
     end)
@@ -229,13 +230,13 @@ describe('functional iterators', function()
     it('should return n elements from the sequence', function()
       local input = llx.List{1, 2, 3, 4, 5}
       local result = llx.functional.sample(input, 3)
-      expect(#result).to.be_equal_to(3)
+      expect(compat.len(result)).to.be_equal_to(3)
     end)
 
     it('should return all elements when n equals length', function()
       local input = llx.List{1, 2, 3}
       local result = llx.functional.sample(input, 3)
-      expect(#result).to.be_equal_to(3)
+      expect(compat.len(result)).to.be_equal_to(3)
     end)
 
     it('should return elements from the original sequence', function()
@@ -356,7 +357,7 @@ describe('functional iterators', function()
       for _, v in llx.functional.unfold(function() return nil end, 0) do
         result:insert(v)
       end
-      expect(#result).to.be_equal_to(0)
+      expect(compat.len(result)).to.be_equal_to(0)
     end)
   end)
 
@@ -393,7 +394,7 @@ describe('functional iterators', function()
         llx.List{1, 2, 5, 6, 3, 4},
         function(x) return x > 4 end
       )
-      expect(#result).to.be_equal_to(3)
+      expect(compat.len(result)).to.be_equal_to(3)
       expect(result[1]).to.be_equal_to(llx.List{1, 2})
       expect(result[2]).to.be_equal_to(llx.List{5, 6})
       expect(result[3]).to.be_equal_to(llx.List{3, 4})
@@ -404,7 +405,7 @@ describe('functional iterators', function()
         llx.List{1, 2, 3},
         function() return false end
       )
-      expect(#result).to.be_equal_to(1)
+      expect(compat.len(result)).to.be_equal_to(1)
       expect(result[1]).to.be_equal_to(llx.List{1, 2, 3})
     end)
   end)
@@ -528,5 +529,5 @@ describe('functional iterators', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

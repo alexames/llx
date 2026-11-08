@@ -12,7 +12,7 @@ local None = result_module.None
 local hash = require 'llx.hash' . hash
 local isinstance = require 'llx.isinstance' . isinstance
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('Result', function()
   describe('construction', function()
@@ -299,5 +299,5 @@ describe('Option', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

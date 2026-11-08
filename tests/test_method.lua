@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local class_module = require 'llx.class'
 local method_module = require 'llx.method'
@@ -18,7 +19,7 @@ local Integer = types.Integer
 local Number = types.Number
 local String = types.String
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 --- Helper: construct a method-like object that replicates the intended
 --- behavior of method.__init and is callable via method.__call.
@@ -159,14 +160,14 @@ describe('method', function()
 
       local function first_decorator(fn)
         return function(...)
-          order[#order + 1] = 'first'
+          order[compat.len(order) + 1] = 'first'
           return fn(...)
         end
       end
 
       local function second_decorator(fn)
         return function(...)
-          order[#order + 1] = 'second'
+          order[compat.len(order) + 1] = 'second'
           return fn(...)
         end
       end
@@ -177,7 +178,7 @@ describe('method', function()
       }
       m()
       -- second_decorator wraps first_decorator, so second runs first
-      expect(#order).to.be_equal_to(2)
+      expect(compat.len(order)).to.be_equal_to(2)
       expect(order[1]).to.be_equal_to('second')
       expect(order[2]).to.be_equal_to('first')
     end)
@@ -186,7 +187,7 @@ describe('method', function()
       local log = {}
       local function logging_decorator(fn)
         return function(...)
-          log[#log + 1] = 'called'
+          log[compat.len(log) + 1] = 'called'
           return fn(...)
         end
       end
@@ -197,7 +198,7 @@ describe('method', function()
       }
       expect(m(4)).to.be_equal_to(16)
       expect(m(5)).to.be_equal_to(25)
-      expect(#log).to.be_equal_to(2)
+      expect(compat.len(log)).to.be_equal_to(2)
     end)
 
     it('should work with no decorators specified', function()
@@ -375,7 +376,7 @@ describe('method', function()
       end }
       local result = method.__call(obj, 'a', 'b', 'c')
       expect(result).to.be_equal_to('result')
-      expect(#called_with).to.be_equal_to(3)
+      expect(compat.len(called_with)).to.be_equal_to(3)
       expect(called_with[1]).to.be_equal_to('a')
       expect(called_with[2]).to.be_equal_to('b')
       expect(called_with[3]).to.be_equal_to('c')
@@ -397,5 +398,5 @@ describe('method', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

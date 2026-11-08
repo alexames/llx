@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 
 local signature_module = require 'llx.signature'
@@ -24,7 +25,7 @@ local Integer = types.Integer
 local Number = types.Number
 local String = types.String
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('Overload', function()
   describe('module exports', function()
@@ -84,7 +85,7 @@ describe('Overload', function()
       local second = Signature{params={String}, returns={String}}
           .. function(s) return s end
       local overloaded = Overload{first, second}
-      expect(#overloaded.overloads).to.be_equal_to(2)
+      expect(compat.len(overloaded.overloads)).to.be_equal_to(2)
       expect(overloaded.overloads[1]).to.be_equal_to(first)
       expect(overloaded.overloads[2]).to.be_equal_to(second)
     end)
@@ -198,7 +199,7 @@ describe('Overload', function()
     it('should collect one rejection per candidate', function()
       local overloaded = make_overload()
       local _, err = pcall(function() overloaded(true) end)
-      expect(#err.exception_list).to.be_equal_to(2)
+      expect(compat.len(err.exception_list)).to.be_equal_to(2)
       expect(isinstance(err.exception_list[1],
                         InvalidArgumentException)).to.be_true()
       expect(isinstance(err.exception_list[2],
@@ -234,7 +235,7 @@ describe('Overload', function()
     it('should expose the candidate descriptions', function()
       local overloaded = make_overload()
       local _, err = pcall(function() overloaded(true) end)
-      expect(#err.candidates).to.be_equal_to(2)
+      expect(compat.len(err.candidates)).to.be_equal_to(2)
       expect(err.candidates[1]).to.be_equal_to('(Integer) -> (Integer)')
     end)
 
@@ -308,8 +309,8 @@ describe('Overload', function()
   end)
 
   describe('methods on classes', function()
-    -- An Overload is assigned directly to its key (no '|' decorator:
-    -- the decorator syntax carries one value per key).
+    -- An Overload is assigned directly to its key, not through
+    -- `decorated`: a decorated key carries one value.
     local OverloadPoint = class 'OverloadPoint' {
       __init = function(self, x, y)
         self.x = x or 0
@@ -436,5 +437,5 @@ describe('Overload', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -1,6 +1,7 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local llx = require 'llx'
+local compat = require 'llx.compat'
 local unit = require 'llx.unit'
 local Set = require 'llx.types.set' . Set
 
@@ -12,12 +13,12 @@ describe('Set', function()
   describe('construction', function()
     it('should create empty set', function()
       local s = Set{}
-      expect(#s).to.be_equal_to(0)
+      expect(compat.len(s)).to.be_equal_to(0)
     end)
 
     it('should create set from list', function()
       local s = Set{1, 2, 3}
-      expect(#s).to.be_equal_to(3)
+      expect(compat.len(s)).to.be_equal_to(3)
       expect(s:contains(1)).to.be_equal_to(true)
       expect(s:contains(2)).to.be_equal_to(true)
       expect(s:contains(3)).to.be_equal_to(true)
@@ -25,7 +26,7 @@ describe('Set', function()
 
     it('should create set with mixed types', function()
       local s = Set{1, 'a', true}
-      expect(#s).to.be_equal_to(3)
+      expect(compat.len(s)).to.be_equal_to(3)
       expect(s:contains(1)).to.be_equal_to(true)
       expect(s:contains('a')).to.be_equal_to(true)
       expect(s:contains(true)).to.be_equal_to(true)
@@ -33,7 +34,7 @@ describe('Set', function()
 
     it('should deduplicate elements', function()
       local s = Set{1, 2, 1, 3, 2}
-      expect(#s).to.be_equal_to(3)
+      expect(compat.len(s)).to.be_equal_to(3)
     end)
   end)
 
@@ -57,14 +58,14 @@ describe('Set', function()
     it('should add element to set', function()
       local s = Set{1, 2}
       s:insert(3)
-      expect(#s).to.be_equal_to(3)
+      expect(compat.len(s)).to.be_equal_to(3)
       expect(s:contains(3)).to.be_equal_to(true)
     end)
 
     it('should not increase size for duplicate', function()
       local s = Set{1, 2}
       s:insert(1)
-      expect(#s).to.be_equal_to(2)
+      expect(compat.len(s)).to.be_equal_to(2)
     end)
   end)
 
@@ -72,7 +73,7 @@ describe('Set', function()
     it('should remove element from set', function()
       local s = Set{1, 2, 3}
       s:remove(2)
-      expect(#s).to.be_equal_to(2)
+      expect(compat.len(s)).to.be_equal_to(2)
       expect(s:contains(2)).to.be_equal_to(false)
       expect(s:contains(1)).to.be_equal_to(true)
     end)
@@ -80,7 +81,7 @@ describe('Set', function()
     it('should handle removing non-existent element', function()
       local s = Set{1, 2}
       s:remove(99)
-      expect(#s).to.be_equal_to(2)
+      expect(compat.len(s)).to.be_equal_to(2)
     end)
   end)
 
@@ -89,7 +90,7 @@ describe('Set', function()
       local a = Set{1, 2, 3}
       local b = Set{3, 4, 5}
       local result = a:union(b)
-      expect(#result).to.be_equal_to(5)
+      expect(compat.len(result)).to.be_equal_to(5)
       for i=1, 5 do
         expect(result:contains(i)).to.be_equal_to(true)
       end
@@ -99,16 +100,10 @@ describe('Set', function()
       local a = Set{1, 2}
       local b = Set{3}
       a:union(b)
-      expect(#a).to.be_equal_to(2)
+      expect(compat.len(a)).to.be_equal_to(2)
       expect(a:contains(3)).to.be_equal_to(false)
     end)
 
-    it('should support | operator', function()
-      local a = Set{1, 2}
-      local b = Set{2, 3}
-      local result = a | b
-      expect(#result).to.be_equal_to(3)
-    end)
   end)
 
   describe('intersection', function()
@@ -116,7 +111,7 @@ describe('Set', function()
       local a = Set{1, 2, 3}
       local b = Set{2, 3, 4}
       local result = a:intersection(b)
-      expect(#result).to.be_equal_to(2)
+      expect(compat.len(result)).to.be_equal_to(2)
       expect(result:contains(2)).to.be_equal_to(true)
       expect(result:contains(3)).to.be_equal_to(true)
     end)
@@ -125,15 +120,9 @@ describe('Set', function()
       local a = Set{1, 2}
       local b = Set{3, 4}
       local result = a:intersection(b)
-      expect(#result).to.be_equal_to(0)
+      expect(compat.len(result)).to.be_equal_to(0)
     end)
 
-    it('should support & operator', function()
-      local a = Set{1, 2, 3}
-      local b = Set{2, 3}
-      local result = a & b
-      expect(#result).to.be_equal_to(2)
-    end)
   end)
 
   describe('difference', function()
@@ -141,7 +130,7 @@ describe('Set', function()
       local a = Set{1, 2, 3}
       local b = Set{2}
       local result = a:difference(b)
-      expect(#result).to.be_equal_to(2)
+      expect(compat.len(result)).to.be_equal_to(2)
       expect(result:contains(1)).to.be_equal_to(true)
       expect(result:contains(3)).to.be_equal_to(true)
       expect(result:contains(2)).to.be_equal_to(false)
@@ -151,14 +140,14 @@ describe('Set', function()
       local a = Set{1, 2}
       local b = Set{3, 4}
       local result = a:difference(b)
-      expect(#result).to.be_equal_to(2)
+      expect(compat.len(result)).to.be_equal_to(2)
     end)
 
     it('should support - operator', function()
       local a = Set{1, 2, 3}
       local b = Set{2}
       local result = a - b
-      expect(#result).to.be_equal_to(2)
+      expect(compat.len(result)).to.be_equal_to(2)
     end)
   end)
 
@@ -167,17 +156,11 @@ describe('Set', function()
       local a = Set{1, 2, 3}
       local b = Set{2, 3, 4}
       local result = a:symmetric_difference(b)
-      expect(#result).to.be_equal_to(2)
+      expect(compat.len(result)).to.be_equal_to(2)
       expect(result:contains(1)).to.be_equal_to(true)
       expect(result:contains(4)).to.be_equal_to(true)
     end)
 
-    it('should support ~ operator', function()
-      local a = Set{1, 2}
-      local b = Set{2, 3}
-      local result = a ~ b
-      expect(#result).to.be_equal_to(2)
-    end)
   end)
 
   describe('subset/superset', function()
@@ -221,8 +204,8 @@ describe('Set', function()
       local original = Set{1, 2, 3}
       local copy = original:copy()
       copy:insert(4)
-      expect(#original).to.be_equal_to(3)
-      expect(#copy).to.be_equal_to(4)
+      expect(compat.len(original)).to.be_equal_to(3)
+      expect(compat.len(copy)).to.be_equal_to(4)
     end)
 
     it('should preserve elements', function()
@@ -257,7 +240,7 @@ describe('Set', function()
     it('should transform elements', function()
       local s = Set{1, 2, 3}
       local result = s:map(function(x) return x * 2 end)
-      expect(#result).to.be_equal_to(3)
+      expect(compat.len(result)).to.be_equal_to(3)
       expect(result:contains(2)).to.be_equal_to(true)
       expect(result:contains(4)).to.be_equal_to(true)
       expect(result:contains(6)).to.be_equal_to(true)
@@ -267,7 +250,7 @@ describe('Set', function()
       local s = Set{1, 2, 3}
       local result = s:map(function(x) return x % 2 end)
       -- Maps to {0, 1} only
-      expect(#result).to.be_equal_to(2)
+      expect(compat.len(result)).to.be_equal_to(2)
     end)
   end)
 
@@ -293,14 +276,14 @@ describe('Set', function()
       local a = Set{1, 2}
       local b = Set{3, 4}
       a:update(b)
-      expect(#a).to.be_equal_to(4)
+      expect(compat.len(a)).to.be_equal_to(4)
     end)
 
     it('should handle overlapping sets', function()
       local a = Set{1, 2}
       local b = Set{2, 3}
       a:update(b)
-      expect(#a).to.be_equal_to(3)
+      expect(compat.len(a)).to.be_equal_to(3)
     end)
   end)
 
@@ -308,7 +291,7 @@ describe('Set', function()
     it('should remove all elements', function()
       local s = Set{1, 2, 3}
       s:clear()
-      expect(#s).to.be_equal_to(0)
+      expect(compat.len(s)).to.be_equal_to(0)
     end)
   end)
 
@@ -316,19 +299,19 @@ describe('Set', function()
     it('should convert to list', function()
       local s = Set{1, 2, 3}
       local list = s:tolist()
-      expect(#list).to.be_equal_to(3)
+      expect(compat.len(list)).to.be_equal_to(3)
     end)
   end)
 
   describe('__len', function()
     it('should return set size', function()
       local s = Set{1, 2, 3}
-      expect(#s).to.be_equal_to(3)
+      expect(compat.len(s)).to.be_equal_to(3)
     end)
 
     it('should return 0 for empty set', function()
       local s = Set{}
-      expect(#s).to.be_equal_to(0)
+      expect(compat.len(s)).to.be_equal_to(0)
     end)
   end)
 
@@ -369,7 +352,7 @@ describe('Set', function()
     it('should iterate over elements', function()
       local s = Set{1, 2, 3}
       local count = 0
-      for k in pairs(s) do
+      for k in compat.pairs(s) do
         count = count + 1
         expect(s:contains(k)).to.be_equal_to(true)
       end
@@ -379,5 +362,5 @@ describe('Set', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

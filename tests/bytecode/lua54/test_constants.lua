@@ -3,7 +3,7 @@ local llx = require 'llx'
 
 local constants = require 'llx.bytecode.lua54.constants'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('bytecode constants', function()
   it('size_of_instruction should be 4', function()
@@ -25,5 +25,5 @@ describe('bytecode constants', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

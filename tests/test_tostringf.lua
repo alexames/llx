@@ -7,7 +7,7 @@ local StringFormatter = tostringf_module.StringFormatter
 local styles = tostringf_module.styles
 local TypeVerbosity = tostringf_module.TypeVerbosity
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('tostringf', function()
   describe('nil values', function()
@@ -291,5 +291,5 @@ describe('styles', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

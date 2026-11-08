@@ -23,6 +23,7 @@
 --     }
 -- @module llx.dataclass
 
+local compat = require 'llx.compat'
 local class_module = require 'llx.class'
 local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
@@ -73,7 +74,7 @@ function dataclass(name, fields, opts)
   -- that happens to be a table being passed positionally.
   local function looks_like_kwargs(t)
     if type(t) ~= 'table' then return false end
-    for k in pairs(t) do
+    for k in compat.pairs(t) do
       if type(k) == 'string' and field_index[k] ~= nil then
         return true
       end
@@ -92,7 +93,7 @@ function dataclass(name, fields, opts)
         local v = kwargs[fname]
         if v == nil then v = field_defaults[fname] end
         if v == nil and not has_defaults[fname] then
-          error(string.format(
+          error(compat.format(
             '%s: missing required field "%s"', name, fname), 4)
         end
         values[fname] = v
@@ -102,7 +103,7 @@ function dataclass(name, fields, opts)
         local v = select(i, ...)
         if v == nil then v = field_defaults[field_names[i]] end
         if v == nil and not has_defaults[field_names[i]] then
-          error(string.format(
+          error(compat.format(
             '%s: missing required field "%s" (positional arg %d)',
             name, field_names[i], i), 4)
         end
@@ -199,9 +200,9 @@ function dataclass(name, fields, opts)
         kwargs[fname] = self[fname]
       end
       if overrides then
-        for k, v in pairs(overrides) do
+        for k, v in compat.pairs(overrides) do
           if field_index[k] == nil then
-            error(string.format(
+            error(compat.format(
               '%s.replace: unknown field "%s"', name, k), 2)
           end
           kwargs[k] = v

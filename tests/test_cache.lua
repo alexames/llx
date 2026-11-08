@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local decorated = require 'llx.decorator'.decorated
 local llx = require 'llx'
 local class_module = require 'llx.class'
 local cache_module = require 'llx.cache'
@@ -8,7 +9,7 @@ local class = class_module.class
 local cache = cache_module.cache
 local Decorator = decorator_module.Decorator
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('Cache', function()
   describe('module exports', function()
@@ -155,7 +156,7 @@ describe('Cache', function()
     it('should work as a decorator on class methods', function()
       local call_count = 0
       local MyClass = class 'CachedClass' {
-        ['compute' | cache] = function(self, x)
+        [decorated('compute', cache)] = function(self, x)
           call_count = call_count + 1
           return x * x
         end,
@@ -170,7 +171,7 @@ describe('Cache', function()
       .. 'in class methods', function()
       local call_count = 0
       local MyClass = class 'CachedClass2' {
-        ['compute' | cache] = function(self, x)
+        [decorated('compute', cache)] = function(self, x)
           call_count = call_count + 1
           return x * x
         end,
@@ -185,7 +186,7 @@ describe('Cache', function()
       .. 'methods', function()
       local call_count = 0
       local MyClass = class 'CachedClass3' {
-        ['compute' | cache] = function(self, x)
+        [decorated('compute', cache)] = function(self, x)
           call_count = call_count + 1
           return x + 1
         end,
@@ -203,19 +204,13 @@ describe('Cache', function()
       expect(call_count).to.be_equal_to(2)
     end)
 
-    it('should be usable with the | operator', function()
-      local result = 'my_func' | cache
-      expect(result.__isdecorator).to.be_true()
-      expect(result.name).to.be_equal_to('my_func')
-      expect(#result.decorator_table).to.be_equal_to(1)
-    end)
   end)
 
   describe('recursive fibonacci memoization', function()
     it('should correctly compute fibonacci with cache', function()
       local call_count = 0
       local Fibonacci = class 'Fibonacci' {
-        ['fib' | cache] = function(self, i)
+        [decorated('fib', cache)] = function(self, i)
           call_count = call_count + 1
           if i <= 1 then
             return i
@@ -233,7 +228,7 @@ describe('Cache', function()
     it('should reduce call count due to memoization', function()
       local call_count = 0
       local Fibonacci = class 'Fibonacci2' {
-        ['fib' | cache] = function(self, i)
+        [decorated('fib', cache)] = function(self, i)
           call_count = call_count + 1
           if i <= 1 then
             return i
@@ -252,5 +247,5 @@ describe('Cache', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

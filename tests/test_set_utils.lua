@@ -1,12 +1,13 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 
 require 'llx.types.set'
 require 'llx.types.list'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('set utilities', function()
   describe('symmetric_difference', function()
@@ -31,12 +32,6 @@ describe('set utilities', function()
       expect(result).to.be_equal_to(llx.Set{})
     end)
 
-    it('should be accessible via __bxor operator', function()
-      local a = llx.Set{1, 2, 3}
-      local b = llx.Set{2, 3, 4}
-      local result = a ~ b
-      expect(result).to.be_equal_to(llx.Set{1, 4})
-    end)
   end)
 
   describe('is_subset', function()
@@ -123,26 +118,26 @@ describe('set utilities', function()
   describe('__len', function()
     it('should support # operator', function()
       local s = llx.Set{1, 2, 3}
-      expect(#s).to.be_equal_to(3)
+      expect(compat.len(s)).to.be_equal_to(3)
     end)
 
     it('should return 0 for empty set', function()
       local s = llx.Set{}
-      expect(#s).to.be_equal_to(0)
+      expect(compat.len(s)).to.be_equal_to(0)
     end)
 
     it('should agree with len() method', function()
       local s = llx.Set{10, 20, 30, 40}
-      expect(#s).to.be_equal_to(s:len())
+      expect(compat.len(s)).to.be_equal_to(s:len())
     end)
 
     it('should update after mutations', function()
       local s = llx.Set{1, 2}
-      expect(#s).to.be_equal_to(2)
+      expect(compat.len(s)).to.be_equal_to(2)
       s:insert(3)
-      expect(#s).to.be_equal_to(3)
+      expect(compat.len(s)).to.be_equal_to(3)
       s:remove(1)
-      expect(#s).to.be_equal_to(2)
+      expect(compat.len(s)).to.be_equal_to(2)
     end)
   end)
 
@@ -275,5 +270,5 @@ describe('set utilities', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

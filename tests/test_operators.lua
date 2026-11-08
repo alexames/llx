@@ -1,11 +1,12 @@
 local operators = require 'llx.operators'
+local compat = require 'llx.compat'
 local unit = require 'llx.unit'
 local llx = require 'llx'
 
 require 'llx.functional'
 require 'llx.types.list'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('operators', function()
   describe('add', function()
@@ -215,20 +216,24 @@ describe('operators', function()
   end)
 
   describe('bnot', function()
-    it('should NOT zero to all ones (negative one in signed)', function()
-      expect(operators.bnot(0)).to.be_equal_to(-1)
+    -- All ones is -1 in Lua 5.3+'s signed 64-bit integers and
+    -- 2^32 - 1 in the unsigned 32 bits of the other versions.
+    local all_ones = compat.integer_bits == 64 and -1 or 0xFFFFFFFF
+
+    it('should NOT zero to all ones', function()
+      expect(operators.bnot(0)).to.be_equal_to(all_ones)
     end)
 
-    it('should NOT negative one to zero', function()
-      expect(operators.bnot(-1)).to.be_equal_to(0)
+    it('should NOT all ones to zero', function()
+      expect(operators.bnot(all_ones)).to.be_equal_to(0)
     end)
 
     it('should be its own inverse', function()
       expect(operators.bnot(operators.bnot(42))).to.be_equal_to(42)
     end)
 
-    it('should NOT 1 to -2', function()
-      expect(operators.bnot(1)).to.be_equal_to(-2)
+    it('should NOT 1 to all ones but the lowest bit', function()
+      expect(operators.bnot(1)).to.be_equal_to(all_ones - 1)
     end)
   end)
 
@@ -510,5 +515,5 @@ describe('operators', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -7,11 +7,10 @@
 -- You can use this to re-direct where the function is stored, the key in the
 -- table in which it is stored, or the value that gets stored there.
 --
--- The Decorator class overrides the or operator ('|') so that it can be used
--- like so:
+-- A decorated class field is keyed by `decorated(name, ...)`:
 --
 --     Fibonacci = class 'Fibonacci' {
---       ['fib' | cache] = function(self, i)
+--       [decorated('fib', cache)] = function(self, i)
 --         if i <= 1 then
 --           return i
 --         else
@@ -20,9 +19,8 @@
 --       end,
 --     }
 --
--- Decorators can also be chained, so you can apply more than by simply using
--- the or operator again for each decorator. Classes have special handling for
--- decorators, and will apply them in the order they appear
+-- More than one decorator can be given, `decorated('f', a, b)`; the class
+-- applies them in the order they are listed.
 
 local class  = require 'llx.class' . class
 local environment = require 'llx.environment'
@@ -30,18 +28,20 @@ local environment = require 'llx.environment'
 local _ENV, _M = environment.create_module_environment()
 
 Decorator = class 'Decorator' {
-  __bor = function(lhs, self)
-    if type(lhs) == 'table' and lhs.__isdecorator then
-      table.insert(lhs.decorator_table, self)
-      return lhs
-    else
-      return {__isdecorator=true, name=lhs, decorator_table={self}}
-    end
-  end,
 
   decorate = function(self, class, name, value)
     return class, name, value
   end
 }
+
+--- Builds the key of a decorated class field.
+-- @param name The field name the decorated value is stored under.
+-- @param ... The decorators, applied in the order given.
+-- @return A decorated key for a class definition table: a table with
+--   `__isdecorator = true`, the `name`, and the decorators in
+--   `decorator_table`.
+function decorated(name, ...)
+  return {__isdecorator=true, name=name, decorator_table={...}}
+end
 
 return _M

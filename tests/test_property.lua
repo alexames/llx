@@ -1,4 +1,5 @@
 local class_module = require 'llx.class'
+local decorated = require 'llx.decorator'.decorated
 local decorator = require 'llx.decorator'
 local property_module = require 'llx.property'
 local unit = require 'llx.unit'
@@ -9,7 +10,7 @@ local Decorator = decorator.Decorator
 local Property = property_module.Property
 local property = property_module.property
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('Property', function()
   describe('Property class', function()
@@ -33,11 +34,6 @@ describe('Property', function()
       expect(property).to_not.be_nil()
     end)
 
-    it('should work with __bor operator', function()
-      local result = 'my_prop' | property
-      expect(result.__isdecorator).to.be_true()
-      expect(result.name).to.be_equal_to('my_prop')
-    end)
   end)
 
   describe('getter-only property', function()
@@ -46,7 +42,7 @@ describe('Property', function()
         __init = function(self, val)
           self._value = val
         end,
-        ['value' | property] = {
+        [decorated('value', property)] = {
           get = function(self)
             return self._value
           end,
@@ -59,7 +55,7 @@ describe('Property', function()
     it('should throw error when trying to set a '
       .. 'getter-only property', function()
       local Foo = class 'Foo' {
-        ['value' | property] = {
+        [decorated('value', property)] = {
           get = function(self)
             return self._value
           end,
@@ -71,7 +67,7 @@ describe('Property', function()
 
     it('should return nil when backing field is not set', function()
       local Foo = class 'Foo' {
-        ['value' | property] = {
+        [decorated('value', property)] = {
           get = function(self)
             return self._value
           end,
@@ -85,7 +81,7 @@ describe('Property', function()
   describe('setter-only property', function()
     it('should set value via setter', function()
       local Foo = class 'Foo' {
-        ['value' | property] = {
+        [decorated('value', property)] = {
           set = function(self, v)
             self._value = v
           end,
@@ -99,7 +95,7 @@ describe('Property', function()
     it('should throw error when trying to get a '
       .. 'setter-only property', function()
       local Foo = class 'Foo' {
-        ['value' | property] = {
+        [decorated('value', property)] = {
           set = function(self, v)
             self._value = v
           end,
@@ -114,7 +110,7 @@ describe('Property', function()
   describe('getter and setter property', function()
     it('should set and get value', function()
       local Foo = class 'Foo' {
-        ['value' | property] = {
+        [decorated('value', property)] = {
           get = function(self)
             return self._value
           end,
@@ -130,7 +126,7 @@ describe('Property', function()
 
     it('should allow updating value multiple times', function()
       local Foo = class 'Foo' {
-        ['value' | property] = {
+        [decorated('value', property)] = {
           get = function(self)
             return self._value
           end,
@@ -150,7 +146,7 @@ describe('Property', function()
 
     it('should have custom logic in getter', function()
       local Foo = class 'Foo' {
-        ['doubled' | property] = {
+        [decorated('doubled', property)] = {
           get = function(self)
             return self._raw * 2
           end,
@@ -166,7 +162,7 @@ describe('Property', function()
 
     it('should have custom logic in setter', function()
       local Foo = class 'Foo' {
-        ['clamped' | property] = {
+        [decorated('clamped', property)] = {
           get = function(self)
             return self._clamped
           end,
@@ -190,11 +186,11 @@ describe('Property', function()
   describe('multiple properties on one class', function()
     it('should support multiple properties', function()
       local Foo = class 'Foo' {
-        ['x' | property] = {
+        [decorated('x', property)] = {
           get = function(self) return self._x end,
           set = function(self, v) self._x = v end,
         },
-        ['y' | property] = {
+        [decorated('y', property)] = {
           get = function(self) return self._y end,
           set = function(self, v) self._y = v end,
         },
@@ -208,11 +204,11 @@ describe('Property', function()
 
     it('should keep properties independent', function()
       local Foo = class 'Foo' {
-        ['a' | property] = {
+        [decorated('a', property)] = {
           get = function(self) return self._a end,
           set = function(self, v) self._a = v end,
         },
-        ['b' | property] = {
+        [decorated('b', property)] = {
           get = function(self) return self._b end,
           set = function(self, v) self._b = v end,
         },
@@ -227,7 +223,7 @@ describe('Property', function()
   describe('properties with inheritance', function()
     it('should inherit property from base class', function()
       local Base = class 'Base' {
-        ['value' | property] = {
+        [decorated('value', property)] = {
           get = function(self) return self._value end,
           set = function(self, v) self._value = v end,
         },
@@ -240,13 +236,13 @@ describe('Property', function()
 
     it('should allow derived class to have its own properties', function()
       local Base = class 'Base' {
-        ['base_prop' | property] = {
+        [decorated('base_prop', property)] = {
           get = function(self) return self._base end,
           set = function(self, v) self._base = v end,
         },
       }
       local Derived = class 'Derived' : extends(Base) {
-        ['derived_prop' | property] = {
+        [decorated('derived_prop', property)] = {
           get = function(self) return self._derived end,
           set = function(self, v) self._derived = v end,
         },
@@ -263,7 +259,7 @@ describe('Property', function()
     it('should still allow regular field access on '
       .. 'instances with properties', function()
       local Foo = class 'Foo' {
-        ['prop' | property] = {
+        [decorated('prop', property)] = {
           get = function(self) return self._prop end,
           set = function(self, v) self._prop = v end,
         },
@@ -276,7 +272,7 @@ describe('Property', function()
     it('should still allow regular field assignment on '
       .. 'instances with properties', function()
       local Foo = class 'Foo' {
-        ['prop' | property] = {
+        [decorated('prop', property)] = {
           get = function(self) return self._prop end,
           set = function(self, v) self._prop = v end,
         },
@@ -290,7 +286,7 @@ describe('Property', function()
   describe('property instances are independent', function()
     it('should have independent state per instance', function()
       local Foo = class 'Foo' {
-        ['value' | property] = {
+        [decorated('value', property)] = {
           get = function(self) return self._value end,
           set = function(self, v) self._value = v end,
         },
@@ -306,5 +302,5 @@ describe('Property', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

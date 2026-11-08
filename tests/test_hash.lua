@@ -2,7 +2,7 @@ local unit = require 'llx.unit'
 local llx = require 'llx'
 local hash = require 'llx.hash'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('hash', function()
   describe('hash_nil', function()
@@ -290,5 +290,5 @@ describe('hash', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

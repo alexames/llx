@@ -1,12 +1,13 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
 
 local function table_is_list(t)
   local count = 0
-  for k, _ in pairs(t) do
+  for k, _ in compat.pairs(t) do
     if type(k) ~= 'number' then return false end
     count = count + 1
   end
@@ -24,7 +25,7 @@ function dump_value(t, visited)
       result = result .. '{'
       local first = true
       local is_list = table_is_list(t)
-      for k, v in pairs(t) do
+      for k, v in compat.pairs(t) do
         if first then
           first = false
         else

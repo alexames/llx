@@ -3,7 +3,7 @@ local unit = require 'llx.unit'
 local matchers_mod = require 'llx.unit.matchers'
 local test_api = require 'llx.unit.test_api'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 -- Test throw matcher
 describe('throw matcher', function()
@@ -501,5 +501,5 @@ describe.each({
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

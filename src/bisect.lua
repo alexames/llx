@@ -6,6 +6,7 @@
 -- accept optional lo/hi bounds and a key extraction function.
 -- @module llx.bisect
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
@@ -27,7 +28,7 @@ function bisect_left(a, x, lo, hi, key)
   if key then
     local kx = key(x)
     while lo < hi do
-      local mid = (lo + hi) // 2
+      local mid = compat.floordiv(lo + hi, 2)
       if key(a[mid]) < kx then
         lo = mid + 1
       else
@@ -36,7 +37,7 @@ function bisect_left(a, x, lo, hi, key)
     end
   else
     while lo < hi do
-      local mid = (lo + hi) // 2
+      local mid = compat.floordiv(lo + hi, 2)
       if a[mid] < x then
         lo = mid + 1
       else
@@ -61,7 +62,7 @@ function bisect_right(a, x, lo, hi, key)
   if key then
     local kx = key(x)
     while lo < hi do
-      local mid = (lo + hi) // 2
+      local mid = compat.floordiv(lo + hi, 2)
       if kx < key(a[mid]) then
         hi = mid
       else
@@ -70,7 +71,7 @@ function bisect_right(a, x, lo, hi, key)
     end
   else
     while lo < hi do
-      local mid = (lo + hi) // 2
+      local mid = compat.floordiv(lo + hi, 2)
       if x < a[mid] then
         hi = mid
       else

@@ -1,9 +1,10 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local path = require 'llx.path'
 local Path = path.Path
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('llx.path free functions', function()
   describe('is_absolute', function()
@@ -164,7 +165,7 @@ describe('Path class', function()
 
     it(':suffixes returns all extensions', function()
       local s = Path('archive.tar.gz'):suffixes()
-      expect(#s).to.be_equal_to(2)
+      expect(compat.len(s)).to.be_equal_to(2)
       expect(s[1]).to.be_equal_to('.tar')
       expect(s[2]).to.be_equal_to('.gz')
     end)
@@ -283,5 +284,5 @@ describe('Path class', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

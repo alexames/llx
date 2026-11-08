@@ -19,6 +19,7 @@
 --   for name, schema in config:fields() do ... end
 --   config:serialize() / :deserialize(data) / :reset()
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 local schema_module = require 'llx.schema'
 
@@ -29,9 +30,9 @@ local matches_schema = schema_module.matches_schema
 
 local function ensure_schema(value, name)
   assert(type(value) == 'table',
-         string.format("field '%s' must be a table (schema)", name))
+         compat.format("field '%s' must be a table (schema)", name))
   assert(value.type ~= nil,
-         string.format("field '%s' schema is missing required 'type'", name))
+         compat.format("field '%s' schema is missing required 'type'", name))
   -- Schema() decorates the table with __isinstance and a metatable; calling it
   -- on a value that already has __isinstance would clobber any caller-attached
   -- metatable, so make this idempotent.
@@ -95,7 +96,7 @@ local function make_config(title, fields_by_name)
   --- Restores every field to its declared default and fires observers for
   -- each field that actually changed.
   function methods:reset()
-    for _, field in pairs(fields_by_name) do
+    for _, field in compat.pairs(fields_by_name) do
       local previous = field.value
       if previous ~= field.schema.default then
         field.value = field.schema.default
@@ -115,7 +116,7 @@ local function make_config(title, fields_by_name)
     end
     local name = name_or_callback
     assert(fields_by_name[name],
-           string.format("on_change: unknown field '%s'", name))
+           compat.format("on_change: unknown field '%s'", name))
     local list = observers_by_field[name]
     if not list then
       list = {}
@@ -127,7 +128,7 @@ local function make_config(title, fields_by_name)
   --- Returns a plain { name = value, ... } table suitable for persistence.
   function methods:serialize()
     local result = {}
-    for name, field in pairs(fields_by_name) do
+    for name, field in compat.pairs(fields_by_name) do
       result[name] = field.value
     end
     return result
@@ -138,7 +139,7 @@ local function make_config(title, fields_by_name)
   -- partially-applied state is left in place.
   function methods:deserialize(data)
     assert(type(data) == 'table', 'deserialize expects a table')
-    for name, value in pairs(data) do
+    for name, value in compat.pairs(data) do
       if fields_by_name[name] then
         proxy[name] = value
       end
@@ -156,14 +157,14 @@ local function make_config(title, fields_by_name)
       if method then return method end
       local field = fields_by_name[key]
       if field then return field.value end
-      error(string.format("Config '%s' has no field or method '%s'",
+      error(compat.format("Config '%s' has no field or method '%s'",
                           title, key), 2)
     end,
 
     __newindex = function(_, key, value)
       local field = fields_by_name[key]
       if not field then
-        error(string.format("Config '%s' has no field '%s'", title, key), 2)
+        error(compat.format("Config '%s' has no field '%s'", title, key), 2)
       end
       matches_schema(field.schema, value)
       local previous = field.value
@@ -200,9 +201,9 @@ function Config(title)
     assert(type(declarations) == 'table', 'Config body must be a table')
 
     local fields_by_name = {}
-    for name, value in pairs(declarations) do
+    for name, value in compat.pairs(declarations) do
       assert(type(name) == 'string',
-             string.format(
+             compat.format(
                  "Config '%s' field names must be strings", title))
       local schema = ensure_schema(value, name)
       fields_by_name[name] = build_field(name, schema)

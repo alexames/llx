@@ -22,6 +22,7 @@
 -- input is first bounded via slice or take_while.
 -- @module llx.functional
 
+local compat = require 'llx.compat'
 local core = require 'llx.core'
 local environment = require 'llx.environment'
 local list = require 'llx.types.list'
@@ -34,7 +35,7 @@ local _ENV, _M = environment.create_module_environment()
 local List = list.List
 local String = string_module.String
 local Table = table_module.Table
-local unpack = table_module.Table.unpack
+local unpack = compat.unpack
 local nonnil = core.nonnil
 local noop = core.noop
 
@@ -644,7 +645,7 @@ function zip_longest(...)
   local fillvalue = nil
   if #sequences > 0 and type(sequences[#sequences]) ~= 'function' then
     fillvalue = sequences[#sequences]
-    sequences = {table.unpack(sequences, 1, #sequences - 1)}
+    sequences = {compat.unpack(sequences, 1, #sequences - 1)}
   end
 
   local controls = {}
@@ -1190,17 +1191,17 @@ end
 -- local add5 = partial(function(a, b) return a + b end, 5)
 -- add5(3)  -- returns 8
 function partial(func, ...)
-  local bound = table.pack(...)
+  local bound = compat.pack(...)
   return function(...)
     local args = {}
     for i = 1, bound.n do
       args[i] = bound[i]
     end
-    local extra = table.pack(...)
+    local extra = compat.pack(...)
     for i = 1, extra.n do
       args[bound.n + i] = extra[i]
     end
-    return func(table.unpack(args, 1, bound.n + extra.n))
+    return func(compat.unpack(args, 1, bound.n + extra.n))
   end
 end
 
@@ -1213,13 +1214,13 @@ end
 -- local double_then_inc = compose(inc, double)
 -- double_then_inc(3)  -- returns 7 (inc(double(3)))
 function compose(...)
-  local fns = table.pack(...)
+  local fns = compat.pack(...)
   return function(...)
-    local result = table.pack(fns[fns.n](...))
+    local result = compat.pack(fns[fns.n](...))
     for i = fns.n - 1, 1, -1 do
-      result = table.pack(fns[i](table.unpack(result, 1, result.n)))
+      result = compat.pack(fns[i](compat.unpack(result, 1, result.n)))
     end
-    return table.unpack(result, 1, result.n)
+    return compat.unpack(result, 1, result.n)
   end
 end
 
@@ -1232,13 +1233,13 @@ end
 -- local double_then_inc = pipe(double, inc)
 -- double_then_inc(3)  -- returns 7 (inc(double(3)))
 function pipe(...)
-  local fns = table.pack(...)
+  local fns = compat.pack(...)
   return function(...)
-    local result = table.pack(fns[1](...))
+    local result = compat.pack(fns[1](...))
     for i = 2, fns.n do
-      result = table.pack(fns[i](table.unpack(result, 1, result.n)))
+      result = compat.pack(fns[i](compat.unpack(result, 1, result.n)))
     end
-    return table.unpack(result, 1, result.n)
+    return compat.unpack(result, 1, result.n)
   end
 end
 
@@ -1250,18 +1251,18 @@ end
 function curry(func, n)
   local function curried(args, num_args)
     if num_args >= n then
-      return func(table.unpack(args, 1, num_args))
+      return func(compat.unpack(args, 1, num_args))
     end
     return function(...)
       local new_args = {}
       for i = 1, num_args do new_args[i] = args[i] end
-      local extra = table.pack(...)
+      local extra = compat.pack(...)
       for i = 1, extra.n do new_args[num_args + i] = extra[i] end
       return curried(new_args, num_args + extra.n)
     end
   end
   return function(...)
-    local args = table.pack(...)
+    local args = compat.pack(...)
     return curried({...}, args.n)
   end
 end
@@ -1293,10 +1294,10 @@ function once(func)
   local result
   return function(...)
     if not called then
-      result = table.pack(func(...))
+      result = compat.pack(func(...))
       called = true
     end
-    return table.unpack(result, 1, result.n)
+    return compat.unpack(result, 1, result.n)
   end
 end
 
@@ -1657,7 +1658,7 @@ end
 -- @param ... Functions to apply
 -- @return A function that returns a List of results from each function
 function juxt(...)
-  local fns = table.pack(...)
+  local fns = compat.pack(...)
   return function(...)
     local result = List{}
     for i = 1, fns.n do
@@ -1682,9 +1683,9 @@ end
 -- @param ... Arguments to append after call-time arguments
 -- @return A new function
 function partial_right(func, ...)
-  local bound = table.pack(...)
+  local bound = compat.pack(...)
   return function(...)
-    local args = table.pack(...)
+    local args = compat.pack(...)
     local all = {}
     for i = 1, args.n do
       all[i] = args[i]
@@ -1692,7 +1693,7 @@ function partial_right(func, ...)
     for i = 1, bound.n do
       all[args.n + i] = bound[i]
     end
-    return func(table.unpack(all, 1, args.n + bound.n))
+    return func(compat.unpack(all, 1, args.n + bound.n))
   end
 end
 
@@ -1859,7 +1860,7 @@ function zip_with(f, ...)
     for j = 1, #sequences do
       args[j] = sequences[j][i]
     end
-    result:insert(f(table.unpack(args)))
+    result:insert(f(compat.unpack(args)))
   end
   return result
 end

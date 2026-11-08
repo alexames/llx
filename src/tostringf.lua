@@ -1,5 +1,6 @@
 -- Copyright 2025 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local core = require 'llx.core'
 local table_module = require 'llx.types.table'
 local class_module = require 'llx.class'
@@ -35,7 +36,7 @@ end
 
 local function table_is_list(t)
   local count = 0
-  for k, _ in pairs(t) do
+  for k, _ in compat.pairs(t) do
     if type(k) ~= 'number' then return false end
     count = count + 1
   end
@@ -119,7 +120,7 @@ StringFormatter = class 'StringFormatter' {
         self:table_field_delimiter(final_field)
       end
     else
-      for k, v in pairs(value) do
+      for k, v in compat.pairs(value) do
         local final_field = next(value, k) == nil
         self:table_field(k, v, final_field, value_formatter)
       end
@@ -129,7 +130,7 @@ StringFormatter = class 'StringFormatter' {
 
   table_cons = function(self, name)
     if type(name) == 'table' then
-      self:module_class(table.unpack(name))
+      self:module_class(compat.unpack(name))
     else
       self:insert(name)
     end
@@ -213,7 +214,7 @@ StringFormatter = class 'StringFormatter' {
   table_fields = function(self, fields)
     self:table_begin()
     for i, field in ipairs(fields) do
-      local key, value, value_style = table.unpack(field)
+      local key, value, value_style = compat.unpack(field)
       local value_formatter = value_style and self:clone(value_style) or self
       local final_field = i == #fields
       self:table_field(

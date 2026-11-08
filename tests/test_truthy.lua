@@ -3,7 +3,7 @@ local llx = require 'llx'
 
 local truthy_module = require 'llx.truthy'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('truthy', function()
   local truthy = truthy_module.truthy
@@ -125,5 +125,5 @@ describe('falsey', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

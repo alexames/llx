@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local core = require 'llx.core'
 local environment = require 'llx.environment'
 
@@ -26,7 +27,7 @@ local function repr_table(value)
   for i=lower_range, upper_range do
     parts[#parts + 1] = repr(value[i])
   end
-  for k, v in pairs(value) do
+  for k, v in compat.pairs(value) do
     if type(k) == 'number'
        and math.floor(k) == k
        and k >= lower_range
@@ -55,7 +56,7 @@ function repr(value)
   elseif type_of_value == 'boolean' then
     if value then return 'true' else return 'false' end
   elseif type_of_value == 'string' then
-    return string.format('%q', value)
+    return compat.format('%q', value)
   elseif type_of_value == 'table' then
     local __repr = core.getmetafield(value, '__repr')
     if __repr then

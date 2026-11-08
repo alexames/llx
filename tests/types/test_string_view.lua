@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local string_view = require 'llx.string_view'
 local hash_module = require 'llx.hash'
@@ -7,7 +8,7 @@ local StringView = string_view.StringView
 local hash = hash_module.hash
 local HashTable = hash_table_module.HashTable
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 -- test_string_view_methods.lua
 -- Unit tests for Lua string methods via StringView
@@ -122,7 +123,7 @@ describe('StringViewStringMethodTests', function()
 
   it('should support # operator via __len', function()
     local view = StringView("hello world", 4, 5) -- "lo wo"
-    expect(#view).to.be_equal_to(5)
+    expect(compat.len(view)).to.be_equal_to(5)
   end)
 
   it('should support equality for views with same content', function()
@@ -162,5 +163,5 @@ describe('StringViewStringMethodTests', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

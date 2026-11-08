@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local class = require 'llx.class' . class
 local environment = require 'llx.environment'
 local ExceptionGroup =
@@ -21,12 +22,12 @@ OverloadResolutionException =
   __init = function(self, candidates, exception_list, level)
     ExceptionGroup.__init(self, exception_list, (level or 1) + 1)
     self.candidates = candidates
-    local lines = {string.format(
+    local lines = {compat.format(
         'no overload matched the call; %d candidate(s) rejected:',
         #exception_list)}
     for i, exception in ipairs(exception_list) do
       local reason = exception.what:gsub('\n', '\n    ')
-      lines[#lines + 1] = string.format(
+      lines[#lines + 1] = compat.format(
           '  candidate %d %s: %s', i, candidates[i] or '?', reason)
     end
     self.what = table.concat(lines, '\n')

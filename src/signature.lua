@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local check_arguments_module = require 'llx.check_arguments'
 local class_module = require 'llx.class'
 local core = require 'llx.core'
@@ -146,7 +147,7 @@ local function check_signature_fields(name, args)
   end
 
   -- Validate both lists as regular type lists (no ParamSpec/AnyParams).
-  for field_name, type_list in pairs({params = param_list,
+  for field_name, type_list in compat.pairs({params = param_list,
                                       returns = return_list}) do
     if type(type_list) ~= 'table' then
       error(InvalidArgumentException(
@@ -213,10 +214,10 @@ Function = class 'Function' {
   end,
 
   __call = function(self, ...)
-    local scope = self:check_preconditions(table.pack(...))
-    local results = table.pack(self.func(...))
+    local scope = self:check_preconditions(compat.pack(...))
+    local results = compat.pack(self.func(...))
     self:check_postconditions(results, scope)
-    return table.unpack(results, 1, results.n)
+    return compat.unpack(results, 1, results.n)
   end,
 
   -- table.pack supplies the exact value count in `n`; # is used as a
@@ -301,7 +302,7 @@ Signature = class 'Signature' : extends(Decorator) {
 
 -- Binding operator: `Signature{...} .. fn` wraps fn in a Function
 -- carrying the declared signature -- the same wrapper `decorate`
--- produces, but usable outside the class-decorator syntax. This is
+-- produces, but usable outside a class definition. This is
 -- the declaration form Overload builds on. Defined after the class so
 -- the handler can identify which operand is the Signature (Lua calls
 -- the metamethod with the operands in source order, so a callable
@@ -352,8 +353,8 @@ end
 -- listing every candidate signature with its rejection reason.
 --
 -- In a class definition an Overload is assigned directly to its key,
--- with no `|` decorator (the decorator syntax carries one value per
--- key, so a multi-declaration set cannot be expressed through it):
+-- not through `decorated` (a decorated key carries one value, so a
+-- multi-declaration set cannot be expressed through it):
 --
 --     local Point = class 'Point' {
 --       move = Overload{
@@ -379,7 +380,7 @@ Overload = class 'Overload' {
     end
     for i, fn in ipairs(declarations) do
       if not isinstance(fn, Function) then
-        error(string.format(
+        error(compat.format(
             'Overload: entry %d is not a signature-bound function; '
             .. 'bind each candidate with Signature{...} .. fn', i), 3)
       end
@@ -388,7 +389,7 @@ Overload = class 'Overload' {
   end,
 
   __call = function(self, ...)
-    local arguments = table.pack(...)
+    local arguments = compat.pack(...)
     local failures = {}
     for _, fn in ipairs(self.overloads) do
       -- On success the pcall yields the candidate's TypeVar binding
@@ -400,9 +401,9 @@ Overload = class 'Overload' {
       local ok, scope_or_err = pcall(fn.check_preconditions, fn,
                                      arguments)
       if ok then
-        local results = table.pack(fn.func(...))
+        local results = compat.pack(fn.func(...))
         fn:check_postconditions(results, scope_or_err)
-        return table.unpack(results, 1, results.n)
+        return compat.unpack(results, 1, results.n)
       end
       if not isinstance(scope_or_err, InvalidArgumentException) then
         error(scope_or_err, 0)

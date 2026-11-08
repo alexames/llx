@@ -25,6 +25,7 @@
 --   passed through unchecked; the declared yield types apply to every
 --   other step.
 
+local compat = require 'llx.compat'
 local check_arguments_module = require 'llx.check_arguments'
 local class_module = require 'llx.class'
 local core = require 'llx.core'
@@ -87,10 +88,15 @@ local function check_boundary(expected_types, values)
       -- then IteratorFunction.__call or GeneratorInstance's
       -- send/resume -- the generator paths are one frame deeper) to
       -- the user's loop or explicit call.
+      -- Lua 5.1 also leaves a pseudo-frame (what == 'tail') where a
+      -- tail call replaced one of them; it is walked past too.
       local level = 2  -- 1 is this function; start at its caller.
       while true do
         local info = debug.getinfo(level, 'S')
-        if info == nil or info.source ~= module_source then break end
+        if info == nil
+            or (info.source ~= module_source and info.what ~= 'tail') then
+          break
+        end
         level = level + 1
       end
       err.traceback = debug.traceback('', level)
@@ -115,13 +121,13 @@ IteratorFunction = class 'IteratorFunction' {
   end,
 
   __call = function(self, state, control)
-    local values = table.pack(self.func(state, control))
+    local values = compat.pack(self.func(state, control))
     if values.n == 0 or values[1] == nil then
       -- Generic-for's termination signal; not a yielded tuple.
-      return table.unpack(values, 1, values.n)
+      return compat.unpack(values, 1, values.n)
     end
     check_boundary(self.yields, values)
-    return table.unpack(values, 1, values.n)
+    return compat.unpack(values, 1, values.n)
   end,
 
   __tostring = function(self)
@@ -136,7 +142,7 @@ IteratorFunction = class 'IteratorFunction' {
 --
 -- binds the closure to an IteratorFunction that checks each yielded
 -- (Integer, String) step. As a class-member decorator
--- (['step' | Yields{...}]) it wraps the member function itself as
+-- ([decorated('step', Yields{...})]) it wraps the member function itself as
 -- the iterator closure; note that most members are iterator
 -- *factories* (they return an iterator), for which the binding form
 -- inside the factory is the right tool.
@@ -155,8 +161,8 @@ Yields = class 'Yields' : extends(Decorator) {
 
 -- Binding operator: `Yields{...} .. fn` wraps fn in an
 -- IteratorFunction carrying the declared yield types -- the same
--- wrapper `decorate` produces, but usable outside the
--- class-decorator syntax. Defined after the class so the handler can
+-- wrapper `decorate` produces, but usable outside a class
+-- definition. Defined after the class so the handler can
 -- identify which operand is the declaration (Lua calls the
 -- metamethod with the operands in source order, so a callable table
 -- on the left would otherwise land in `self`).
@@ -227,7 +233,7 @@ GeneratorInstance = class 'GeneratorInstance' {
       end
       return self:resume()
     end
-    check_boundary(self.accepts, table.pack(...))
+    check_boundary(self.accepts, compat.pack(...))
     return self:resume(...)
   end,
 
@@ -238,18 +244,18 @@ GeneratorInstance = class 'GeneratorInstance' {
   -- coroutine.wrap.
   resume = function(self, ...)
     self.started = true
-    local results = table.pack(coroutine.resume(self.thread, ...))
+    local results = compat.pack(coroutine.resume(self.thread, ...))
     if not results[1] then
       error(results[2], 0)
     end
-    local values = table.pack(
-        table.unpack(results, 2, results.n))
+    local values = compat.pack(
+        compat.unpack(results, 2, results.n))
     if coroutine.status(self.thread) == 'dead' then
       check_boundary(self.returns, values)
     else
       check_boundary(self.yields, values)
     end
-    return table.unpack(values, 1, values.n)
+    return compat.unpack(values, 1, values.n)
   end,
 
   status = function(self)
@@ -269,9 +275,9 @@ GeneratorFunction = class 'GeneratorFunction' {
 
   __call = function(self, ...)
     local func = self.func
-    local args = table.pack(...)
+    local args = compat.pack(...)
     local thread = coroutine.create(function()
-      return func(table.unpack(args, 1, args.n))
+      return func(compat.unpack(args, 1, args.n))
     end)
     return GeneratorInstance{
       thread = thread,
@@ -304,7 +310,8 @@ GeneratorFunction = class 'GeneratorFunction' {
 --
 -- Missing contract lists default to empty (yields nothing, accepts
 -- nothing, returns nothing); declare '...' tails to leave a boundary
--- unchecked. As a class-member decorator (['gen' | Generates{...}])
+-- unchecked. As a class-member decorator
+-- ([decorated('gen', Generates{...})])
 -- it wraps the member function as the coroutine body, so calling the
 -- member returns a fresh GeneratorInstance per call, exactly like
 -- llx.coroutine.wrap but checked.
@@ -314,7 +321,7 @@ Generates = class 'Generates' : extends(Decorator) {
       error('Generates: expected a contract table with optional '
           .. 'yields, accepts, and returns lists', 3)
     end
-    for key in pairs(contract) do
+    for key in compat.pairs(contract) do
       if key ~= 'yields' and key ~= 'accepts' and key ~= 'returns' then
         error("Generates: unknown contract key '" .. tostring(key)
             .. "'", 3)

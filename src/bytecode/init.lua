@@ -8,24 +8,31 @@
 -- On a Lua version with no matching parser (e.g. 5.3), the module still
 -- loads: the version-specific parsers remain usable for chunks in those
 -- formats, and the auto-dispatched top-level readers raise a clear error
--- only if actually called.
+-- only if actually called. The parsers themselves need Lua 5.3+ (64-bit
+-- integers and string.unpack); before 5.3 neither is loaded and
+-- bytecode.lua54 and bytecode.lua55 are absent.
 -- @module llx.bytecode
+
+local compat = require 'llx.compat'
 
 local version_modules = {
   ['Lua 5.4'] = 'llx.bytecode.lua54',
   ['Lua 5.5'] = 'llx.bytecode.lua55',
 }
 
-local lua54 = require 'llx.bytecode.lua54'
-local lua55 = require 'llx.bytecode.lua55'
+local parsers = {}
+if compat.integer_bits == 64 then
+  parsers.lua54 = require 'llx.bytecode.lua54'
+  parsers.lua55 = require 'llx.bytecode.lua55'
+end
 
 local current_module = version_modules[_VERSION]
 
 if current_module then
   return require 'llx.flatten_submodules' {
     require(current_module),
-    lua54 = lua54,
-    lua55 = lua55,
+    lua54 = parsers.lua54,
+    lua55 = parsers.lua55,
   }
 end
 
@@ -35,7 +42,7 @@ end
 local function unsupported()
   error(string.format(
     '%s has no matching bytecode parser; use llx.bytecode.lua54 or '
-    .. 'llx.bytecode.lua55 explicitly', _VERSION), 2)
+    .. 'llx.bytecode.lua55 explicitly on Lua 5.3+', _VERSION), 2)
 end
 
 return require 'llx.flatten_submodules' {
@@ -44,6 +51,6 @@ return require 'llx.flatten_submodules' {
     read_file = unsupported,
     to_bytestream = unsupported,
   },
-  lua54 = lua54,
-  lua55 = lua55,
+  lua54 = parsers.lua54,
+  lua55 = parsers.lua55,
 }

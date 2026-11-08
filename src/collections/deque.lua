@@ -4,6 +4,7 @@
 -- Backed by a sparse table indexed by first..last (inclusive).
 -- @module llx.collections.deque
 
+local compat = require 'llx.compat'
 local class = require 'llx.class' . class
 local environment = require 'llx.environment'
 
@@ -112,8 +113,8 @@ Deque = class 'Deque' {
   end,
 
   __eq = function(self, other)
-    if #self ~= #other then return false end
-    for i = 0, #self - 1 do
+    if compat.len(self) ~= compat.len(other) then return false end
+    for i = 0, compat.len(self) - 1 do
       if self._storage[self._first + i]
           ~= other._storage[other._first + i] then
         return false
@@ -124,7 +125,7 @@ Deque = class 'Deque' {
 
   __hash = function(self, result)
     local hash = require 'llx.hash'
-    for i = 0, #self - 1 do
+    for i = 0, compat.len(self) - 1 do
       result = hash.hash_value(i + 1, result)
       result = hash.hash_value(self._storage[self._first + i], result)
     end
@@ -133,7 +134,7 @@ Deque = class 'Deque' {
 
   __tostring = function(self)
     local parts = {}
-    for i = 0, #self - 1 do
+    for i = 0, compat.len(self) - 1 do
       parts[i + 1] = tostring(self._storage[self._first + i])
     end
     return 'Deque{' .. table.concat(parts, ', ') .. '}'
@@ -141,7 +142,7 @@ Deque = class 'Deque' {
 
   __call = function(self, state, control)
     control = (control or 0) + 1
-    if control > #self then return nil end
+    if control > compat.len(self) then return nil end
     return control, self._storage[self._first + control - 1]
   end,
 }

@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 local Number = require 'llx.types.number' . Number
 
@@ -10,7 +11,7 @@ Float = {}
 Float.__name = 'Float'
 
 function Float:__isinstance(v)
-  return math.type(v) == 'float'
+  return compat.math_type(v) == 'float'
 end
 
 Float.__validate = Number.__validate

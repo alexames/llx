@@ -161,14 +161,14 @@ List = class 'List' : extends(Table) {
   end,
 
   __shl = function(self, n)
-    if n < 0 then return self >> -n
+    if n < 0 then return List.__shr(self, -n)
     elseif n == 0 then return self
     else return self:sub(n + 1) .. self:sub(1, n)
     end
   end,
 
   __shr = function(self, n)
-    if n < 0 then return self << -n
+    if n < 0 then return List.__shl(self, -n)
     elseif n == 0 then return self
     else return self:sub(-(n)) .. self:sub(1, -(n + 1))
     end

@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Support for Lua 5.1, 5.2 and LuaJIT 2.x alongside 5.3-5.5. The
+  `llx` rock now declares `lua >= 5.1, < 5.6`, and the new
+  `llx-luajit` rockspec ships the same modules against LuaJIT.
+- `llx.compat`: the operations whose spelling differs between Lua
+  versions (`unpack`, `pack`, `load`, `loadfile`, `pairs`, `ipairs`,
+  `len`, `equals`, `format`, the bitwise operations, `floordiv`,
+  `math_type`, `pack_double`, ...), behind one interface. It loads one
+  per-version layer (`llx.compat.lua51`, `.luajit`, `.lua52`,
+  `.lua53`) for the running interpreter.
+- Flag enum methods `union`, `intersection`, `difference` and
+  `symmetric_difference`, the portable spellings of `|`, `&`, `-` and
+  `~`.
+- `tests/test_portability.lua`, which lexes every source and fails when
+  one uses syntax or a library name that an interpreter loading it
+  lacks.
+
+### Changed
+
+- A decorated class field is keyed by `decorated(name, d1, d2, ...)`
+  (`llx.decorator.decorated`). The `'name' | d1 | d2` operator form is
+  removed: `Decorator` no longer defines `__bor`.
+- Test files end with `os.exit(unit.run_unit_tests() == 0 and 0 or 1)`
+  and declare `local _ENV = unit.create_test_env(_ENV)`, both of which
+  work on Lua 5.1.
+- The tests that need Lua 5.3+ syntax moved to `tests/lua53/`, which
+  `tests/init.lua` loads only on 5.3+.
+- `llx.bytecode` loads its parsers only on Lua 5.3+.
+- Every `Proxy` shares one metatable, and every `NewType` brand and
+  `GenericAlias` shares its comparison metamethods.
+
+### Fixed
+
+- Rotating a string by a negative count (`s << -n`, `s >> -n`) recursed
+  forever instead of rotating the other way.
+
 - `TypeVarTuple('Ts')` (exported as `llx.TypeVarTuple`, with the
   `llx.is_type_var_tuple` predicate) and its splice marker
   `Unpack(Ts)` (exported as `llx.Unpack`, with `llx.is_unpack`): a

@@ -3,7 +3,7 @@ local llx = require 'llx'
 
 local List = llx.List
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('ListTest', function()
   it('should copy input table so modifying input '
@@ -220,56 +220,6 @@ describe('ListTest', function()
     expect(multiplied_list).to.be_equal_to({1, 2, 3, 1, 2, 3, 1, 2, 3})
   end)
 
-  it('should return same list when shifting right by 0', function()
-    local list = List{'a', 'b', 'c', 'd', 'e'}
-    expect(list >> 0).to.be_equal_to(List{'a', 'b', 'c', 'd', 'e'})
-  end)
-
-  it('should return shifted list when shifting right by 1', function()
-    local list = List{'a', 'b', 'c', 'd', 'e'}
-    expect(list >> 1).to.be_equal_to(List{'e', 'a', 'b', 'c', 'd'})
-  end)
-
-  it('should return shifted list when shifting right by 2', function()
-    local list = List{'a', 'b', 'c', 'd', 'e'}
-    expect(list >> 2).to.be_equal_to(List{'d', 'e', 'a', 'b', 'c'})
-  end)
-
-  it('should return shifted list when shifting right by 3', function()
-    local list = List{'a', 'b', 'c', 'd', 'e'}
-    expect(list >> 3).to.be_equal_to(List{'c', 'd', 'e', 'a', 'b'})
-  end)
-
-  it('should return shifted list when shifting right by 4', function()
-    local list = List{'a', 'b', 'c', 'd', 'e'}
-    expect(list >> 4).to.be_equal_to(List{'b', 'c', 'd', 'e', 'a'})
-  end)
-
-  it('should return same list when shifting left by 0', function()
-    local list = List{'a', 'b', 'c', 'd', 'e'}
-    expect(list << 0).to.be_equal_to(List{'a', 'b', 'c', 'd', 'e'})
-  end)
-
-  it('should return shifted list when shifting left by 1', function()
-    local list = List{'a', 'b', 'c', 'd', 'e'}
-    expect(list << 1).to.be_equal_to(List{'b', 'c', 'd', 'e', 'a'})
-  end)
-
-  it('should return shifted list when shifting left by 2', function()
-    local list = List{'a', 'b', 'c', 'd', 'e'}
-    expect(list << 2).to.be_equal_to(List{'c', 'd', 'e', 'a', 'b'})
-  end)
-
-  it('should return shifted list when shifting left by 3', function()
-    local list = List{'a', 'b', 'c', 'd', 'e'}
-    expect(list << 3).to.be_equal_to(List{'d', 'e', 'a', 'b', 'c'})
-  end)
-
-  it('should return shifted list when shifting left by 4', function()
-    local list = List{'a', 'b', 'c', 'd', 'e'}
-    expect(list << 4).to.be_equal_to(List{'e', 'a', 'b', 'c', 'd'})
-  end)
-
   describe('__lt and __le (lexicographic ordering)', function()
     it('should order by first differing element', function()
       expect(List{1, 2, 3} < List{1, 2, 4}).to.be_truthy()
@@ -367,5 +317,5 @@ describe('ListTest', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

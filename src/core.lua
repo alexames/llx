@@ -5,6 +5,7 @@
 -- iteration, comparison, and common predicates.
 -- @module llx.core
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 local isinstance = require 'llx.isinstance' . isinstance
 
@@ -43,7 +44,7 @@ end
 -- @param ... Format arguments
 -- @usage printf("Hello %s, you have %d messages", name, count)
 function printf(fmt, ...)
-  print(string.format(fmt, ...))
+  print(compat.format(fmt, ...))
 end
 
 --- Gets the file path of the script at a given call stack level.
@@ -184,7 +185,7 @@ function noop(...) return ... end
 -- @usage local x = tovalue("1 + 2")  -- returns 3
 function tovalue(s)
   assert(type(s) == 'string', 'tovalue: expected string, got ' .. type(s))
-  local chunk, err = load('return ' .. s)
+  local chunk, err = compat.load('return ' .. s)
   if not chunk then
     error('tovalue: invalid expression: ' .. err, 2)
   end
@@ -228,7 +229,7 @@ function is_nil(v) return v == nil end
 function clone(v)
   if type(v) ~= 'table' then return v end
   local copy = {}
-  for k, val in pairs(v) do
+  for k, val in compat.pairs(v) do
     copy[k] = val
   end
   return setmetatable(copy, getmetatable(v))

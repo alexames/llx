@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local class = require 'llx.class' . class
 local environment = require 'llx.environment'
 local List = require 'llx.types.list' . List
@@ -38,14 +39,14 @@ Set = class 'Set' {
     end
 
     -- Check if all elements in set A are also in set B
-    for k, v in pairs(a_values) do
+    for k, v in compat.pairs(a_values) do
       if not b_values[k] then
         return false
       end
     end
 
     -- Check if all elements in set B are also in set A
-    for k, v in pairs(b_values) do
+    for k, v in compat.pairs(b_values) do
       if not a_values[k] then
         return false
       end
@@ -66,7 +67,7 @@ Set = class 'Set' {
     local result = self:copy()
     local result_values = rawget(result, '_values')
     local other_values = rawget(other, '_values')
-    for k, v in pairs(other_values) do
+    for k, v in compat.pairs(other_values) do
       result_values[k] = true
     end
     return result
@@ -77,7 +78,7 @@ Set = class 'Set' {
     local self_values = rawget(self, '_values')
     local result_values = rawget(result, '_values')
     local other_values = rawget(other, '_values')
-    for k, v in pairs(self_values) do
+    for k, v in compat.pairs(self_values) do
       if not other_values[k] then
         result_values[k] = true
       end
@@ -90,7 +91,7 @@ Set = class 'Set' {
     local self_values = rawget(self, '_values')
     local result_values = rawget(result, '_values')
     local other_values = rawget(other, '_values')
-    for k, v in pairs(self_values) do
+    for k, v in compat.pairs(self_values) do
       if other_values[k] then
         result_values[k] = true
       end
@@ -103,12 +104,12 @@ Set = class 'Set' {
     local self_values = rawget(self, '_values')
     local result_values = rawget(result, '_values')
     local other_values = rawget(other, '_values')
-    for k in pairs(self_values) do
+    for k in compat.pairs(self_values) do
       if not other_values[k] then
         result_values[k] = true
       end
     end
-    for k in pairs(other_values) do
+    for k in compat.pairs(other_values) do
       if not self_values[k] then
         result_values[k] = true
       end
@@ -119,7 +120,7 @@ Set = class 'Set' {
   is_subset = function(self, other)
     local self_values = rawget(self, '_values')
     local other_values = rawget(other, '_values')
-    for k in pairs(self_values) do
+    for k in compat.pairs(self_values) do
       if not other_values[k] then
         return false
       end
@@ -134,7 +135,7 @@ Set = class 'Set' {
   is_disjoint = function(self, other)
     local self_values = rawget(self, '_values')
     local other_values = rawget(other, '_values')
-    for k in pairs(self_values) do
+    for k in compat.pairs(self_values) do
       if other_values[k] then
         return false
       end
@@ -144,7 +145,7 @@ Set = class 'Set' {
 
   len = function(self)
     local n = 0
-    for _ in pairs(rawget(self, '_values')) do
+    for _ in compat.pairs(rawget(self, '_values')) do
       n = n + 1
     end
     return n
@@ -152,7 +153,7 @@ Set = class 'Set' {
 
   __len = function(self)
     local n = 0
-    for _ in pairs(rawget(self, '_values')) do
+    for _ in compat.pairs(rawget(self, '_values')) do
       n = n + 1
     end
     return n
@@ -172,7 +173,7 @@ Set = class 'Set' {
 
   update = function(self, other)
     local self_values = rawget(self, '_values')
-    for k in pairs(rawget(other, '_values')) do
+    for k in compat.pairs(rawget(other, '_values')) do
       self_values[k] = true
     end
   end,
@@ -184,7 +185,7 @@ Set = class 'Set' {
   map = function(self, f)
     local result = Set{}
     local result_values = rawget(result, '_values')
-    for k in pairs(rawget(self, '_values')) do
+    for k in compat.pairs(rawget(self, '_values')) do
       result_values[f(k)] = true
     end
     return result
@@ -193,7 +194,7 @@ Set = class 'Set' {
   filter = function(self, pred)
     local result = Set{}
     local result_values = rawget(result, '_values')
-    for k in pairs(rawget(self, '_values')) do
+    for k in compat.pairs(rawget(self, '_values')) do
       if pred(k) then
         result_values[k] = true
       end
@@ -203,7 +204,7 @@ Set = class 'Set' {
 
   tolist = function(self)
     local result = List{}
-    for k, v in pairs(rawget(self, '_values')) do
+    for k, v in compat.pairs(rawget(self, '_values')) do
       result:insert(k)
     end
     return result
@@ -220,15 +221,15 @@ Set = class 'Set' {
   __hash = function(self, result)
     local hash = require 'llx.hash'
     local sum = 0
-    for k in pairs(rawget(self, '_values')) do
-      sum = (sum + hash.hash(k)) & 0xFFFFFFFF
+    for k in compat.pairs(rawget(self, '_values')) do
+      sum = (sum + hash.hash(k)) % 0x100000000
     end
     return hash.hash_integer(sum, result)
   end,
 
   __tostring = function(self)
     local values = {}
-    for k, v in pairs(rawget(self, '_values')) do
+    for k, v in compat.pairs(rawget(self, '_values')) do
       table.insert(values, tostring(k))
     end
     table.sort(values)
@@ -236,7 +237,7 @@ Set = class 'Set' {
   end,
 
   __pairs = function(self)
-    return pairs(rawget(self, '_values'))
+    return compat.pairs(rawget(self, '_values'))
   end,
 }
 

@@ -1,7 +1,8 @@
 local llx = require 'llx'
+local compat = require 'llx.compat'
 local unit = require 'llx.unit'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('Mock', function()
   describe('basic functionality', function()
@@ -19,7 +20,7 @@ describe('Mock', function()
       m('a', 'b')
       m(1, 2, 3)
       local calls = m:mock_get_calls()
-      expect(#calls).to.be_equal_to(2)
+      expect(compat.len(calls)).to.be_equal_to(2)
       expect(calls[1].args[1]).to.be_equal_to('a')
       expect(calls[1].args[2]).to.be_equal_to('b')
       expect(calls[2].args[1]).to.be_equal_to(1)
@@ -330,5 +331,5 @@ describe('spy_on', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

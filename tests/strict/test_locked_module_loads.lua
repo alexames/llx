@@ -7,10 +7,11 @@
 -- load-time error in place of the module.
 
 local llx = require 'llx'
+local compat = require 'llx.compat'
 local unit = require 'llx.unit'
 local strict = require 'llx.strict'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 -- llx.flow_control.switchcase installs its operators as globals rather
 -- than returning them, which is why llx.flow_control does not
@@ -32,6 +33,22 @@ local function this_directory()
   return path:match('^(.*[/\\])') or ''
 end
 
+-- Whether a shipped module is meant to load on the running interpreter.
+-- A compat layer loads only on the interpreters llx.compat chooses it
+-- for, and the bytecode parsers only where integers are 64 bits.
+local function loads_here(name)
+  if name:find('^llx%.compat%.') then
+    for _, layer in ipairs(compat.layers) do
+      if layer == name then return true end
+    end
+    return false
+  end
+  if name:find('^llx%.bytecode%.lua5%d') then
+    return compat.integer_bits == 64
+  end
+  return true
+end
+
 local CHECKOUT_ROOT = this_directory() .. '../../'
 local ROCKSPEC_PATH = CHECKOUT_ROOT .. 'llx-scm-1.rockspec'
 
@@ -46,7 +63,7 @@ local ROCKSPEC_PATH = CHECKOUT_ROOT .. 'llx-scm-1.rockspec'
 -- to the root derived above so both find the same sources.
 local function shipped_modules()
   local spec = {}
-  local chunk, load_error = loadfile(ROCKSPEC_PATH, 't', spec)
+  local chunk, load_error = compat.loadfile(ROCKSPEC_PATH, 't', spec)
   if not chunk then
     return nil, tostring(load_error)
   end
@@ -60,9 +77,9 @@ local function shipped_modules()
   end
   local paths = {}
   local names = {}
-  for name, path in pairs(declared) do
+  for name, path in compat.pairs(declared) do
     paths[name] = CHECKOUT_ROOT .. path
-    names[#names + 1] = name
+    names[compat.len(names) + 1] = name
   end
   table.sort(names)
   return paths, names
@@ -96,7 +113,7 @@ local function globals_written_by(name, path)
     local written_name = tostring(key)
     if not seen[written_name] then
       seen[written_name] = true
-      written[#written + 1] = written_name
+      written[compat.len(written) + 1] = written_name
     end
     rawset(t, key, value)
   end
@@ -119,7 +136,7 @@ local function globals_written_by(name, path)
     __newindex = record,
   })
 
-  local chunk, load_error = loadfile(path, 't', environment)
+  local chunk, load_error = compat.loadfile(path, 't', environment)
   if not chunk then
     return nil, tostring(load_error)
   end
@@ -149,13 +166,13 @@ end
 -- underneath would not compare equal to them.
 local function require_unit_under_lock(paths)
   local loaded_before = {}
-  for module_name, module in pairs(package.loaded) do
+  for module_name, module in compat.pairs(package.loaded) do
     if module_name == 'llx' or module_name:find('^llx%.') then
       loaded_before[module_name] = module
     end
   end
   local globals_before = {}
-  for name, value in pairs(_G) do
+  for name, value in compat.pairs(_G) do
     globals_before[name] = value
   end
 
@@ -163,17 +180,17 @@ local function require_unit_under_lock(paths)
   -- run here requires its own dependencies, which refills the cache
   -- this is about to clear.
   local framework_globals = {}
-  for module_name, path in pairs(paths) do
+  for module_name, path in compat.pairs(paths) do
     if module_name == 'llx.unit'
         or module_name:find('^llx%.unit%.') then
       local written = globals_written_by(module_name, path) or {}
       for _, name in ipairs(written) do
-        framework_globals[#framework_globals + 1] = name
+        framework_globals[compat.len(framework_globals) + 1] = name
       end
     end
   end
 
-  for module_name in pairs(loaded_before) do
+  for module_name in compat.pairs(loaded_before) do
     package.loaded[module_name] = nil
   end
   for _, name in ipairs(framework_globals) do
@@ -184,20 +201,20 @@ local function require_unit_under_lock(paths)
   local loaded, result = pcall(require, 'llx.unit')
   getmetatable(lock).__close(lock)
 
-  for name in pairs(_G) do
+  for name in compat.pairs(_G) do
     if globals_before[name] == nil then
       _G[name] = nil
     end
   end
-  for name, value in pairs(globals_before) do
+  for name, value in compat.pairs(globals_before) do
     _G[name] = value
   end
-  for module_name in pairs(package.loaded) do
+  for module_name in compat.pairs(package.loaded) do
     if module_name == 'llx' or module_name:find('^llx%.') then
       package.loaded[module_name] = nil
     end
   end
-  for module_name, module in pairs(loaded_before) do
+  for module_name, module in compat.pairs(loaded_before) do
     package.loaded[module_name] = module
   end
 
@@ -240,13 +257,13 @@ describe('module global hygiene', function()
     expect(paths).to_not.be_nil()
     local leaks = {}
     for _, name in ipairs(names or {}) do
-      if not GLOBAL_INSTALLING_MODULES[name] then
+      if not GLOBAL_INSTALLING_MODULES[name] and loads_here(name) then
         local written, why_not =
           globals_written_by(name, (paths or {})[name])
         if not written then
-          leaks[#leaks + 1] = name .. ' did not run: ' .. why_not
-        elseif #written > 0 then
-          leaks[#leaks + 1] =
+          leaks[compat.len(leaks) + 1] = name .. ' did not run: ' .. why_not
+        elseif compat.len(written) > 0 then
+          leaks[compat.len(leaks) + 1] =
             name .. ' wrote ' .. table.concat(written, ', ')
         end
       end
@@ -258,7 +275,7 @@ describe('module global hygiene', function()
       .. 'named for', function()
     local paths = shipped_modules()
     expect(paths).to_not.be_nil()
-    for name, installed in pairs(GLOBAL_INSTALLING_MODULES) do
+    for name, installed in compat.pairs(GLOBAL_INSTALLING_MODULES) do
       expect((paths or {})[name]).to_not.be_nil()
       local written, why_not = globals_written_by(name, (paths or {})[name])
       expect(why_not or '').to.be_equal_to('')
@@ -279,5 +296,5 @@ describe('loading with the global table locked', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

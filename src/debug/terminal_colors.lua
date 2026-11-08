@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
@@ -30,9 +31,9 @@ function color(fg, bg)
   bg = bg and bg.bg
   assert(fg or bg)
   if fg and bg then
-    return string.format('\27[%s;%sm', fg, bg)
+    return compat.format('\27[%s;%sm', fg, bg)
   else
-    return string.format('\27[%sm', fg or bg)
+    return compat.format('\27[%sm', fg or bg)
   end
 end
 

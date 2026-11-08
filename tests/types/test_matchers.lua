@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local matchers = require 'llx.types.matchers'
 local signature = require 'llx.signature'
@@ -35,7 +36,7 @@ local is_subtype = llx.is_subtype
 local Schema = llx.Schema
 local Table = llx.Table
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 -- ---------------------------------------------------------------------------
 -- Any
@@ -2302,7 +2303,7 @@ describe('NewType', function()
       expect(UserId(40) + 2).to.be_equal_to(42)
       expect(UserId(44) - UserId(2)).to.be_equal_to(42)
       expect(UserId(21) * 2).to.be_equal_to(42)
-      expect(UserId(85) // 2).to.be_equal_to(42)
+      expect(compat.floordiv(UserId(85), 2)).to.be_equal_to(42)
       expect(UserId(85) % 43).to.be_equal_to(42)
       expect(-UserId(42)).to.be_equal_to(-42)
     end)
@@ -2312,8 +2313,13 @@ describe('NewType', function()
       expect(UserId(1) < UserId(2)).to.be_true()
       expect(UserId(2) < UserId(1)).to.be_false()
       expect(UserId(1) <= UserId(1)).to.be_true()
-      expect(UserId(1) < 2).to.be_true()
     end)
+
+    -- Lua 5.1 never sends a table-number comparison to __lt.
+    it('should forward comparisons against a plain number', function()
+      local UserId = NewType('UserId', Integer)
+      expect(UserId(1) < 2).to.be_true()
+    end, not compat.order_metamethods_mix_types)
 
     it('should compare equal on the underlying value', function()
       local UserId = NewType('UserId', Integer)
@@ -2330,7 +2336,7 @@ describe('NewType', function()
       local Name = NewType('Name', String)
       expect(Name('ab') .. '!').to.be_equal_to('ab!')
       expect('<' .. Name('ab')).to.be_equal_to('<ab')
-      expect(#Name('abc')).to.be_equal_to(3)
+      expect(compat.len(Name('abc'))).to.be_equal_to(3)
       expect(tostring(Name('ab'))).to.be_equal_to('ab')
     end)
 
@@ -3727,7 +3733,7 @@ describe('Iterator', function()
     it('should not swallow the options table into the '
       .. 'yield list', function()
       local I = Iterator(Integer, {strict = true})
-      expect(#I.yields).to.be_equal_to(1)
+      expect(compat.len(I.yields)).to.be_equal_to(1)
       expect(I.yields[1]).to.be_equal_to(Integer)
     end)
   end)
@@ -4583,5 +4589,5 @@ describe('TypeVarTuple', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local class_module = require 'llx.class'
 local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
@@ -69,7 +70,7 @@ function type_check_decorator(underlying_function, expected_types)
           'argument', argument_types, {...})
       local result = {underlying_function(...)}
       check_types_in_scope('return', return_types, result, scope)
-      return table.unpack(result)
+      return compat.unpack(result)
     end
   end
   return type_checker(underlying_function)

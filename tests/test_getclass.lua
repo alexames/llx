@@ -5,7 +5,7 @@ local getclass = require 'llx.getclass' . getclass
 local class = require 'llx.class' . class
 local types = require 'llx.types'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('getclass', function()
   describe('with nil values', function()
@@ -185,5 +185,5 @@ describe('getclass', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -3,15 +3,16 @@
 [![CI](https://github.com/alexames/llx/actions/workflows/ci.yml/badge.svg)](https://github.com/alexames/llx/actions/workflows/ci.yml)
 [![Docs](https://github.com/alexames/llx/actions/workflows/docs.yml/badge.svg)](https://github.com/alexames/llx/actions/workflows/docs.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Lua](https://img.shields.io/badge/Lua-5.3%20%7C%205.4%20%7C%205.5-blue.svg)](https://www.lua.org/)
+[![Lua](https://img.shields.io/badge/Lua-5.1%20%7C%205.2%20%7C%205.3%20%7C%205.4%20%7C%205.5%20%7C%20LuaJIT-blue.svg)](https://www.lua.org/)
 
-A comprehensive utility library for Lua 5.3+. Brings object-oriented
+A comprehensive utility library for Lua 5.1 through 5.5 and LuaJIT.
+Brings object-oriented
 programming, functional programming, runtime type checking, schema
 validation, structured exceptions, sum types, ergonomic collections,
 path manipulation, pretty-printing, context managers, unit testing,
 and a bytecode reader to Lua development.
 
-Zero external runtime dependencies. Just Lua 5.3+.
+Zero external runtime dependencies. Just Lua.
 
 ## Installation
 
@@ -73,15 +74,17 @@ llx.matches_schema(PersonSchema, {name = 'Alice', age = 30})
 properties, metamethods, and auto-generated conversion functions.
 
 ```lua
+local decorated = llx.decorator.decorated
+
 local Rectangle = llx.class 'Rectangle' {
   __init = function(self, w, h)
     self._w, self._h = w, h
   end,
-  ['width' | llx.property] = {
+  [decorated('width', llx.property)] = {
     get = function(self) return self._w end,
     set = function(self, v) self._w = v end,
   },
-  ['area' | llx.property] = {
+  [decorated('area', llx.property)] = {
     get = function(self) return self._w * self._h end,  -- read-only
   },
 }
@@ -370,15 +373,16 @@ a runnable tour of signatures, `Callable`, and the variance rules.
 local matchers = require 'llx.types.matchers'
 local Signature = llx.signature.Signature
 local Overload = llx.signature.Overload
+local decorated = llx.decorator.decorated
 
 -- Signature declares argument and return types on a method via the
--- `'name' | Signature{...}` decorator. Types *and* arity are
+-- `decorated('name', Signature{...})` key. Types *and* arity are
 -- enforced: wrong types, extra arguments, and extra return values
 -- all raise. Methods receive self, so the receiving class is
 -- declared first (by name, as a string).
 local Greeter = llx.class 'Greeter' {
-  ['greet' | Signature{params={'Greeter', llx.String, llx.Integer},
-                       returns={llx.String}}] =
+  [decorated('greet', Signature{params={'Greeter', llx.String, llx.Integer},
+                       returns={llx.String}})] =
   function(self, name, times)
     return string.rep('hi ' .. name .. '! ', times)
   end,
@@ -884,7 +888,7 @@ existing LuaRocks packages and llx does not duplicate them.
 | Testing (when llx.unit isn't enough) | [`busted`](https://lunarmodules.github.io/busted/) by lunarmodules |
 
 Install whichever ones you need alongside llx; nothing here is
-required, and llx itself only depends on Lua 5.3.
+required, and llx itself depends only on Lua.
 
 ## Not included (and why)
 
@@ -950,8 +954,9 @@ from a checkout with no installation or path setup:
 lua test.lua
 ```
 
-On systems where `lua` defaults to an older version, use `lua5.4`
-explicitly. Running a single test file standalone (as CI does per
+Run it with each interpreter you want to check (`lua5.1 test.lua`,
+`luajit test.lua`, ...). The tests that need Lua 5.3+ syntax live in
+`tests/lua53/` and load only there. Running a single test file standalone (as CI does per
 file) still requires the rock to be installed and on the package
 path:
 
@@ -962,13 +967,58 @@ eval "$(luarocks path)" && lua tests/test_core.lua
 
 ## Requirements
 
-- Lua 5.3 or later
+- Lua 5.1, 5.2, 5.3, 5.4 or 5.5, or LuaJIT 2.x
 - No external runtime dependencies
 
-Tested on Lua 5.3, 5.4, and 5.5. Three version notes:
+Tested on Lua 5.1, 5.2, 5.3, 5.4 and 5.5, and on LuaJIT 2.1 built both
+with and without `LUAJIT_ENABLE_LUA52COMPAT`. The `llx` rock covers every
+version; `llx-luajit` is the same sources declared against LuaJIT.
+
+### What differs between versions
+
+llx is written once, in the Lua 5.1 syntax subset. The few operations
+whose spelling differs between versions go through `llx.compat`, which
+loads one layer chosen for the running interpreter (`llx.compat.lua51`,
+`.luajit`, `.lua52` or `.lua53`). Code that needs to run everywhere can
+use it too: `compat.unpack`, `compat.pack`, `compat.load`,
+`compat.pairs`, `compat.len`, `compat.band` and the other bitwise
+operations, `compat.math_type`, and so on.
+
+What a Lua before 5.3 cannot do, llx cannot do there either:
+
+- **The integer operators** (`//`, `&`, `|`, `~`, `<<`, `>>`) do not exist,
+  so the APIs spelled with them need their named forms:
+
+  | Lua 5.3+                  | Every version                          |
+  |---------------------------|----------------------------------------|
+  | `flags.A \| flags.B`      | `flags.A:union(flags.B)`               |
+  | `a & b`, `a ~ b` on flags | `a:intersection(b)`, `a:symmetric_difference(b)` |
+  | `set_a \| set_b`          | `set_a:union(set_b)`                   |
+
+  The `<<`/`>>` rotations of
+  `List` and strings have no named form.
+- **No integer subtype** before 5.3: `1` and `1.0` are the same value, so
+  `Integer` accepts `1.0` and `Float` rejects it.
+- **Bitwise operations** (`compat.band` and friends, `llx.operators`,
+  flag enums) work on unsigned 32-bit integers before 5.3 and on signed
+  64-bit integers from 5.3 on.
+- **Lua 5.1 and LuaJIT** compare a table with a number (`proxy < 5`)
+  without consulting `__lt`/`__le`, and raise instead.
+- **`__len` and `__pairs`** on tables are ignored by Lua 5.1 and by a
+  LuaJIT built without `LUAJIT_ENABLE_LUA52COMPAT`: `#deque` and
+  `pairs(set)` see the raw table there. `compat.len` and `compat.pairs`
+  honour the metamethods on every version.
+- **Module environments** on Lua 5.1 and LuaJIT are installed with
+  `setfenv`, so `local _ENV, _M = environment.create_module_environment()`
+  must be at the top level of the module's chunk, where it always is.
+
+Further version notes:
 
 - The `<close>`-based helpers in `llx.contextlib` (and to-be-closed usage
-  generally) require Lua 5.4+; on 5.3 use `with(...)` for scoped cleanup.
+  generally) require Lua 5.4+; elsewhere use `with(...)` for scoped
+  cleanup.
+- `llx.bytecode`'s parsers need Lua 5.3+; before 5.3 `llx.bytecode.lua54`
+  and `llx.bytecode.lua55` are absent and the top-level readers raise.
 - `llx.bytecode` readers are *format*-specific, not interpreter-specific: the
   `lua54` reader parses any Lua 5.4-format chunk regardless of the interpreter
   running it (verified on 5.3, 5.4, and 5.5). But there is no reader for the
@@ -979,7 +1029,8 @@ Tested on Lua 5.3, 5.4, and 5.5. Three version notes:
   practice this means the "dump a function and inspect it" workflow is fully
   supported only on Lua 5.4.
 
-Every non-bytecode module works across all supported versions.
+Every non-bytecode module works across all supported versions, within
+the limits above.
 
 ## License
 

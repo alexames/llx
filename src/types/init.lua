@@ -5,9 +5,10 @@
 -- flattens its submodules (flatten_submodules rejects duplicate
 -- keys), so the matcher is excluded here and stays reachable via
 -- require 'llx.types.matchers'.
+local compat = require 'llx.compat'
 local matchers = require 'llx.types.matchers'
 local matcher_exports = {}
-for key, value in pairs(matchers) do
+for key, value in compat.pairs(matchers) do
   if key ~= 'Tuple' then
     matcher_exports[key] = value
   end

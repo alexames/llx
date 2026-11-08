@@ -1,21 +1,22 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 
 local function copy_into(target_module, k, v)
   assert(target_module[k] == nil,
-         string.format('Value %s has multiple definitions', k))
+         compat.format('Value %s has multiple definitions', k))
   target_module[k] = v
 end
 
 local function submodule_flattener(submodules)
   local module = {}
-  for name_or_index, submodule in pairs(submodules) do
+  for name_or_index, submodule in compat.pairs(submodules) do
     if type(name_or_index) == 'number' then
       if type(submodule) == 'table' then
         -- Positional submodule: flatten its public surface into
         -- the parent.
-        for key, value in pairs(submodule) do
+        for key, value in compat.pairs(submodule) do
           copy_into(module, key, value)
         end
       end

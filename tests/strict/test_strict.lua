@@ -1,8 +1,9 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local strict = require 'llx.strict'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('lock_global_table', function()
   it('should return a table with a close metamethod', function()
@@ -86,7 +87,7 @@ describe('lock_global_table', function()
   it('should work with the <close> attribute in a do-end block', function()
     -- <close> is a Lua 5.4+ feature. Compile the body at runtime so this file
     -- still parses on Lua 5.3; skip the assertion where <close> is absent.
-    local body = load([[
+    local body = compat.load([[
       local strict, expect = ...
       -- After the do-end block, the lock should be automatically released
       do
@@ -153,5 +154,5 @@ describe('lock_global_table', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

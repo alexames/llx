@@ -13,6 +13,7 @@
 -- (class tables, type matchers, Signature wrappers, or Callable
 -- matchers), never arbitrary runtime functions.
 
+local compat = require 'llx.compat'
 local check_arguments = require 'llx.check_arguments'
 local environment = require 'llx.environment'
 local matchers = require 'llx.types.matchers'
@@ -981,7 +982,7 @@ end
 -- constraints do not count -- the value level ignores them too, so a
 -- `minimum` on a Union-typed schema narrows nothing.
 local function schema_is_unconstrained(s)
-  for key, group in pairs(schema_constraint_groups) do
+  for key, group in compat.pairs(schema_constraint_groups) do
     if rawget(s, key) ~= nil then
       local live
       if key == 'prefix_items' then
@@ -1248,7 +1249,7 @@ local function properties_contained(a, b, in_progress)
   if b_properties == nil then
     return true
   end
-  for name, b_property in pairs(b_properties) do
+  for name, b_property in compat.pairs(b_properties) do
     local a_property = a_properties ~= nil and a_properties[name] or nil
     if a_property == nil then
       if not position_forbids_nothing(b_property) then
@@ -1304,7 +1305,7 @@ local function type_schemas_contained(a, b, in_progress)
     return true
   end
   local a_schemas = effective_type_schemas(a)
-  for name, b_entry in pairs(b_schemas) do
+  for name, b_entry in compat.pairs(b_schemas) do
     local a_entry = a_schemas ~= nil and a_schemas[name] or nil
     if a_entry == nil then
       if not position_forbids_nothing(b_entry) then
@@ -2319,13 +2320,13 @@ function signature_compatible_impl(sub, super, in_progress)
     local super_tvts = {}
     collect_signature_type_vars(super, super_vars, super_specs,
                                 super_tvts)
-    for var in pairs(super_vars) do
+    for var in compat.pairs(super_vars) do
       vars[var] = nil
     end
-    for ps in pairs(super_specs) do
+    for ps in compat.pairs(super_specs) do
       param_specs[ps] = nil
     end
-    for tvt in pairs(super_tvts) do
+    for tvt in compat.pairs(super_tvts) do
       tvts[tvt] = nil
     end
   end
@@ -2409,13 +2410,13 @@ function generator_compatible(sub, super)
                                 super_tvts)
     collect_signature_type_vars(completion_super, super_vars,
                                 super_specs, super_tvts)
-    for var in pairs(super_vars) do
+    for var in compat.pairs(super_vars) do
       vars[var] = nil
     end
-    for ps in pairs(super_specs) do
+    for ps in compat.pairs(super_specs) do
       param_specs[ps] = nil
     end
-    for tvt in pairs(super_tvts) do
+    for tvt in compat.pairs(super_tvts) do
       tvts[tvt] = nil
     end
   end

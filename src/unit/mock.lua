@@ -3,6 +3,7 @@
 --
 -- @module unit.mock
 
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local class = llx.class
 
@@ -216,7 +217,7 @@ local Mock = class 'Mock' {
     })
 
     -- Return the value(s)
-    return table.unpack(return_values)
+    return compat.unpack(return_values)
   end;
 }
 

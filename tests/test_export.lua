@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local export = require 'llx.export'
 
@@ -8,7 +9,7 @@ local Number = llx.Number
 local String = llx.String
 local Boolean = llx.Boolean
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 local function make_settings()
   return Config 'Settings' {
@@ -107,7 +108,7 @@ describe('export.Config', function()
     it('supports pairs() over current values', function()
       local cfg = make_settings()
       local seen = {}
-      for k, v in pairs(cfg) do seen[k] = v end
+      for k, v in compat.pairs(cfg) do seen[k] = v end
       expect(seen.volume).to.be_equal_to(0.5)
       expect(seen.fullscreen).to.be_equal_to(false)
       expect(seen.name).to.be_equal_to('player')
@@ -176,11 +177,11 @@ describe('export.Config', function()
       local cfg = make_settings()
       local events = {}
       cfg:on_change(function(name, value)
-        events[#events + 1] = { name = name, value = value }
+        events[compat.len(events) + 1] = { name = name, value = value }
       end)
       cfg.volume = 0.7
       cfg.fullscreen = true
-      expect(#events).to.be_equal_to(2)
+      expect(compat.len(events)).to.be_equal_to(2)
     end)
 
     it('rejects observers on unknown fields', function()
@@ -234,5 +235,5 @@ describe('export.Config', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

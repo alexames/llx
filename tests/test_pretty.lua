@@ -1,8 +1,9 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local pretty = require 'llx.pretty'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('pretty.format primitives', function()
   it('formats numbers as integers when integral', function()
@@ -170,7 +171,7 @@ describe('pretty.pprint', function()
     local writes = {}
     local original = io.write
     io.write = function(...)
-      for _, s in ipairs({...}) do writes[#writes + 1] = s end
+      for _, s in ipairs({...}) do writes[compat.len(writes) + 1] = s end
     end
     local ok, err = pcall(pretty.pprint, {1, 2, 3})
     io.write = original
@@ -182,5 +183,5 @@ describe('pretty.pprint', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end
