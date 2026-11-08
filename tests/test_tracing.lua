@@ -1,4 +1,6 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
+local decorated = require 'llx.decorator'.decorated
 local llx = require 'llx'
 local tracing = require 'llx.tracing'
 local isinstance_module = require 'llx.isinstance'
@@ -18,7 +20,7 @@ local InvocationGraphEdge = tracing.InvocationGraphEdge
 
 local class = llx.class
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 -------------------------------------------------------------------------------
 -- RegisteredFunction
@@ -277,7 +279,7 @@ describe('InvocationGraphNode', function()
   it('should initialize with empty argument_edges', function()
     local fn = function() end
     local node = InvocationGraphNode(fn)
-    expect(#node.argument_edges).to.be_equal_to(0)
+    expect(compat.len(node.argument_edges)).to.be_equal_to(0)
   end)
 
   it('should include function info in tostring', function()
@@ -296,8 +298,8 @@ end)
 describe('InvocationGraph', function()
   it('should initialize with empty nodes and edges by default', function()
     local graph = InvocationGraph()
-    expect(#graph.nodes).to.be_equal_to(0)
-    expect(#graph.edges).to.be_equal_to(0)
+    expect(compat.len(graph.nodes)).to.be_equal_to(0)
+    expect(compat.len(graph.edges)).to.be_equal_to(0)
   end)
 
   it('should include nodes and edges counts in tostring', function()
@@ -454,7 +456,7 @@ describe('Tracer', function()
   it('should wrap a function in a class and return TracedValues', function()
     local tracer = tracing.tracer
     local MyClass = class 'TracerTestClass1' {
-      ['add' | tracer] = function(self, a, b) return a + b end,
+      [decorated('add', tracer)] = function(self, a, b) return a + b end,
     }
     local obj = MyClass()
     local result = obj:add(3, 4)
@@ -465,7 +467,7 @@ describe('Tracer', function()
   it('should preserve the underlying function behavior', function()
     local tracer = tracing.tracer
     local MyClass = class 'TracerTestClass2' {
-      ['multiply' | tracer] = function(self, a, b) return a * b end,
+      [decorated('multiply', tracer)] = function(self, a, b) return a * b end,
     }
     local obj = MyClass()
     local result = obj:multiply(5, 6)
@@ -475,7 +477,7 @@ describe('Tracer', function()
   it('should track invocation source in the TracedValue', function()
     local tracer = tracing.tracer
     local MyClass = class 'TracerTestClass3' {
-      ['compute' | tracer] = function(self, x) return x * 2 end,
+      [decorated('compute', tracer)] = function(self, x) return x * 2 end,
     }
     local obj = MyClass()
     local result = obj:compute(10)
@@ -485,7 +487,7 @@ describe('Tracer', function()
   it('should handle multiple return values', function()
     local tracer = tracing.tracer
     local MyClass = class 'TracerTestClass4' {
-      ['swap' | tracer] = function(self, a, b) return b, a end,
+      [decorated('swap', tracer)] = function(self, a, b) return b, a end,
     }
     local obj = MyClass()
     local r1, r2 = obj:swap(1, 2)
@@ -498,7 +500,7 @@ describe('Tracer', function()
   it('should assign different indices to multiple return values', function()
     local tracer = tracing.tracer
     local MyClass = class 'TracerTestClass5' {
-      ['pair' | tracer] = function(self, a, b) return a, b end,
+      [decorated('pair', tracer)] = function(self, a, b) return a, b end,
     }
     local obj = MyClass()
     local r1, r2 = obj:pair(10, 20)
@@ -510,7 +512,7 @@ describe('Tracer', function()
     .. 'multiple return values', function()
     local tracer = tracing.tracer
     local MyClass = class 'TracerTestClass6' {
-      ['duo' | tracer] = function(self, a, b) return a + b, a - b end,
+      [decorated('duo', tracer)] = function(self, a, b) return a + b, a - b end,
     }
     local obj = MyClass()
     local r1, r2 = obj:duo(10, 3)
@@ -520,8 +522,8 @@ describe('Tracer', function()
   it('should chain traced values through multiple calls', function()
     local tracer = tracing.tracer
     local MyClass = class 'TracerTestClass7' {
-      ['inc' | tracer] = function(self, x) return x + 1 end,
-      ['dbl' | tracer] = function(self, x) return x * 2 end,
+      [decorated('inc', tracer)] = function(self, x) return x + 1 end,
+      [decorated('dbl', tracer)] = function(self, x) return x * 2 end,
     }
     local obj = MyClass()
     local step1 = obj:inc(5)
@@ -540,7 +542,7 @@ describe('generate_invocation_graph', function()
   it('should produce an InvocationGraph from a simple traced value', function()
     local tracer = tracing.tracer
     local MyClass = class 'GraphTestClass1' {
-      ['identity' | tracer] = function(self, x) return x end,
+      [decorated('identity', tracer)] = function(self, x) return x end,
     }
     local obj = MyClass()
     local result = obj:identity(42)
@@ -551,35 +553,35 @@ describe('generate_invocation_graph', function()
   it('should have the correct number of nodes for a single call', function()
     local tracer = tracing.tracer
     local MyClass = class 'GraphTestClass2' {
-      ['identity' | tracer] = function(self, x) return x end,
+      [decorated('identity', tracer)] = function(self, x) return x end,
     }
     local obj = MyClass()
     local result = obj:identity(42)
     local graph = result:generate_invocation_graph()
     -- 1 node for the identity call + 1 node for the constant (42)
-    expect(#graph.nodes).to.be_greater_than(0)
+    expect(compat.len(graph.nodes)).to.be_greater_than(0)
   end)
 
   it('should produce edges connecting nodes for chained calls', function()
     local tracer = tracing.tracer
     local MyClass = class 'GraphTestClass3' {
-      ['inc' | tracer] = function(self, x) return x + 1 end,
-      ['dbl' | tracer] = function(self, x) return x * 2 end,
+      [decorated('inc', tracer)] = function(self, x) return x + 1 end,
+      [decorated('dbl', tracer)] = function(self, x) return x * 2 end,
     }
     local obj = MyClass()
     local step1 = obj:inc(5)
     local step2 = obj:dbl(step1)
     local graph = step2:generate_invocation_graph()
-    expect(#graph.edges).to.be_greater_than(0)
-    expect(#graph.nodes).to.be_greater_than(1)
+    expect(compat.len(graph.edges)).to.be_greater_than(0)
+    expect(compat.len(graph.nodes)).to.be_greater_than(1)
   end)
 
   it('should produce a graph that can be evaluated '
     .. 'to get the same result', function()
     local tracer = tracing.tracer
     local MyClass = class 'GraphTestClass4' {
-      ['inc' | tracer] = function(self, x) return x + 1 end,
-      ['dbl' | tracer] = function(self, x) return x * 2 end,
+      [decorated('inc', tracer)] = function(self, x) return x + 1 end,
+      [decorated('dbl', tracer)] = function(self, x) return x * 2 end,
     }
     local obj = MyClass()
     local step1 = obj:inc(5)
@@ -591,7 +593,7 @@ describe('generate_invocation_graph', function()
     -- iteration over invocations, so we search all results.
     local results = graph()
     local found = false
-    for i = 1, #results do
+    for i = 1, compat.len(results) do
       if results[i][1] == 12 then -- (5 + 1) * 2
         found = true
         break
@@ -603,9 +605,9 @@ describe('generate_invocation_graph', function()
   it('should handle a three-step chain', function()
     local tracer = tracing.tracer
     local MyClass = class 'GraphTestClass5' {
-      ['add1' | tracer] = function(self, x) return x + 1 end,
-      ['mul2' | tracer] = function(self, x) return x * 2 end,
-      ['sub3' | tracer] = function(self, x) return x - 3 end,
+      [decorated('add1', tracer)] = function(self, x) return x + 1 end,
+      [decorated('mul2', tracer)] = function(self, x) return x * 2 end,
+      [decorated('sub3', tracer)] = function(self, x) return x - 3 end,
     }
     local obj = MyClass()
     local a = obj:add1(10)  -- 11
@@ -615,7 +617,7 @@ describe('generate_invocation_graph', function()
 
     local results = graph()
     local found = false
-    for i = 1, #results do
+    for i = 1, compat.len(results) do
       if results[i][1] == 19 then
         found = true
         break
@@ -627,10 +629,10 @@ describe('generate_invocation_graph', function()
   it('should handle diamond-shaped traced computation', function()
     local tracer = tracing.tracer
     local MyClass = class 'GraphTestClass6' {
-      ['identity' | tracer] = function(self, x) return x end,
-      ['inc' | tracer] = function(self, x) return x + 1 end,
-      ['dbl' | tracer] = function(self, x) return x * 2 end,
-      ['sum' | tracer] = function(self, a, b) return a + b end,
+      [decorated('identity', tracer)] = function(self, x) return x end,
+      [decorated('inc', tracer)] = function(self, x) return x + 1 end,
+      [decorated('dbl', tracer)] = function(self, x) return x * 2 end,
+      [decorated('sum', tracer)] = function(self, a, b) return a + b end,
     }
     local obj = MyClass()
     local base = obj:identity(5)    -- 5
@@ -643,7 +645,7 @@ describe('generate_invocation_graph', function()
     -- Node ordering depends on pairs() iteration, so we search all.
     local results = graph()
     local found = false
-    for i = 1, #results do
+    for i = 1, compat.len(results) do
       if results[i][1] == 16 then
         found = true
         break
@@ -704,5 +706,5 @@ describe('tracing module exports', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

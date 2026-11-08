@@ -1,4 +1,5 @@
 local class_module = require 'llx.class'
+local decorated = require 'llx.decorator'.decorated
 local decorator = require 'llx.decorator'
 local property = require 'llx.property'
 local proxy = require 'llx.proxy'
@@ -26,7 +27,7 @@ local Test = class 'Test' : extends(decorator.Decorator) {
 }
 local test = Test()
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('class', function()
   it('should have class fields accessible on class', function()
@@ -169,7 +170,7 @@ describe('class', function()
 
   it('should set property value when setter is provided', function()
     local foo = class 'foo' {
-      ['prop' | property.property] = {
+      [decorated('prop', property.property)] = {
         set=function(self, v)
           self._prop = v
         end,
@@ -182,7 +183,7 @@ describe('class', function()
 
   it('should throw error when setting property without setter', function()
     local foo = class 'foo' {
-      ['prop' | property.property] = {
+      [decorated('prop', property.property)] = {
         -- No setter
       }
     }
@@ -192,7 +193,7 @@ describe('class', function()
 
   it('should get property value when getter is provided', function()
     local foo = class 'foo' {
-      ['prop' | property.property] = {
+      [decorated('prop', property.property)] = {
         get=function(self)
           return self._prop
         end,
@@ -205,7 +206,7 @@ describe('class', function()
 
   it('should throw error when getting property without getter', function()
     local foo = class 'foo' {
-      ['prop' | property.property] = {
+      [decorated('prop', property.property)] = {
         -- No getter
       }
     }
@@ -217,7 +218,7 @@ describe('class', function()
   it('should get and set property when both getter and '
     .. 'setter are provided', function()
     local foo = class 'foo' {
-      ['prop' | property.property] = {
+      [decorated('prop', property.property)] = {
         set=function(self, v)
           self._prop = v
         end,
@@ -762,7 +763,7 @@ describe('derived_class', function()
   it('should set property value when setter is provided '
     .. 'in base class', function()
     local foo = class 'foo' {
-      ['prop' | property.property] = {
+      [decorated('prop', property.property)] = {
         set=function(self, v)
           self._prop = v
         end,
@@ -777,7 +778,7 @@ describe('derived_class', function()
   it('should throw error when setting property without '
     .. 'setter in base class', function()
     local foo = class 'foo' {
-      ['prop' | property.property] = {
+      [decorated('prop', property.property)] = {
         -- No setter
       }
     }
@@ -789,7 +790,7 @@ describe('derived_class', function()
   it('should get property value when getter is provided '
     .. 'in base class', function()
     local foo = class 'foo' {
-      ['prop' | property.property] = {
+      [decorated('prop', property.property)] = {
         get=function(self)
           return self._prop
         end,
@@ -804,7 +805,7 @@ describe('derived_class', function()
   it('should throw error when getting property without '
     .. 'getter in base class', function()
     local foo = class 'foo' {
-      ['prop' | property.property] = {
+      [decorated('prop', property.property)] = {
         -- No getter
       }
     }
@@ -817,7 +818,7 @@ describe('derived_class', function()
   it('should get and set property when both getter and '
     .. 'setter are provided in base class', function()
     local foo = class 'foo' {
-      ['prop' | property.property] = {
+      [decorated('prop', property.property)] = {
         set=function(self, v)
           self._prop = v
         end,
@@ -849,5 +850,5 @@ describe('derived_class', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

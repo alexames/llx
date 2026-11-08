@@ -6,6 +6,7 @@
 -- names never collide with user keys.
 -- @module llx.collections.counter
 
+local compat = require 'llx.compat'
 local class = require 'llx.class' . class
 local environment = require 'llx.environment'
 
@@ -31,7 +32,7 @@ Counter = class 'Counter' {
           counts[k] = (counts[k] or 0) + 1
         end
       else
-        for k, v in pairs(source) do
+        for k, v in compat.pairs(source) do
           if type(v) ~= 'number' then
             error('Counter map values must be numbers', 2)
           end
@@ -72,7 +73,7 @@ Counter = class 'Counter' {
 
   total = function(self)
     local sum = 0
-    for _, v in pairs(self._counts) do
+    for _, v in compat.pairs(self._counts) do
       sum = sum + v
     end
     return sum
@@ -82,7 +83,7 @@ Counter = class 'Counter' {
   -- descending count order. n=nil returns all items.
   most_common = function(self, n)
     local items = {}
-    for k, v in pairs(self._counts) do
+    for k, v in compat.pairs(self._counts) do
       items[#items + 1] = {k, v}
     end
     table.sort(items, function(a, b) return a[2] > b[2] end)
@@ -114,7 +115,7 @@ Counter = class 'Counter' {
 
   keys = function(self)
     local result = {}
-    for k, _ in pairs(self._counts) do
+    for k, _ in compat.pairs(self._counts) do
       result[#result + 1] = k
     end
     return result
@@ -122,17 +123,17 @@ Counter = class 'Counter' {
 
   __len = function(self)
     local n = 0
-    for _ in pairs(self._counts) do n = n + 1 end
+    for _ in compat.pairs(self._counts) do n = n + 1 end
     return n
   end,
 
   __eq = function(self, other)
     -- Equal if the same set of keys map to the same counts.
     -- Counts of zero are allowed and must match.
-    for k, v in pairs(self._counts) do
+    for k, v in compat.pairs(self._counts) do
       if (other._counts[k] or 0) ~= v then return false end
     end
-    for k, v in pairs(other._counts) do
+    for k, v in compat.pairs(other._counts) do
       if (self._counts[k] or 0) ~= v then return false end
     end
     return true
@@ -144,7 +145,7 @@ Counter = class 'Counter' {
     -- order is deterministic across runs without requiring a
     -- total order on user keys.
     local keys = {}
-    for k in pairs(self._counts) do keys[#keys + 1] = k end
+    for k in compat.pairs(self._counts) do keys[#keys + 1] = k end
     table.sort(keys, function(a, b)
       return hash.hash(a) < hash.hash(b)
     end)
@@ -157,7 +158,7 @@ Counter = class 'Counter' {
 
   __tostring = function(self)
     local parts = {}
-    for k, v in pairs(self._counts) do
+    for k, v in compat.pairs(self._counts) do
       parts[#parts + 1] = tostring(k) .. '=' .. tostring(v)
     end
     table.sort(parts)
@@ -167,10 +168,10 @@ Counter = class 'Counter' {
   -- Merge two counters by summing counts.
   __add = function(self, other)
     local result = Counter()
-    for k, v in pairs(self._counts) do
+    for k, v in compat.pairs(self._counts) do
       result._counts[k] = v
     end
-    for k, v in pairs(other._counts) do
+    for k, v in compat.pairs(other._counts) do
       result._counts[k] = (result._counts[k] or 0) + v
     end
     return result
@@ -180,7 +181,7 @@ Counter = class 'Counter' {
   -- Python's Counter subtract behavior with negative-clamping).
   __sub = function(self, other)
     local result = Counter()
-    for k, v in pairs(self._counts) do
+    for k, v in compat.pairs(self._counts) do
       local diff = v - (other._counts[k] or 0)
       if diff > 0 then result._counts[k] = diff end
     end

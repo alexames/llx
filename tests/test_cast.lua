@@ -16,7 +16,7 @@ local Union = types.Union
 local Optional = types.Optional
 local Protocol = types.Protocol
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('cast', function()
   describe('on success', function()
@@ -201,5 +201,5 @@ describe('llx module exports', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

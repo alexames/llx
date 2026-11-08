@@ -15,6 +15,7 @@
 -- matcher (Union, Optional, ...) that implements __isinstance.
 -- @module llx.cast
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
 local getclass_module = require 'llx.getclass'
@@ -43,7 +44,7 @@ end
 
 -- Builds the TypeError describing a failed cast.
 local function cast_error(value, expected_type)
-  local what = string.format(
+  local what = compat.format(
       '%s expected, got %s',
       type_name(expected_type), type_name(getclass(value)))
   return TypeError(what, 3)

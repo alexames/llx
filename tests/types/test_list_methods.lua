@@ -2,6 +2,7 @@
 -- Tests for new List methods
 
 local llx = require 'llx'
+local compat = require 'llx.compat'
 local unit = require 'llx.unit'
 
 local describe = unit.describe
@@ -177,7 +178,7 @@ describe('List Methods', function()
       local list2 = llx.List{'a', 'b', 'c'}
       local result = list1:zip(list2)
 
-      expect(#result).to.be_equal_to(3)
+      expect(compat.len(result)).to.be_equal_to(3)
       expect(result[1][1]).to.be_equal_to(1)
       expect(result[1][2]).to.be_equal_to('a')
       expect(result[3][1]).to.be_equal_to(3)
@@ -189,7 +190,7 @@ describe('List Methods', function()
       local list2 = llx.List{'a', 'b'}
       local result = list1:zip(list2)
 
-      expect(#result).to.be_equal_to(2)
+      expect(compat.len(result)).to.be_equal_to(2)
     end)
   end)
 
@@ -229,7 +230,7 @@ describe('List Methods', function()
       }
       local result = list:distinct(function(item) return item.id end)
 
-      expect(#result).to.be_equal_to(2)
+      expect(compat.len(result)).to.be_equal_to(2)
       expect(result[1].name).to.be_equal_to('Alice')
       expect(result[2].name).to.be_equal_to('Bob')
     end)
@@ -340,7 +341,7 @@ describe('List Methods', function()
       local list = llx.List{1, 2, 3, 4, 5, 6, 7}
       local result = list:chunk(3)
 
-      expect(#result).to.be_equal_to(3)
+      expect(compat.len(result)).to.be_equal_to(3)
       expect(result[1]).to.be_equal_to(llx.List{1, 2, 3})
       expect(result[2]).to.be_equal_to(llx.List{4, 5, 6})
       expect(result[3]).to.be_equal_to(llx.List{7})
@@ -500,5 +501,5 @@ describe('List Methods', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

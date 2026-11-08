@@ -14,15 +14,23 @@
 -- end)
 -- unit.run_tests()
 
+local compat = require 'llx.compat'
 local mock = require 'llx.unit.mock'
 local runner = require 'llx.unit.runner'
 local test_api = require 'llx.unit.test_api'
 local matchers = require 'llx.unit.matchers'
 
 --- Creates a test environment with fallback to another environment.
--- @param fallback_env The environment to fall back to for undefined variables
+--
+-- Written `local _ENV = unit.create_test_env(_ENV)`. On Lua 5.1 that
+-- declaration is inert and `_ENV` reads as nil, so the caller's own
+-- environment is the fallback and the new one is installed as the
+-- caller's.
+-- @param fallback_env The environment to fall back to for undefined
+--   variables; nil means the caller's environment.
 -- @return A new environment table
 local function create_test_env(fallback_env)
+  fallback_env = fallback_env or compat.environment_of(2)
   local env = {
     Mock = mock.Mock,
     spy_on = mock.spy_on,
@@ -41,10 +49,12 @@ local function create_test_env(fallback_env)
     matchers = test_api.matchers,
     matchers_module = matchers,
   }
-  return setmetatable(env, {
+  setmetatable(env, {
     __index = fallback_env,
     __newindex = fallback_env,
   })
+  compat.install_environment(env, 2)
+  return env
 end
 
 return {

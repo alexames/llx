@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local deque_module = require 'llx.collections.deque'
 local Deque = deque_module.Deque
@@ -6,19 +7,19 @@ local Deque = deque_module.Deque
 local hash = require 'llx.hash' . hash
 local HashTable = require 'llx.hash_table' . HashTable
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('Deque', function()
   describe('construction', function()
     it('should create an empty deque', function()
       local d = Deque()
-      expect(#d).to.be_equal_to(0)
+      expect(compat.len(d)).to.be_equal_to(0)
       expect(d:is_empty()).to.be_true()
     end)
 
     it('should populate from a list', function()
       local d = Deque{1, 2, 3}
-      expect(#d).to.be_equal_to(3)
+      expect(compat.len(d)).to.be_equal_to(3)
       expect(d:peek_left()).to.be_equal_to(1)
       expect(d:peek_right()).to.be_equal_to(3)
     end)
@@ -33,7 +34,7 @@ describe('Deque', function()
         end
       end
       local d = Deque(range_iter())
-      expect(#d).to.be_equal_to(3)
+      expect(compat.len(d)).to.be_equal_to(3)
       expect(d:at(1)).to.be_equal_to(10)
       expect(d:at(3)).to.be_equal_to(30)
     end)
@@ -97,7 +98,7 @@ describe('Deque', function()
       local d = Deque{1, 2, 3}
       d:peek_left()
       d:peek_right()
-      expect(#d).to.be_equal_to(3)
+      expect(compat.len(d)).to.be_equal_to(3)
     end)
   end)
 
@@ -132,7 +133,7 @@ describe('Deque', function()
       local d = Deque{1, 2, 3}
       d:clear()
       expect(d:is_empty()).to.be_true()
-      expect(#d).to.be_equal_to(0)
+      expect(compat.len(d)).to.be_equal_to(0)
     end)
   end)
 
@@ -174,5 +175,5 @@ describe('Deque', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -95,8 +95,8 @@
 --
 -- # Properties
 --
--- Properties are fields backed by getter and setter functions. They use the
--- decorator syntax with the `property` decorator:
+-- Properties are fields backed by getter and setter functions, declared as
+-- fields decorated with the `property` decorator:
 --
 --     local Rectangle = class 'Rectangle' : extends(Line) {
 --       __init = function(self, length, width)
@@ -104,7 +104,7 @@
 --         self._width = width
 --       end,
 --
---       ['width' | property] = {
+--       [decorated('width', property)] = {
 --         set = function(self, value)
 --           self._width = value
 --         end,
@@ -113,7 +113,7 @@
 --         end,
 --       },
 --
---       ['area' | property] = {
+--       [decorated('area', property)] = {
 --         get = function(self)
 --            return self._width * self._length
 --         end,
@@ -239,6 +239,7 @@
 --------------------------------------------------------------------------------
 -- Utilities
 
+local compat = require 'llx.compat'
 local core = require 'llx.core'
 local environment = require 'llx.environment'
 
@@ -271,7 +272,7 @@ end
 -- @param key The key of the metafield to set
 -- @param value The value to set for the metafield
 local function try_set_metafield_on_subclasses(class_table, key, value)
-  for _, subclass in pairs(class_table.__subclasses) do
+  for _, subclass in compat.pairs(class_table.__subclasses) do
     try_set_metafield(subclass, key, value)
   end
 end
@@ -310,12 +311,12 @@ end
 -- @return True if the class table is an instance of the metatable or one of its
 --         superclasses, otherwise false
 local function isinstance_impl(metatable, class_table)
-  if metatable == class_table then
+  if compat.equals(metatable, class_table) then
     return true
   end
   local superclasses = metatable and metatable.__superclasses
   if superclasses then
-    for i, superclass in pairs(superclasses) do
+    for i, superclass in compat.pairs(superclasses) do
       if isinstance_impl(superclass, class_table) then
         return true
       end
@@ -420,11 +421,11 @@ local function create_class_definer(class_table, class_table_proxy)
     -- Chainable with extends in either order.
     generic = function(self, ...)
       local params = {...}
-      assert(#params > 0, string.format(
+      assert(#params > 0, compat.format(
              '%s must declare at least one type parameter'
              .. ' when calling generic',
              class_table.__name))
-      assert(class_table.__type_params == nil, string.format(
+      assert(class_table.__type_params == nil, compat.format(
              '%s already declared its type parameters',
              class_table.__name))
       local normalized = {}
@@ -435,23 +436,23 @@ local function create_class_definer(class_table, class_table_proxy)
           spec = {name = param, variance = 'invariant'}
         elseif type(param) == 'table' then
           assert(type(param.name) == 'string' and param.name ~= '',
-                 string.format(
+                 compat.format(
                  '%s type parameter %d must carry a non-empty name',
                  class_table.__name, i))
           local variance = param.variance or 'invariant'
           assert(variance == 'invariant' or variance == 'covariant'
-                 or variance == 'contravariant', string.format(
+                 or variance == 'contravariant', compat.format(
                  "%s type parameter '%s' has unknown variance %q",
                  class_table.__name, param.name, tostring(variance)))
           spec = {name = param.name, variance = variance,
                   bound = param.bound}
         else
-          error(string.format(
+          error(compat.format(
                 '%s type parameter %d must be a name string or a'
                 .. ' {name, variance, bound} table, not %s',
                 class_table.__name, i, type(param)))
         end
-        assert(not seen[spec.name], string.format(
+        assert(not seen[spec.name], compat.format(
                "%s declares type parameter '%s' twice",
                class_table.__name, spec.name))
         seen[spec.name] = true
@@ -464,13 +465,13 @@ local function create_class_definer(class_table, class_table_proxy)
     extends = function(self, ...)
       local arg = {...}
       assert(#arg > 0,
-             string.format(
+             compat.format(
                '%s must list at least one base class'
                .. ' when extending',
                class_table.__name))
       for i, base in ipairs(arg) do
         assert(type(base) == 'table',
-               string.format('%s must inherit from table, not %s',
+               compat.format('%s must inherit from table, not %s',
                              class_table.__name, type(base)))
         local base_name = base.__name
         if base_name then
@@ -491,7 +492,7 @@ local function create_class_definer(class_table, class_table_proxy)
 
   local class_definer_metatable = {
     __call = function(self, class_definition)
-      for k, v in pairs(class_definition) do
+      for k, v in compat.pairs(class_definition) do
         -- change this to a check to see if the key is a function
         if k.__isdecorator then
           local target_table, name, value = class_table_proxy, k.name, v
@@ -506,7 +507,7 @@ local function create_class_definer(class_table, class_table_proxy)
         end
       end
       for _, superclass in ipairs(class_table.__superclasses) do
-        for k, v in pairs(superclass.__metafields or {}) do
+        for k, v in compat.pairs(superclass.__metafields or {}) do
           try_set_metafield(class_table, k, v)
         end
       end
@@ -714,6 +715,9 @@ local function create_internal_class_table(name)
 
     __is_llx_class = true;
   }
+  -- Not recorded in __metafields, so a __tostring the class or a base
+  -- class defines replaces it rather than being shadowed by it.
+  compat.add_name_tostring(class_table)
 
   return class_table
 end

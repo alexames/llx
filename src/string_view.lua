@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local class_module = require 'llx.class'
 local environment = require 'llx.environment'
 
@@ -156,7 +157,7 @@ StringView = class 'StringView' {
           end
         end
 
-        local result = str_method(self._str, table.unpack(args))
+        local result = str_method(self._str, compat.unpack(args))
 
         -- If result is a string slice, map it back to view space if possible
         if type(result) == "string" and str_method == string.sub then

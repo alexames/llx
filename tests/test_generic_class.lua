@@ -6,6 +6,7 @@
 -- parse round-tripping through the subscription spelling.
 
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local matchers = require 'llx.types.matchers'
 
@@ -31,12 +32,12 @@ local NumBox = class 'NumBox' : generic({name = 'T', bound = Number}) {}
 local Plain = class 'Plain' {}
 local SubPool = class 'SubPool' : extends(Pool) {}
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('generic class declaration', function()
   it('records __type_params with defaults for reflection', function()
     local params = Pool.__type_params
-    expect(#params).to.be_equal_to(1)
+    expect(compat.len(params)).to.be_equal_to(1)
     expect(params[1].name).to.be_equal_to('T')
     expect(params[1].variance).to.be_equal_to('invariant')
     expect(params[1].bound).to.be_nil()
@@ -68,7 +69,7 @@ describe('subscription and GenericAlias construction', function()
     local alias = Pool[Integer]
     expect(get_origin(alias) == Pool).to.be_true()
     local args = get_args(alias)
-    expect(#args).to.be_equal_to(1)
+    expect(compat.len(args)).to.be_equal_to(1)
     expect(args[1]).to.be_equal_to(Integer)
     expect(tostring(alias)).to.be_equal_to('Pool[Integer]')
   end)
@@ -76,7 +77,7 @@ describe('subscription and GenericAlias construction', function()
   it('subscribes several parameters via a list', function()
     local alias = Cache[{String, Integer}]
     local args = get_args(alias)
-    expect(#args).to.be_equal_to(2)
+    expect(compat.len(args)).to.be_equal_to(2)
     expect(args[1]).to.be_equal_to(String)
     expect(args[2]).to.be_equal_to(Integer)
   end)
@@ -290,5 +291,5 @@ describe('repr / parse round-trip', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

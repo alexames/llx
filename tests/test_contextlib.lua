@@ -1,9 +1,10 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local contextlib = require 'llx.contextlib'
 local with = contextlib.with
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 -- Helper to build a resource with a :close method that records its
 -- invocation count and the error (if any) passed to it.
@@ -126,7 +127,7 @@ describe('closing', function()
     -- <close> is a Lua 5.4+ feature. Compile the body at runtime so this file
     -- still parses on Lua 5.3; skip the assertion where <close> is absent.
     local r = make_resource()
-    local body = load([[
+    local body = compat.load([[
       local contextlib, expect, r = ...
       do
         local wrapped <close> = contextlib.closing(r)
@@ -150,5 +151,5 @@ describe('closing', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

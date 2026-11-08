@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local cache_module = require 'llx.cache'
 local class_module = require 'llx.class'
 local decorator = require 'llx.decorator'
@@ -67,9 +68,9 @@ InvocationGraphEdge = class 'InvocationGraphEdge' {
   end,
 
   __tostring = function(self)
-    return string.format('InvocationGraphEdge(%s, %s, %s, %s)',
-      self.source_node, self.source_slot, self.destination_node,
-      self.destination_slot)
+    return compat.format('InvocationGraphEdge(%s, %s, %s, %s)',
+      tostring(self.source_node), tostring(self.source_slot),
+      tostring(self.destination_node), tostring(self.destination_slot))
   end,
 }
 
@@ -80,7 +81,7 @@ InvocationGraphNode = class 'InvocationGraphNode' {
   end,
 
   __tostring = function(self)
-    return string.format('InvocationGraphNode(%s)', self.func)
+    return compat.format('InvocationGraphNode(%s)', tostring(self.func))
   end,
 }
 
@@ -91,8 +92,9 @@ InvocationGraph = class 'InvocationGraph' {
   end,
 
   __tostring = function(self)
-    return string.format(
-      'InvocationGraph{nodes=%s,edges=%s}', self.nodes, self.edges)
+    return compat.format(
+      'InvocationGraph{nodes=%s,edges=%s}',
+      tostring(self.nodes), tostring(self.edges))
   end,
 
   __call = function(self, args)
@@ -109,7 +111,7 @@ InvocationGraph = class 'InvocationGraph' {
         end
         arguments[i] = node_results[src_slot]
       end
-      return {node.func(table.unpack(arguments))}
+      return {node.func(compat.unpack(arguments))}
     end
 
     local results = {}
@@ -151,11 +153,11 @@ TracedValue = class 'TracedValue' {
     end
     collet_invocations(self)
     local node_index_map = {}
-    for k, invocation in pairs(invocations) do
+    for k, invocation in compat.pairs(invocations) do
       graph.nodes:insert(InvocationGraphNode(invocation.func))
       node_index_map[invocation] = #graph.nodes
     end
-    for k, invocation in pairs(invocations) do
+    for k, invocation in compat.pairs(invocations) do
       for i, argument in ipairs(invocation.arguments) do
         local target_node_index = node_index_map[invocation]
         local target_node = graph.nodes[target_node_index]
@@ -183,9 +185,9 @@ TracedFunctionInvocation = class 'TracedFunctionInvocation' {
   end,
 
   __tostring = function(self)
-    return string.format(
-      'TracedFunctionInvocation(%s(%s), %s)', self.func,
-      table.concat(self.arguments, ','), self.invocation_id)
+    return compat.format(
+      'TracedFunctionInvocation(%s(%s), %s)', tostring(self.func),
+      table.concat(self.arguments, ','), tostring(self.invocation_id))
   end,
 }
 
@@ -209,7 +211,7 @@ end
 TracedValuePack = class 'TracedValuePack' {
   __init = function(self, args)
     local constants_values = {}
-    local function constants_fn() return table.unpack(constants_values) end
+    local function constants_fn() return compat.unpack(constants_values) end
     local constants = TracedFunctionInvocation(
       constants_fn, {}, get_invocation_id())
     local constants_index = 1
@@ -265,12 +267,12 @@ Tracer = class 'Tracer' : extends(Decorator) {
         registered_function, argument_pack.traced_arguments,
         get_invocation_id())
       local raw_results =
-        {registered_function(table.unpack(argument_pack.raw_arguments))}
+        {registered_function(compat.unpack(argument_pack.raw_arguments))}
       local traced_results = {}
       for i, raw_result in ipairs(raw_results) do
         traced_results[i] = TracedValue(raw_result, traced_function, i)
       end
-      return table.unpack(traced_results)
+      return compat.unpack(traced_results)
     end
     return class_table, name, wrapped_function
   end,

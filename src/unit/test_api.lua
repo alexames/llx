@@ -3,6 +3,7 @@
 --
 -- @module llx.unit.test_api
 
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local matchers = require 'llx.unit.matchers'
 local mock_module = require 'llx.unit.mock'
@@ -848,7 +849,7 @@ local TestSuite = class 'TestSuite' {
     local suite_before_all_run = {}
     local suite_before_all_failed = {}
 
-    for _, test in pairs(self._tests) do
+    for _, test in compat.pairs(self._tests) do
       -- Run beforeAll for the test's suite if it's different from current
       local test_suite = test.suite or self
       if test_suite ~= current_suite then
@@ -892,13 +893,13 @@ local TestSuite = class 'TestSuite' {
 
     -- Run afterAll hooks for all suites where before_all was attempted
     local suites_to_cleanup = {[self] = true}
-    for suite, _ in pairs(suites_before_all_attempted) do
+    for suite, _ in compat.pairs(suites_before_all_attempted) do
       suites_to_cleanup[suite] = true
     end
-    for suite, _ in pairs(suite_before_all_run) do
+    for suite, _ in compat.pairs(suite_before_all_run) do
       suites_to_cleanup[suite] = true
     end
-    for suite, _ in pairs(suites_to_cleanup) do
+    for suite, _ in compat.pairs(suites_to_cleanup) do
       local after_all = getmetatable(suite).__after_all
       if after_all and after_all ~= llx.noop then
         pcall(after_all)
@@ -960,7 +961,7 @@ local it = setmetatable({
           return tostring(args[arg_idx] or '')
         end)
         it_impl(name, function()
-          func(table.unpack(args))
+          func(compat.unpack(args))
         end)
       end
     end
@@ -1109,7 +1110,7 @@ local describe = setmetatable({
           return tostring(args[arg_idx] or '')
         end)
         describe_impl(name, function()
-          func(table.unpack(args))
+          func(compat.unpack(args))
         end)
       end
     end

@@ -1,0 +1,185 @@
+rockspec_format = "3.0"
+package = "llx-luajit"
+version = "scm-1"
+
+source = {
+   url = "git+https://github.com/alexames/llx.git",
+   branch = "main",
+}
+
+description = {
+   summary = "Lua Extension Library, for LuaJIT",
+   detailed = [[
+A comprehensive Lua utility library providing extensions and utilities for Lua development.
+Includes object-oriented class system, functional programming utilities, type checking,
+schema validation, exception handling, unit testing, and more.
+
+The same sources as the llx rock, declared against LuaJIT 2.x. Built
+without LUAJIT_ENABLE_LUA52COMPAT, LuaJIT ignores __len and __pairs on
+tables; use llx.compat.len and llx.compat.pairs on llx objects there.
+   ]],
+   homepage = "https://github.com/alexames/llx",
+   license = "MIT",
+   maintainer = "Alexander Ames <Alexander.Ames@gmail.com>",
+   labels = {
+      "oop",
+      "class",
+      "functional",
+      "type-checking",
+      "schema",
+      "exceptions",
+      "utilities",
+      "unit-testing",
+   },
+}
+
+dependencies = {
+   "luajit >= 2.0",
+}
+
+test = {
+   type = "command",
+   script = "test.lua",
+}
+
+build = {
+   type = "builtin",
+   modules = {
+      -- Main entry point
+      ["llx"] = "src/init.lua",
+
+      -- Core modules
+      ["llx.bisect"] = "src/bisect.lua",
+      ["llx.cache"] = "src/cache.lua",
+      ["llx.cast"] = "src/cast.lua",
+      ["llx.check_arguments"] = "src/check_arguments.lua",
+      ["llx.class"] = "src/class.lua",
+      -- Version compatibility layer. Each layer loads only on the
+      -- interpreters llx.compat picks it for.
+      ["llx.compat"] = "src/compat/init.lua",
+      ["llx.compat.portable"] = "src/compat/portable.lua",
+      ["llx.compat.lua51"] = "src/compat/lua51.lua",
+      ["llx.compat.luajit"] = "src/compat/luajit.lua",
+      ["llx.compat.lua52"] = "src/compat/lua52.lua",
+      ["llx.compat.lua53"] = "src/compat/lua53.lua",
+      ["llx.collections"] = "src/collections/init.lua",
+      ["llx.collections.counter"] = "src/collections/counter.lua",
+      ["llx.collections.default_dict"] = "src/collections/default_dict.lua",
+      ["llx.collections.deque"] = "src/collections/deque.lua",
+      ["llx.collections.heap"] = "src/collections/heap.lua",
+      ["llx.collections.ordered_dict"] = "src/collections/ordered_dict.lua",
+      ["llx.contextlib"] = "src/contextlib.lua",
+      ["llx.core"] = "src/core.lua",
+      ["llx.coroutine"] = "src/coroutine.lua",
+      ["llx.dataclass"] = "src/dataclass.lua",
+      ["llx.decorator"] = "src/decorator.lua",
+      ["llx.enum"] = "src/enum.lua",
+      ["llx.environment"] = "src/environment.lua",
+      ["llx.export"] = "src/export.lua",
+      ["llx.flatten_submodules"] = "src/flatten_submodules.lua",
+      ["llx.functional"] = "src/functional.lua",
+      ["llx.getclass"] = "src/getclass.lua",
+      ["llx.hash"] = "src/hash.lua",
+      ["llx.hash_table"] = "src/hash_table.lua",
+      ["llx.is_subtype"] = "src/is_subtype.lua",
+      ["llx.isinstance"] = "src/isinstance.lua",
+      ["llx.mathx"] = "src/mathx.lua",
+      ["llx.method"] = "src/method.lua",
+      ["llx.namedtuple"] = "src/namedtuple.lua",
+      ["llx.operators"] = "src/operators.lua",
+      ["llx.path"] = "src/path.lua",
+      ["llx.pretty"] = "src/pretty.lua",
+      ["llx.property"] = "src/property.lua",
+      ["llx.proxy"] = "src/proxy.lua",
+      ["llx.repr"] = "src/repr.lua",
+      ["llx.result"] = "src/result.lua",
+      ["llx.schema"] = "src/schema.lua",
+      ["llx.seq"] = "src/seq.lua",
+      ["llx.signature"] = "src/signature.lua",
+      ["llx.string_view"] = "src/string_view.lua",
+      ["llx.tointeger"] = "src/tointeger.lua",
+      ["llx.tostringf"] = "src/tostringf.lua",
+      ["llx.tracing"] = "src/tracing.lua",
+      ["llx.truthy"] = "src/truthy.lua",
+      ["llx.tuple"] = "src/tuple.lua",
+      ["llx.type_check_decorator"] = "src/type_check_decorator.lua",
+      ["llx.typed_iterators"] = "src/typed_iterators.lua",
+
+      -- debug submodule
+      ["llx.debug"] = "src/debug/init.lua",
+      ["llx.debug.dump_value"] = "src/debug/dump_value.lua",
+      ["llx.debug.print"] = "src/debug/print.lua",
+      ["llx.debug.terminal_colors"] = "src/debug/terminal_colors.lua",
+      ["llx.debug.trace"] = "src/debug/trace.lua",
+
+      -- exceptions submodule
+      ["llx.exceptions"] = "src/exceptions/init.lua",
+      ["llx.exceptions.attribute_error"] = "src/exceptions/attribute_error.lua",
+      ["llx.exceptions.exception"] = "src/exceptions/exception.lua",
+      ["llx.exceptions.exception_group"] = "src/exceptions/exception_group.lua",
+      ["llx.exceptions.index_error"] = "src/exceptions/index_error.lua",
+      ["llx.exceptions.invalid_argument_exception"] = "src/exceptions/invalid_argument_exception.lua",
+      ["llx.exceptions.not_implemented_exception"] = "src/exceptions/not_implemented_exception.lua",
+      ["llx.exceptions.overload_resolution_exception"] = "src/exceptions/overload_resolution_exception.lua",
+      ["llx.exceptions.runtime_error"] = "src/exceptions/runtime_error.lua",
+      ["llx.exceptions.schema_exception"] = "src/exceptions/schema_exception.lua",
+      ["llx.exceptions.type_error"] = "src/exceptions/type_error.lua",
+      ["llx.exceptions.value_exception"] = "src/exceptions/value_exception.lua",
+
+      -- flow_control submodule
+      ["llx.flow_control"] = "src/flow_control/init.lua",
+      ["llx.flow_control.catch"] = "src/flow_control/catch.lua",
+      ["llx.flow_control.switchcase"] = "src/flow_control/switchcase.lua",
+      ["llx.flow_control.trycatch"] = "src/flow_control/trycatch.lua",
+
+      -- strict submodule
+      ["llx.strict"] = "src/strict/init.lua",
+      ["llx.strict.disallow_globals"] = "src/strict/disallow_globals.lua",
+
+      -- types submodule
+      ["llx.types"] = "src/types/init.lua",
+      ["llx.types.boolean"] = "src/types/boolean.lua",
+      ["llx.types.float"] = "src/types/float.lua",
+      ["llx.types.function"] = "src/types/function.lua",
+      ["llx.types.integer"] = "src/types/integer.lua",
+      ["llx.types.list"] = "src/types/list.lua",
+      ["llx.types.matchers"] = "src/types/matchers.lua",
+      ["llx.types.nil"] = "src/types/nil.lua",
+      ["llx.types.number"] = "src/types/number.lua",
+      ["llx.types.set"] = "src/types/set.lua",
+      ["llx.types.string"] = "src/types/string.lua",
+      ["llx.types.table"] = "src/types/table.lua",
+      ["llx.types.thread"] = "src/types/thread.lua",
+      ["llx.types.userdata"] = "src/types/userdata.lua",
+
+      -- bytecode submodule; the parsers need Lua 5.3+
+      ["llx.bytecode"] = "src/bytecode/init.lua",
+      ["llx.bytecode.lua54"] = "src/bytecode/lua54/init.lua",
+      ["llx.bytecode.lua54.bcode"] = "src/bytecode/lua54/bcode.lua",
+      ["llx.bytecode.lua54.bytestream"] = "src/bytecode/lua54/bytestream.lua",
+      ["llx.bytecode.lua54.constants"] = "src/bytecode/lua54/constants.lua",
+      ["llx.bytecode.lua54.enum"] = "src/bytecode/lua54/enum.lua",
+      ["llx.bytecode.lua54.instructions"] = "src/bytecode/lua54/instructions.lua",
+      ["llx.bytecode.lua54.opcodes"] = "src/bytecode/lua54/opcodes.lua",
+      ["llx.bytecode.lua54.typetags"] = "src/bytecode/lua54/typetags.lua",
+      ["llx.bytecode.lua54.util"] = "src/bytecode/lua54/util.lua",
+
+      ["llx.bytecode.lua55"] = "src/bytecode/lua55/init.lua",
+      ["llx.bytecode.lua55.bcode"] = "src/bytecode/lua55/bcode.lua",
+      ["llx.bytecode.lua55.bytestream"] = "src/bytecode/lua55/bytestream.lua",
+      ["llx.bytecode.lua55.constants"] = "src/bytecode/lua55/constants.lua",
+      ["llx.bytecode.lua55.enum"] = "src/bytecode/lua55/enum.lua",
+      ["llx.bytecode.lua55.instructions"] = "src/bytecode/lua55/instructions.lua",
+      ["llx.bytecode.lua55.opcodes"] = "src/bytecode/lua55/opcodes.lua",
+      ["llx.bytecode.lua55.typetags"] = "src/bytecode/lua55/typetags.lua",
+      ["llx.bytecode.lua55.util"] = "src/bytecode/lua55/util.lua",
+
+      -- unit testing submodule
+      ["llx.unit"] = "src/unit/init.lua",
+      ["llx.unit.test_api"] = "src/unit/test_api.lua",
+      ["llx.unit.test_logger"] = "src/unit/test_logger.lua",
+      ["llx.unit.matchers"] = "src/unit/matchers.lua",
+      ["llx.unit.mock"] = "src/unit/mock.lua",
+      ["llx.unit.runner"] = "src/unit/runner.lua",
+   },
+}

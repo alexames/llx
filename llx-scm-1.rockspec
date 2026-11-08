@@ -30,12 +30,12 @@ schema validation, exception handling, unit testing, and more.
 }
 
 dependencies = {
-   "lua >= 5.3",
+   "lua >= 5.1, < 5.6",
 }
 
 test = {
    type = "command",
-   command = "lua test.lua",
+   script = "test.lua",
 }
 
 build = {
@@ -50,6 +50,14 @@ build = {
       ["llx.cast"] = "src/cast.lua",
       ["llx.check_arguments"] = "src/check_arguments.lua",
       ["llx.class"] = "src/class.lua",
+      -- Version compatibility layer. Each layer loads only on the
+      -- interpreters llx.compat picks it for.
+      ["llx.compat"] = "src/compat/init.lua",
+      ["llx.compat.portable"] = "src/compat/portable.lua",
+      ["llx.compat.lua51"] = "src/compat/lua51.lua",
+      ["llx.compat.luajit"] = "src/compat/luajit.lua",
+      ["llx.compat.lua52"] = "src/compat/lua52.lua",
+      ["llx.compat.lua53"] = "src/compat/lua53.lua",
       ["llx.collections"] = "src/collections/init.lua",
       ["llx.collections.counter"] = "src/collections/counter.lua",
       ["llx.collections.default_dict"] = "src/collections/default_dict.lua",
@@ -140,7 +148,7 @@ build = {
       ["llx.types.thread"] = "src/types/thread.lua",
       ["llx.types.userdata"] = "src/types/userdata.lua",
 
-      -- bytecode submodule
+      -- bytecode submodule; the parsers need Lua 5.3+
       ["llx.bytecode"] = "src/bytecode/init.lua",
       ["llx.bytecode.lua54"] = "src/bytecode/lua54/init.lua",
       ["llx.bytecode.lua54.bcode"] = "src/bytecode/lua54/bcode.lua",

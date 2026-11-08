@@ -1,9 +1,10 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local hash_table = require 'llx.hash_table'
 local tuple_module = require 'llx.tuple'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 local HashTable = hash_table.HashTable
 local Tuple = tuple_module.Tuple
@@ -172,7 +173,7 @@ describe('HashTable', function()
     it('should iterate over an empty hash table with no iterations', function()
       local ht = HashTable()
       local count = 0
-      for k, v in pairs(ht) do
+      for k, v in compat.pairs(ht) do
         count = count + 1
       end
       expect(count).to.be_equal_to(0)
@@ -181,7 +182,7 @@ describe('HashTable', function()
     it('should return a function from pairs', function()
       local ht = HashTable()
       ht['x'] = 10
-      local iter = pairs(ht)
+      local iter = compat.pairs(ht)
       expect(type(iter)).to.be_equal_to('function')
     end)
 
@@ -189,7 +190,7 @@ describe('HashTable', function()
       local ht = HashTable()
       ht['only_key'] = 'only_value'
       local key, value
-      for k, v in pairs(ht) do
+      for k, v in compat.pairs(ht) do
         key = k
         value = v
         break
@@ -202,7 +203,7 @@ describe('HashTable', function()
       local ht = HashTable()
       ht['original_key'] = 'value'
       local found_key = nil
-      for k, v in pairs(ht) do
+      for k, v in compat.pairs(ht) do
         found_key = k
         break
       end
@@ -213,7 +214,7 @@ describe('HashTable', function()
       local ht = HashTable()
       ht[100] = 'hundred'
       local key, value
-      for k, v in pairs(ht) do
+      for k, v in compat.pairs(ht) do
         key = k
         value = v
         break
@@ -312,7 +313,7 @@ describe('HashTable', function()
       ht[k2] = 'b'
       local count = 0
       local found = {}
-      for k, v in pairs(ht) do
+      for k, v in compat.pairs(ht) do
         count = count + 1
         found[v] = true
       end
@@ -355,5 +356,5 @@ describe('HashTable', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

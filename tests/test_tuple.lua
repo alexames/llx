@@ -1,9 +1,10 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local tuple_module = require 'llx.tuple'
 local hash = require 'llx.hash'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 local Tuple = tuple_module.Tuple
 
@@ -63,17 +64,17 @@ describe('Tuple', function()
   describe('__len', function()
     it('should return 0 for an empty tuple', function()
       local t = Tuple{}
-      expect(#t).to.be_equal_to(0)
+      expect(compat.len(t)).to.be_equal_to(0)
     end)
 
     it('should return the correct length for a non-empty tuple', function()
       local t = Tuple{1, 2, 3}
-      expect(#t).to.be_equal_to(3)
+      expect(compat.len(t)).to.be_equal_to(3)
     end)
 
     it('should return 1 for a single-element tuple', function()
       local t = Tuple{42}
-      expect(#t).to.be_equal_to(1)
+      expect(compat.len(t)).to.be_equal_to(1)
     end)
 
     it('should return correct length for a large tuple', function()
@@ -82,7 +83,7 @@ describe('Tuple', function()
         values[i] = i
       end
       local t = Tuple(values)
-      expect(#t).to.be_equal_to(100)
+      expect(compat.len(t)).to.be_equal_to(100)
     end)
   end)
 
@@ -213,7 +214,7 @@ describe('Tuple', function()
     it('should unpack an empty tuple as no values', function()
       local t = Tuple{}
       local result = {t:unpack()}
-      expect(#result).to.be_equal_to(0)
+      expect(compat.len(result)).to.be_equal_to(0)
     end)
 
     it('should preserve order when unpacking', function()
@@ -321,5 +322,5 @@ describe('Tuple', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

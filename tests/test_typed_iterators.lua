@@ -1,4 +1,6 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
+local decorated = require 'llx.decorator'.decorated
 local llx = require 'llx'
 local functional = require 'llx.functional'
 local typed_iterators = require 'llx.typed_iterators'
@@ -19,7 +21,7 @@ local Integer = llx.Integer
 local Number = llx.Number
 local String = llx.String
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 -- A simple counting iterator closure: yields 1 .. n, then nil.
 local function counter(n)
@@ -187,7 +189,7 @@ describe('typed_iterators', function()
       for i, v in wrapped do
         seen[i] = v
       end
-      expect(#seen).to.be_equal_to(3)
+      expect(compat.len(seen)).to.be_equal_to(3)
       expect(seen[3]).to.be_equal_to(30)
     end)
 
@@ -197,9 +199,9 @@ describe('typed_iterators', function()
       local wrapped = Yields{Integer, Integer} .. functional.range(5)
       local values = {}
       for _, v in wrapped do
-        values[#values + 1] = v
+        values[compat.len(values) + 1] = v
       end
-      expect(#values).to.be_equal_to(4)
+      expect(compat.len(values)).to.be_equal_to(4)
       expect(values[1]).to.be_equal_to(1)
       expect(values[4]).to.be_equal_to(4)
     end)
@@ -254,9 +256,9 @@ describe('typed_iterators', function()
 
     it('should default missing contract lists to empty', function()
       local gen = Generates{} .. function() end
-      expect(#gen.yields).to.be_equal_to(0)
-      expect(#gen.accepts).to.be_equal_to(0)
-      expect(#gen.returns).to.be_equal_to(0)
+      expect(compat.len(gen.yields)).to.be_equal_to(0)
+      expect(compat.len(gen.accepts)).to.be_equal_to(0)
+      expect(compat.len(gen.returns)).to.be_equal_to(0)
     end)
 
     it('should reject unknown contract keys', function()
@@ -399,7 +401,7 @@ describe('typed_iterators', function()
       local gen = Generates{yields = {Integer},
                             accepts = {String, VARARG}}
           .. function()
-        seen = table.pack(coroutine.yield(1))
+        seen = compat.pack(coroutine.yield(1))
         coroutine.yield(2)
       end
       local instance = gen()
@@ -426,9 +428,9 @@ describe('typed_iterators', function()
       local instance = gen()
       local seen = {}
       for v in instance do
-        seen[#seen + 1] = v
+        seen[compat.len(seen) + 1] = v
       end
-      expect(#seen).to.be_equal_to(2)
+      expect(compat.len(seen)).to.be_equal_to(2)
     end)
 
     it('should check final return values against returns', function()
@@ -494,7 +496,7 @@ describe('typed_iterators', function()
           self.i = 0
         end,
 
-        ['next_value' | Yields{Integer}] = function(self)
+        [decorated('next_value', Yields{Integer})] = function(self)
           self.i = self.i + 1
           if self.i <= 2 then return self.i end
         end,
@@ -504,7 +506,7 @@ describe('typed_iterators', function()
       expect(steps:next_value()).to.be_equal_to(2)
       expect(steps:next_value()).to.be_nil()
       local Lying = class 'TypedIterStepsBad' {
-        ['next_value' | Yields{String}] = function(self)
+        [decorated('next_value', Yields{String})] = function(self)
           return 42
         end,
       }
@@ -518,7 +520,7 @@ describe('typed_iterators', function()
           self.factor = factor
         end,
 
-        ['scaled' | Generates{yields = {Integer}}] =
+        [decorated('scaled', Generates{yields = {Integer}})] =
             function(self, n)
           for i = 1, n do
             coroutine.yield(i * self.factor)
@@ -528,15 +530,15 @@ describe('typed_iterators', function()
       local machine = Machine(10)
       local results = {}
       for v in machine:scaled(3) do
-        results[#results + 1] = v
+        results[compat.len(results) + 1] = v
       end
-      expect(#results).to.be_equal_to(3)
+      expect(compat.len(results)).to.be_equal_to(3)
       expect(results[3]).to.be_equal_to(30)
     end)
 
     it('should enforce the contract through the member', function()
       local Machine = class 'TypedGenMachineBad' {
-        ['broken' | Generates{yields = {String}}] = function(self)
+        [decorated('broken', Generates{yields = {String}})] = function(self)
           coroutine.yield(123)
         end,
       }
@@ -548,5 +550,5 @@ describe('typed_iterators', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local bisect_module = require 'llx.bisect'
 
@@ -7,7 +8,7 @@ local bisect_right = bisect_module.bisect_right
 local insort_left = bisect_module.insort_left
 local insort_right = bisect_module.insort_right
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('bisect', function()
   describe('bisect_left', function()
@@ -91,14 +92,14 @@ describe('bisect', function()
       local i = insort_left(a, 2)
       expect(i).to.be_equal_to(2)
       expect(a[2]).to.be_equal_to(2)
-      expect(#a).to.be_equal_to(5)
+      expect(compat.len(a)).to.be_equal_to(5)
     end)
 
     it('insort_right should insert at rightmost position', function()
       local a = {1, 2, 2, 3}
       local i = insort_right(a, 2)
       expect(i).to.be_equal_to(4)
-      expect(#a).to.be_equal_to(5)
+      expect(compat.len(a)).to.be_equal_to(5)
     end)
 
     it('should keep the sequence sorted', function()
@@ -107,7 +108,7 @@ describe('bisect', function()
       for _ = 1, 50 do
         insort_right(a, math.random(100))
       end
-      for i = 2, #a do
+      for i = 2, compat.len(a) do
         expect(a[i] >= a[i-1]).to.be_true()
       end
     end)
@@ -124,5 +125,5 @@ describe('bisect', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

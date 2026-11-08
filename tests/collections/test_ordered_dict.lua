@@ -1,16 +1,17 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local OrderedDict = require 'llx.collections.ordered_dict' . OrderedDict
 
 local hash = require 'llx.hash' . hash
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('OrderedDict', function()
   describe('construction', function()
     it('should create empty', function()
       local od = OrderedDict()
-      expect(#od).to.be_equal_to(0)
+      expect(compat.len(od)).to.be_equal_to(0)
       expect(od:keys()).to.match_table({})
     end)
 
@@ -26,7 +27,7 @@ describe('OrderedDict', function()
         local i = 0
         return function()
           i = i + 1
-          if i > #pairs_data then return nil end
+          if i > compat.len(pairs_data) then return nil end
           return pairs_data[i][1], pairs_data[i][2]
         end
       end
@@ -70,7 +71,7 @@ describe('OrderedDict', function()
       local od = OrderedDict{{'a', 1}, {'b', 2}, {'c', 3}}
       od:delete('b')
       expect(od:contains('b')).to.be_false()
-      expect(#od).to.be_equal_to(2)
+      expect(compat.len(od)).to.be_equal_to(2)
     end)
 
     it('should preserve order through middle deletes', function()
@@ -106,8 +107,8 @@ describe('OrderedDict', function()
     it('should iterate in insertion order', function()
       local od = OrderedDict{{'first', 1}, {'second', 2}, {'third', 3}}
       local seen = {}
-      for k, v in pairs(od) do
-        seen[#seen + 1] = k .. '=' .. v
+      for k, v in compat.pairs(od) do
+        seen[compat.len(seen) + 1] = k .. '=' .. v
       end
       expect(table.concat(seen, ',')).to.be_equal_to(
         'first=1,second=2,third=3')
@@ -117,7 +118,7 @@ describe('OrderedDict', function()
       local od = OrderedDict{{'a', 1}, {'b', 2}, {'c', 3}}
       od:delete('b')
       local keys = {}
-      for k, _ in pairs(od) do keys[#keys + 1] = k end
+      for k, _ in compat.pairs(od) do keys[compat.len(keys) + 1] = k end
       expect(table.concat(keys, ',')).to.be_equal_to('a,c')
     end)
   end)
@@ -146,7 +147,7 @@ describe('OrderedDict', function()
     it('should empty the dict', function()
       local od = OrderedDict{{'a', 1}, {'b', 2}}
       od:clear()
-      expect(#od).to.be_equal_to(0)
+      expect(compat.len(od)).to.be_equal_to(0)
       expect(od:keys()).to.match_table({})
     end)
   end)
@@ -180,5 +181,5 @@ describe('OrderedDict', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

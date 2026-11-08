@@ -1,4 +1,6 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
+local decorated = require 'llx.decorator'.decorated
 local llx = require 'llx'
 local class_module = require 'llx.class'
 local coroutine_module = require 'llx.coroutine'
@@ -9,7 +11,7 @@ local wrap = coroutine_module.wrap
 local WrapDecorator = coroutine_module.WrapDecorator
 local Decorator = decorator_module.Decorator
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('coroutine', function()
   describe('module exports', function()
@@ -70,9 +72,9 @@ describe('coroutine', function()
       local iter = wrapped()
       local results = {}
       for v in iter do
-        results[#results + 1] = v
+        results[compat.len(results) + 1] = v
       end
-      expect(#results).to.be_equal_to(3)
+      expect(compat.len(results)).to.be_equal_to(3)
       expect(results[1]).to.be_equal_to(10)
       expect(results[2]).to.be_equal_to(20)
       expect(results[3]).to.be_equal_to(30)
@@ -88,9 +90,9 @@ describe('coroutine', function()
       local iter = wrapped(3, 5)
       local results = {}
       for v in iter do
-        results[#results + 1] = v
+        results[compat.len(results) + 1] = v
       end
-      expect(#results).to.be_equal_to(3)
+      expect(compat.len(results)).to.be_equal_to(3)
       expect(results[1]).to.be_equal_to(3)
       expect(results[2]).to.be_equal_to(4)
       expect(results[3]).to.be_equal_to(5)
@@ -133,12 +135,12 @@ describe('coroutine', function()
 
       -- Consume iter1 and iter2 independently
       local r1 = {}
-      for v in iter1 do r1[#r1 + 1] = v end
+      for v in iter1 do r1[compat.len(r1) + 1] = v end
       local r2 = {}
-      for v in iter2 do r2[#r2 + 1] = v end
+      for v in iter2 do r2[compat.len(r2) + 1] = v end
 
-      expect(#r1).to.be_equal_to(3)
-      expect(#r2).to.be_equal_to(2)
+      expect(compat.len(r1)).to.be_equal_to(3)
+      expect(compat.len(r2)).to.be_equal_to(2)
       expect(r1[1]).to.be_equal_to(1)
       expect(r1[3]).to.be_equal_to(3)
       expect(r2[1]).to.be_equal_to(1)
@@ -171,19 +173,10 @@ describe('coroutine', function()
     end)
   end)
 
-  describe('| operator', function()
-    it('should be usable with the | operator', function()
-      local result = 'my_generator' | wrap
-      expect(result.__isdecorator).to.be_true()
-      expect(result.name).to.be_equal_to('my_generator')
-      expect(#result.decorator_table).to.be_equal_to(1)
-    end)
-  end)
-
   describe('class integration', function()
     it('should work as a decorator on class methods', function()
       local MyClass = class 'CoroutineClass' {
-        ['range' | wrap] = function(self, n)
+        [decorated('range', wrap)] = function(self, n)
           for i = 1, n do
             coroutine.yield(i)
           end
@@ -192,9 +185,9 @@ describe('coroutine', function()
       local obj = MyClass()
       local results = {}
       for v in obj:range(4) do
-        results[#results + 1] = v
+        results[compat.len(results) + 1] = v
       end
-      expect(#results).to.be_equal_to(4)
+      expect(compat.len(results)).to.be_equal_to(4)
       expect(results[1]).to.be_equal_to(1)
       expect(results[4]).to.be_equal_to(4)
     end)
@@ -205,7 +198,7 @@ describe('coroutine', function()
           self.factor = factor
         end,
 
-        ['scaled_range' | wrap] = function(self, n)
+        [decorated('scaled_range', wrap)] = function(self, n)
           for i = 1, n do
             coroutine.yield(i * self.factor)
           end
@@ -214,9 +207,9 @@ describe('coroutine', function()
       local obj = MyClass(10)
       local results = {}
       for v in obj:scaled_range(3) do
-        results[#results + 1] = v
+        results[compat.len(results) + 1] = v
       end
-      expect(#results).to.be_equal_to(3)
+      expect(compat.len(results)).to.be_equal_to(3)
       expect(results[1]).to.be_equal_to(10)
       expect(results[2]).to.be_equal_to(20)
       expect(results[3]).to.be_equal_to(30)
@@ -224,13 +217,13 @@ describe('coroutine', function()
 
     it('should allow multiple wrapped methods on the same class', function()
       local MyClass = class 'CoroutineClass3' {
-        ['evens' | wrap] = function(self, n)
+        [decorated('evens', wrap)] = function(self, n)
           for i = 2, n, 2 do
             coroutine.yield(i)
           end
         end,
 
-        ['odds' | wrap] = function(self, n)
+        [decorated('odds', wrap)] = function(self, n)
           for i = 1, n, 2 do
             coroutine.yield(i)
           end
@@ -240,14 +233,14 @@ describe('coroutine', function()
       local even_results = {}
       for v in obj:evens(6) do even_results[#even_results + 1] = v end
       local odd_results = {}
-      for v in obj:odds(5) do odd_results[#odd_results + 1] = v end
+      for v in obj:odds(5) do odd_results[compat.len(odd_results) + 1] = v end
 
-      expect(#even_results).to.be_equal_to(3)
+      expect(compat.len(even_results)).to.be_equal_to(3)
       expect(even_results[1]).to.be_equal_to(2)
       expect(even_results[2]).to.be_equal_to(4)
       expect(even_results[3]).to.be_equal_to(6)
 
-      expect(#odd_results).to.be_equal_to(3)
+      expect(compat.len(odd_results)).to.be_equal_to(3)
       expect(odd_results[1]).to.be_equal_to(1)
       expect(odd_results[2]).to.be_equal_to(3)
       expect(odd_results[3]).to.be_equal_to(5)
@@ -255,7 +248,7 @@ describe('coroutine', function()
 
     it('should work with for-in loop pattern', function()
       local MyClass = class 'CoroutineClass4' {
-        ['items' | wrap] = function(self)
+        [decorated('items', wrap)] = function(self)
           coroutine.yield('a')
           coroutine.yield('b')
           coroutine.yield('c')
@@ -272,5 +265,5 @@ describe('coroutine', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -1,9 +1,10 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 
 local environment = require 'llx.environment'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('environment', function()
   describe('create_module_environment', function()
@@ -145,7 +146,7 @@ describe('environment', function()
       local env, proxy = environment.create_module_environment()
       env.flag = false
       local collected = {}
-      for k, v in pairs(proxy) do collected[k] = v end
+      for k, v in compat.pairs(proxy) do collected[k] = v end
       expect(collected.flag).to.be_false()
     end)
 
@@ -202,7 +203,7 @@ describe('environment', function()
         function read() return llx_test_verbose end
         return _M
       ]==]
-      local mod = assert(load(chunk, 'false_state_probe'))()
+      local mod = assert(compat.load(chunk, 'false_state_probe'))()
       local is_on, read = mod.is_on(), mod.read()
       _G.llx_test_verbose = nil
       expect(is_on).to.be_equal_to('OFF')
@@ -219,7 +220,7 @@ describe('environment', function()
         function is_done() return done end
         return _M
       ]==]
-      local mod = assert(load(chunk, 'toggle_probe'))()
+      local mod = assert(compat.load(chunk, 'toggle_probe'))()
       expect(mod.is_done()).to.be_false()
       mod.finish()
       expect(mod.is_done()).to.be_true()
@@ -258,7 +259,7 @@ describe('environment', function()
       env.dropped = 2
       env.dropped = nil
       local collected = {}
-      for k, v in pairs(proxy) do collected[k] = v end
+      for k, v in compat.pairs(proxy) do collected[k] = v end
       expect(collected.kept).to.be_equal_to(1)
       expect(collected.dropped).to.be_nil()
     end)
@@ -428,7 +429,7 @@ describe('environment', function()
       local writes = {}
       local original_stderr = io.stderr
       io.stderr = {
-        write = function(self, s) writes[#writes + 1] = s end,
+        write = function(self, s) writes[compat.len(writes) + 1] = s end,
       }
       local ok, err = pcall(function()
         local fn = environment.deprecated('old_fn', function() return 1 end,
@@ -437,7 +438,7 @@ describe('environment', function()
       end)
       io.stderr = original_stderr
       if not ok then error(err) end
-      expect(#writes).to.be_equal_to(1)
+      expect(compat.len(writes)).to.be_equal_to(1)
       expect(writes[1]).to.contain('old_fn')
       expect(writes[1]).to.contain('use new_fn')
     end)
@@ -458,7 +459,7 @@ describe('environment', function()
       env.x = 10
       env.y = 20
       local collected = {}
-      for k, v in pairs(proxy) do
+      for k, v in compat.pairs(proxy) do
         collected[k] = v
       end
       expect(collected.x).to.be_equal_to(10)
@@ -470,7 +471,7 @@ describe('environment', function()
       local env, proxy = environment.create_module_environment({mod_a})
       env.exported = 'yes'
       local collected = {}
-      for k, v in pairs(proxy) do
+      for k, v in compat.pairs(proxy) do
         collected[k] = v
       end
       expect(collected.exported).to.be_equal_to('yes')
@@ -481,5 +482,5 @@ describe('environment', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

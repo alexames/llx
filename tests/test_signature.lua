@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local decorated = require 'llx.decorator'.decorated
 local llx = require 'llx'
 
 local signature_module = require 'llx.signature'
@@ -14,7 +15,7 @@ local Integer = types.Integer
 local Number = types.Number
 local String = types.String
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('Signature', function()
   describe('module exports', function()
@@ -57,7 +58,7 @@ describe('Signature', function()
       local path = source:match('^@(.*)$') or source
       local dir = path:match('^(.*[/\\])') or ''
       local src = (dir .. '../src'):gsub('\\', '/')
-      local shim = "table.insert(package.searchers, 2,"
+      local shim = "table.insert(package.searchers or package.loaders, 2,"
           .. " function(name)"
           .. " local rest"
           .. " if name == 'llx' then rest = 'init'"
@@ -410,8 +411,9 @@ describe('Signature', function()
     .. 'checking)', function()
     it('should call the underlying function and return its result', function()
       local MyClass = class 'SigTestCallClass' {
-        ['compute' | Signature{params={'SigTestCallClass', Integer, Integer},
-                                returns={Integer}}] =
+        [decorated('compute',
+            Signature{params={'SigTestCallClass', Integer, Integer},
+                      returns={Integer}})] =
         function(self, a, b)
           return a + b
         end,
@@ -423,10 +425,10 @@ describe('Signature', function()
 
     it('should pass when all argument types are correct', function()
       local MyClass = class 'SigTestPassClass' {
-        ['sum' | Signature{
+        [decorated('sum', Signature{
             params={'SigTestPassClass',
                     Integer, Integer, Integer},
-            returns={Integer}}] =
+            returns={Integer}})] =
         function(self, a, b, c)
           return a + b + c
         end,
@@ -440,8 +442,9 @@ describe('Signature', function()
     it('should error when an argument type is wrong '
       .. '(precondition fail)', function()
       local MyClass = class 'SigTestPreClass' {
-        ['add' | Signature{params={'SigTestPreClass', Integer, Integer},
-                            returns={Integer}}] =
+        [decorated('add',
+            Signature{params={'SigTestPreClass', Integer, Integer},
+                      returns={Integer}})] =
         function(self, a, b)
           return a + b
         end,
@@ -454,8 +457,8 @@ describe('Signature', function()
     it('should error when the return type is wrong '
       .. '(postcondition fail)', function()
       local MyClass = class 'SigTestPostClass' {
-        ['bad_return' | Signature{params={'SigTestPostClass'},
-                                   returns={Integer}}] =
+        [decorated('bad_return', Signature{params={'SigTestPostClass'},
+                                   returns={Integer}})] =
         function(self)
           return 'this is a string'
         end,
@@ -468,7 +471,8 @@ describe('Signature', function()
     it('should pass a method with only self declared and no '
       .. 'returns', function()
       local MyClass = class 'SigTestEmptyClass' {
-        ['noop' | Signature{params={'SigTestEmptyClass'}, returns={}}] =
+        [decorated('noop',
+            Signature{params={'SigTestEmptyClass'}, returns={}})] =
         function(self)
           -- do nothing
         end,
@@ -487,8 +491,8 @@ describe('Signature', function()
 
     it('should check multiple return values', function()
       local MyClass = class 'SigTestMultiRetClass' {
-        ['get_pair' | Signature{params={'SigTestMultiRetClass'},
-                                 returns={Integer, String}}] =
+        [decorated('get_pair', Signature{params={'SigTestMultiRetClass'},
+                                 returns={Integer, String}})] =
         function(self)
           return 42, 'hello'
         end,
@@ -501,8 +505,8 @@ describe('Signature', function()
 
     it('should error when second return value has wrong type', function()
       local MyClass = class 'SigTestBadMultiRetClass' {
-        ['get_pair' | Signature{params={'SigTestBadMultiRetClass'},
-                                 returns={Integer, String}}] =
+        [decorated('get_pair', Signature{params={'SigTestBadMultiRetClass'},
+                                 returns={Integer, String}})] =
         function(self)
           return 42, 99  -- second should be String
         end,
@@ -516,7 +520,7 @@ describe('Signature', function()
   describe('Function metadata', function()
     it('should expose params on the decorated function', function()
       local MyClass = class 'SigTestParamsClass' {
-        ['f' | Signature{params={Integer}, returns={Integer}}] =
+        [decorated('f', Signature{params={Integer}, returns={Integer}})] =
         function(self)
           return 1
         end,
@@ -528,7 +532,7 @@ describe('Signature', function()
 
     it('should expose returns on the decorated function', function()
       local MyClass = class 'SigTestReturnsClass' {
-        ['f' | Signature{params={}, returns={String, Integer}}] =
+        [decorated('f', Signature{params={}, returns={String, Integer}})] =
         function(self)
           return 'hi', 1
         end,
@@ -542,7 +546,7 @@ describe('Signature', function()
     it('should expose the original function as func', function()
       local original = function(self) return 1 end
       local MyClass = class 'SigTestFuncClass' {
-        ['f' | Signature{params={}, returns={Integer}}] = original,
+        [decorated('f', Signature{params={}, returns={Integer}})] = original,
       }
       local obj = MyClass()
       expect(obj.f.func).to.be_equal_to(original)
@@ -575,7 +579,8 @@ describe('Signature', function()
 
     it('should have a tostring representation', function()
       local MyClass = class 'SigTestTostringClass' {
-        ['f' | Signature{params={Integer, String}, returns={Integer}}] =
+        [decorated('f',
+            Signature{params={Integer, String}, returns={Integer}})] =
         function(self)
           return 1
         end,
@@ -633,8 +638,9 @@ describe('Signature', function()
     it('should error on extra arguments to a signature-annotated '
       .. 'method', function()
       local MyClass = class 'SigTestArityClass' {
-        ['add' | Signature{params={'SigTestArityClass', Integer, Integer},
-                            returns={Integer}}] =
+        [decorated('add',
+            Signature{params={'SigTestArityClass', Integer, Integer},
+                      returns={Integer}})] =
         function(self, a, b)
           return a + b
         end,
@@ -725,9 +731,9 @@ describe('Signature', function()
       .. 'signature-annotated method', function()
       local matchers = require 'llx.types.matchers'
       local MyClass = class 'SigTestProtocolClass' {
-        ['on_tick' | Signature{
+        [decorated('on_tick', Signature{
             params={'SigTestProtocolClass', Integer},
-            returns={}}] =
+            returns={}})] =
         function(self, n) end,
       }
       local obj = MyClass()
@@ -948,5 +954,5 @@ describe('Signature', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

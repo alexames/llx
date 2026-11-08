@@ -1,18 +1,19 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local Counter = require 'llx.collections.counter' . Counter
 
 local hash = require 'llx.hash' . hash
 local HashTable = require 'llx.hash_table' . HashTable
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('Counter', function()
   describe('construction', function()
     it('should create an empty counter', function()
       local c = Counter()
       expect(c:total()).to.be_equal_to(0)
-      expect(#c).to.be_equal_to(0)
+      expect(compat.len(c)).to.be_equal_to(0)
     end)
 
     it('should count from a sequence', function()
@@ -34,7 +35,7 @@ describe('Counter', function()
         local i = 0
         return function()
           i = i + 1
-          if i > #items then return nil end
+          if i > compat.len(items) then return nil end
           return i, items[i]
         end
       end
@@ -118,7 +119,7 @@ describe('Counter', function()
     it('should limit to n items when given', function()
       local c = Counter{'a', 'a', 'a', 'b', 'b', 'c'}
       local top = c:most_common(2)
-      expect(#top).to.be_equal_to(2)
+      expect(compat.len(top)).to.be_equal_to(2)
       expect(top[1][1]).to.be_equal_to('a')
       expect(top[2][1]).to.be_equal_to('b')
     end)
@@ -194,5 +195,5 @@ describe('Counter', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local core = require 'llx.core'
 local environment = require 'llx.environment'
 local TypeError = require 'llx.exceptions.type_error'.TypeError
@@ -12,10 +13,7 @@ local FNV_offset_basis = 0x811c9dc5
 local FNV_prime = 0x01000193
 
 function hash_integer(value, hash)
-  hash = hash ~ value
-  hash = hash * FNV_prime
-  hash = hash & 0xFFFFFFFF
-  return hash
+  return compat.u32_mul(compat.bxor(hash, value), FNV_prime)
 end
 
 function hash_nil(value, hash)
@@ -30,7 +28,7 @@ function hash_number(value, hash)
   if value % 1 == 0 then
     return hash_integer(value, hash)
   end
-  local bytes = string.pack('d', value)
+  local bytes = compat.pack_double(value)
   return hash_string(bytes, hash)
 end
 
@@ -49,7 +47,7 @@ end
 
 local function get_ordered_keys(value)
   local boolean_keys, number_keys, string_keys, table_keys = {}, {}, {}, {}
-  for k, _ in pairs(value) do
+  for k, _ in compat.pairs(value) do
     local key_type = type(k)
     if key_type =='boolean' then
       table.insert(boolean_keys, k)
@@ -60,7 +58,7 @@ local function get_ordered_keys(value)
     elseif key_type =='table' then
       table.insert(table_keys, k)
     else
-      error(TypeError(string.format(
+      error(TypeError(compat.format(
           'cannot hash table with %s key', key_type)))
     end
   end
@@ -90,7 +88,7 @@ function hash_table(value, hash)
 end
 
 local function hash_error(value, hash)
-  error(TypeError(string.format(
+  error(TypeError(compat.format(
       'cannot hash value of type %s', type(value))))
 end
 

@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 
 local Boolean = llx.Boolean
@@ -13,7 +14,7 @@ local String = llx.String
 
 local isinstance = llx.isinstance
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 -- ---------------------------------------------------------------------------
 -- Boolean
@@ -147,9 +148,10 @@ describe('Float', function()
       expect(Float:__isinstance(3.14)).to.be_true()
     end)
 
+    -- 0.0 is a Float only where numbers have an integer subtype.
     it('should return true for 0.0', function()
       expect(Float:__isinstance(0.0)).to.be_true()
-    end)
+    end, not compat.has_integer_subtype)
 
     it('should return true for a negative float', function()
       expect(Float:__isinstance(-2.5)).to.be_true()
@@ -180,19 +182,25 @@ describe('Float', function()
     it('should return 0.0 for nil', function()
       local result = Float(nil)
       expect(result).to.be_equal_to(0.0)
-      expect(math.type(result)).to.be_equal_to('float')
+      if compat.has_integer_subtype then
+        expect(compat.math_type(result)).to.be_equal_to('float')
+      end
     end)
 
     it('should return 0.0 for false', function()
       local result = Float(false)
       expect(result).to.be_equal_to(0.0)
-      expect(math.type(result)).to.be_equal_to('float')
+      if compat.has_integer_subtype then
+        expect(compat.math_type(result)).to.be_equal_to('float')
+      end
     end)
 
     it('should return 1.0 for true', function()
       local result = Float(true)
       expect(result).to.be_equal_to(1.0)
-      expect(math.type(result)).to.be_equal_to('float')
+      if compat.has_integer_subtype then
+        expect(compat.math_type(result)).to.be_equal_to('float')
+      end
     end)
   end)
 
@@ -262,19 +270,19 @@ describe('Integer', function()
     it('should return 0 for nil', function()
       local result = Integer(nil)
       expect(result).to.be_equal_to(0)
-      expect(math.type(result)).to.be_equal_to('integer')
+      expect(compat.math_type(result)).to.be_equal_to('integer')
     end)
 
     it('should return 0 for false', function()
       local result = Integer(false)
       expect(result).to.be_equal_to(0)
-      expect(math.type(result)).to.be_equal_to('integer')
+      expect(compat.math_type(result)).to.be_equal_to('integer')
     end)
 
     it('should return 1 for true', function()
       local result = Integer(true)
       expect(result).to.be_equal_to(1)
-      expect(math.type(result)).to.be_equal_to('integer')
+      expect(compat.math_type(result)).to.be_equal_to('integer')
     end)
 
     it('should error when converting a float because '
@@ -1062,34 +1070,6 @@ describe('String', function()
     end)
   end)
 
-  describe('__shl (left rotate)', function()
-    it('should rotate left by 1', function()
-      expect('abcde' << 1).to.be_equal_to('bcdea')
-    end)
-
-    it('should rotate left by 2', function()
-      expect('abcde' << 2).to.be_equal_to('cdeab')
-    end)
-
-    it('should return same string for rotation of 0', function()
-      expect('abcde' << 0).to.be_equal_to('abcde')
-    end)
-  end)
-
-  describe('__shr (right rotate)', function()
-    it('should rotate right by 1', function()
-      expect('abcde' >> 1).to.be_equal_to('eabcd')
-    end)
-
-    it('should rotate right by 2', function()
-      expect('abcde' >> 2).to.be_equal_to('deabc')
-    end)
-
-    it('should return the same string for rotation of 0', function()
-      expect('abcde' >> 0).to.be_equal_to('abcde')
-    end)
-  end)
-
   describe('__call (character iterator)', function()
     it('should iterate over each character in the string', function()
       local chars = {}
@@ -1178,5 +1158,5 @@ describe('Cross-type rejection', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -1,6 +1,7 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 
 require 'llx.core'
@@ -10,7 +11,7 @@ require 'llx.types.list'
 require 'llx.types.table'
 require 'llx.types.string'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('functional', function()
   describe('range', function()
@@ -388,7 +389,7 @@ describe('functional', function()
       for i, a, b in perms do
         results[i] = llx.List{a, b}
       end
-      expect(#results).to.be_equal_to(6)
+      expect(compat.len(results)).to.be_equal_to(6)
       expect(results[1]).to.be_equal_to(llx.List{1, 2})
       expect(results[2]).to.be_equal_to(llx.List{1, 3})
     end)
@@ -402,7 +403,7 @@ describe('functional', function()
       for i, a, b in combos do
         results[i] = llx.List{a, b}
       end
-      expect(#results).to.be_equal_to(3)
+      expect(compat.len(results)).to.be_equal_to(3)
       expect(results[1]).to.be_equal_to(llx.List{1, 2})
       expect(results[2]).to.be_equal_to(llx.List{1, 3})
       expect(results[3]).to.be_equal_to(llx.List{2, 3})
@@ -544,7 +545,7 @@ describe('functional', function()
       for _, a, b in llx.functional.zip(seq1, seq2) do
         results:insert(llx.List{a, b})
       end
-      expect(#results).to.be_equal_to(2)
+      expect(compat.len(results)).to.be_equal_to(2)
     end)
   end)
 
@@ -556,7 +557,7 @@ describe('functional', function()
       for _, a, b in llx.functional.cartesian_product(seq1, seq2) do
         results:insert(llx.List{a, b})
       end
-      expect(#results).to.be_equal_to(4)
+      expect(compat.len(results)).to.be_equal_to(4)
       expect(results[1]).to.be_equal_to(llx.List{1, 'a'})
       expect(results[2]).to.be_equal_to(llx.List{1, 'b'})
       expect(results[3]).to.be_equal_to(llx.List{2, 'a'})
@@ -607,8 +608,8 @@ describe('functional', function()
       local data = llx.functional.range(6)
       local truthy, falsy = llx.functional.partition(nil, data)
 
-      expect(#truthy).to.be_equal_to(5)
-      expect(#falsy).to.be_equal_to(0)
+      expect(compat.len(truthy)).to.be_equal_to(5)
+      expect(compat.len(falsy)).to.be_equal_to(0)
     end)
   end)
 
@@ -664,7 +665,7 @@ describe('functional', function()
       local function get_id(item) return item.id end
       local result = llx.functional.distinct(list, get_id)
 
-      expect(#result).to.be_equal_to(2)
+      expect(compat.len(result)).to.be_equal_to(2)
       expect(result[1].name).to.be_equal_to('Alice')
       expect(result[2].name).to.be_equal_to('Bob')
     end)
@@ -870,7 +871,7 @@ describe('functional', function()
     it('should split into groups when key changes', function()
       local data = llx.List{1, 1, 2, 2, 2, 3, 1}
       local groups = llx.functional.chunk_by(data, function(v) return v end)
-      expect(#groups).to.be_equal_to(4)
+      expect(compat.len(groups)).to.be_equal_to(4)
       expect(groups[1]).to.be_equal_to(llx.List{1, 1})
       expect(groups[2]).to.be_equal_to(llx.List{2, 2, 2})
       expect(groups[3]).to.be_equal_to(llx.List{3})
@@ -880,13 +881,13 @@ describe('functional', function()
     it('should treat consecutive different keys as singleton groups', function()
       local data = llx.List{'a', 'b', 'c'}
       local groups = llx.functional.chunk_by(data, function(v) return v end)
-      expect(#groups).to.be_equal_to(3)
+      expect(compat.len(groups)).to.be_equal_to(3)
     end)
 
     it('should return empty for empty input', function()
       local function empty() return nil end
       local groups = llx.functional.chunk_by(empty, function(v) return v end)
-      expect(#groups).to.be_equal_to(0)
+      expect(compat.len(groups)).to.be_equal_to(0)
     end)
   end)
 
@@ -994,5 +995,5 @@ describe('functional', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

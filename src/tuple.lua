@@ -1,4 +1,5 @@
 
+local compat = require 'llx.compat'
 local class_module  = require 'llx.class'
 local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
@@ -18,7 +19,7 @@ Tuple = class 'Tuple' {
   end,
 
   unpack = function(self)
-    return table.unpack(self)
+    return compat.unpack(self)
   end,
 
   __index = function(self, key)
@@ -30,10 +31,10 @@ Tuple = class 'Tuple' {
   end,
 
   __eq = function(self, other)
-    if #self ~= #other then
+    if compat.len(self) ~= compat.len(other) then
       return false
     end
-    for i=1, #self do
+    for i=1, compat.len(self) do
       if self[i] ~= other[i] then
         return false
       end
@@ -42,12 +43,12 @@ Tuple = class 'Tuple' {
   end,
 
   __lt = function(self, other)
-    local len = math.min(#self, #other)
+    local len = math.min(compat.len(self), compat.len(other))
     for i = 1, len do
       if self[i] < other[i] then return true end
       if other[i] < self[i] then return false end
     end
-    return #self < #other
+    return compat.len(self) < compat.len(other)
   end,
 
   __le = function(self, other)
@@ -55,7 +56,7 @@ Tuple = class 'Tuple' {
   end,
 
   __hash = function(self, result)
-    for i=1, #self do
+    for i=1, compat.len(self) do
       result = hash.hash_value(i, result)
       result = hash.hash_value(self[i], result)
     end
@@ -75,7 +76,7 @@ Tuple = class 'Tuple' {
 
   __tostring = function(self)
     local parts = {}
-    for i = 1, #self do
+    for i = 1, compat.len(self) do
       parts[i] = tostring(self[i])
     end
     return 'Tuple{' .. table.concat(parts, ',') .. '}'

@@ -19,19 +19,20 @@ local Optional = llx.Optional
 local Union = llx.Union
 local Callable = matchers.Callable
 local Signature = signature_module.Signature
+local decorated = require 'llx.decorator'.decorated
 
 -- ---------------------------------------------------------------------
 -- 1. Signature: declare argument and return types on a method.
 --
--- The `'name' | Signature{...}` decorator wraps the method in a typed
--- Function object. Every call checks the arguments against `params`
+-- A `decorated('name', Signature{...})` key wraps the method in a
+-- typed Function object. Every call checks the arguments against `params`
 -- and the results against `returns`. Note that methods receive self,
 -- so the receiving class is declared first (by name, as a string).
 -- ---------------------------------------------------------------------
 
 local Greeter = class 'Greeter' {
-  ['greet' | Signature{params={'Greeter', String, Integer},
-                        returns={String}}] =
+  [decorated('greet', Signature{params={'Greeter', String, Integer},
+                        returns={String}})] =
   function(self, name, times)
     return string.rep('hi ' .. name .. '! ', times)
   end,
@@ -54,7 +55,7 @@ print(ok, err:message())
 
 -- Return values are checked the same way, including their count.
 local Sneaky = class 'Sneaky' {
-  ['pair' | Signature{params={'Sneaky'}, returns={Integer}}] =
+  [decorated('pair', Signature{params={'Sneaky'}, returns={Integer}})] =
   function(self)
     return 1, 'extra'                -- declared one return, gives two
   end,
@@ -67,7 +68,7 @@ print(ok, err:message())
 -- A trailing '...' makes a signature variadic: the fixed prefix is
 -- still type-checked, and anything beyond it is allowed unchecked.
 local Logger = class 'Logger' {
-  ['log' | Signature{params={'Logger', String, '...'}, returns={}}] =
+  [decorated('log', Signature{params={'Logger', String, '...'}, returns={}})] =
   function(self, fmt, ...)
     print(fmt:format(...))
   end,
@@ -77,8 +78,8 @@ Logger():log('%s=%d', 'answer', 42)  --> answer=42
 -- Optional trailing parameters are expressed with Optional(T):
 -- omitting them is fine, a wrong type is still rejected.
 local Counter = class 'Counter' {
-  ['step' | Signature{params={'Counter', Optional(Integer)},
-                       returns={Integer}}] =
+  [decorated('step', Signature{params={'Counter', Optional(Integer)},
+                       returns={Integer}})] =
   function(self, by)
     return (by or 1)
   end,

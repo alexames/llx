@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local Table = require 'llx.types.table' . Table
 local isinstance = require 'llx.isinstance' . isinstance
 
@@ -29,7 +30,7 @@ end
 function type_switch(value)
   return function(cases)
     local sorted_cases = {}
-    for k, v in pairs(cases) do table.insert(sorted_cases, k) end
+    for k, v in compat.pairs(cases) do table.insert(sorted_cases, k) end
     Table.sort(sorted_cases, function(a, b) return a.index < b.index end)
     local _, key =
       Table.ifind_if(

@@ -5,7 +5,7 @@ local dataclass = require 'llx.dataclass'.dataclass
 local hash = require 'llx.hash'.hash
 local HashTable = require 'llx.hash_table'.HashTable
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('dataclass', function()
   describe('factory validation', function()
@@ -205,5 +205,5 @@ describe('dataclass', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

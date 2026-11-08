@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
 local getclass_module = require 'llx.getclass'
@@ -42,11 +43,11 @@ end
 local function check_argument(index, value, expected_type, name)
   if expected_type == nil then
     local subject = name
-        and string.format("parameter '%s'", name)
+        and compat.format("parameter '%s'", name)
         or 'value'
     error(InvalidArgumentException(
         index,
-        string.format(
+        compat.format(
             '%s has no declared type (got %s)',
             subject, describe_actual(value)),
         4))
@@ -134,7 +135,7 @@ function check_returns_exact(expected_types, return_values, count)
     if count < min_required then
       error(InvalidArgumentException(
           min_required + 1,
-          string.format(
+          compat.format(
               'expected at least %d value(s), got %d',
               min_required, count),
           3))
@@ -204,7 +205,7 @@ function check_returns_exact(expected_types, return_values, count)
     if not variadic and count > expected_count then
       error(InvalidArgumentException(
           expected_count + 1,
-          string.format(
+          compat.format(
               'expected at most %d value(s), got %d',
               expected_count, count),
           3))

@@ -28,17 +28,18 @@ print(rex:get_name())          --> Rex
 
 -- Properties: getter/setter pairs that look like fields.
 local property = require 'llx.property'.property
+local decorated = require 'llx.decorator'.decorated
 
 local Rectangle = class 'Rectangle' {
   __init = function(self, w, h)
     self._w = w
     self._h = h
   end,
-  ['width' | property] = {
+  [decorated('width', property)] = {
     get = function(self) return self._w end,
     set = function(self, v) self._w = v end,
   },
-  ['area' | property] = {
+  [decorated('area', property)] = {
     get = function(self) return self._w * self._h end,
   },  -- read-only: no setter
 }

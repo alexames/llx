@@ -1,9 +1,10 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 
 local flatten_submodules = require 'llx.flatten_submodules'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('flatten_submodules', function()
   describe('basic flattening of array submodules', function()
@@ -158,7 +159,7 @@ describe('flatten_submodules', function()
         gamma = 3,
       }
       local keys = {}
-      for k, v in pairs(result) do
+      for k, v in compat.pairs(result) do
         keys[k] = v
       end
       expect(keys.alpha).to.be_equal_to(1)
@@ -207,7 +208,7 @@ describe('flatten_submodules', function()
       expect(result.alpha).to.be_equal_to(1)
       -- The string should not appear under any numeric key.
       local has_numeric = false
-      for k in pairs(result) do
+      for k in compat.pairs(result) do
         if type(k) == 'number' then has_numeric = true; break end
       end
       expect(has_numeric).to.be_false()
@@ -216,5 +217,5 @@ describe('flatten_submodules', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

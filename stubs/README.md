@@ -34,7 +34,7 @@ language server.
 ### Class-system caveat
 
 llx classes are defined via `class 'Name' { ... }` with decorator
-keys like `['name' | property] = { ... }` and metaprogrammed
+keys like `[decorated('name', property)] = { ... }` and metaprogrammed
 metamethod inheritance. luals cannot read these constructs:
 inside a `class 'Name' { ... }` block the body table will be typed
 as `{[any]: any}` and the resulting class shape won't be inferred.

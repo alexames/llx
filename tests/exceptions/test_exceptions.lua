@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local isinstance = require 'llx.isinstance' . isinstance
 
@@ -24,7 +25,7 @@ local function fake_type(name)
   return { __name = name }
 end
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 --------------------------------------------------------------------------------
 -- Exception (base class)
@@ -114,7 +115,7 @@ describe('ExceptionGroup', function()
     local e1 = Exception('error one')
     local e2 = Exception('error two')
     local eg = ExceptionGroup({e1, e2})
-    expect(#eg.exception_list).to.be_equal_to(2)
+    expect(compat.len(eg.exception_list)).to.be_equal_to(2)
   end)
 
   it('should combine what messages from all exceptions', function()
@@ -158,7 +159,7 @@ describe('ExceptionGroup', function()
     local e1 = Exception('only one')
     local eg = ExceptionGroup({e1})
     expect(eg.what).to.contain('only one')
-    expect(#eg.exception_list).to.be_equal_to(1)
+    expect(compat.len(eg.exception_list)).to.be_equal_to(1)
   end)
 
   it('should handle three exceptions in the list', function()
@@ -166,7 +167,7 @@ describe('ExceptionGroup', function()
     local e2 = Exception('b')
     local e3 = Exception('c')
     local eg = ExceptionGroup({e1, e2, e3})
-    expect(#eg.exception_list).to.be_equal_to(3)
+    expect(compat.len(eg.exception_list)).to.be_equal_to(3)
     expect(eg.what).to.contain('a')
     expect(eg.what).to.contain('b')
     expect(eg.what).to.contain('c')
@@ -544,7 +545,7 @@ describe('SchemaFieldTypeMismatchException', function()
     -- The message should contain a truncated form with an ellipsis,
     -- not the full 100-char string.
     expect(e.what:find('...', 1, true)).to_not.be_nil()
-    expect(#e.what < 200).to.be_true()
+    expect(compat.len(e.what) < 200).to.be_true()
   end)
 
   it('should be an instance of SchemaFieldTypeMismatchException', function()
@@ -837,5 +838,5 @@ describe('exception throwing', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local matchers = require 'llx.types.matchers'
 local signature = require 'llx.signature'
@@ -40,7 +41,7 @@ local Cat = class 'Cat' : extends(Animal) { }
 local Kitten = class 'Kitten' : extends(Cat) { }
 local Dog = class 'Dog' : extends(Animal) { }
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('is_subtype', function()
   describe('reflexivity and equality', function()
@@ -1199,7 +1200,7 @@ describe('is_subtype', function()
       local schema = Schema{type = Number, minimum = 0}
       expect(rawget(schema, '__is_llx_schema')).to.be_nil()
       local keys = {}
-      for key in pairs(schema) do
+      for key in compat.pairs(schema) do
         keys[key] = true
       end
       expect(keys.__is_llx_schema).to.be_nil()
@@ -2348,5 +2349,5 @@ describe('TypeVarTuple/Unpack unification in signature_compatible',
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

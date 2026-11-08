@@ -4,7 +4,7 @@ local llx = require 'llx'
 local opcodes_module = require 'llx.bytecode.lua54.opcodes'
 local opcodes = opcodes_module.opcodes
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('bytecode opcodes', function()
   describe('OP_MOVE', function()
@@ -98,5 +98,5 @@ describe('bytecode opcodes', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

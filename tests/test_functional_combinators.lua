@@ -1,6 +1,7 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 
 require 'llx.core'
@@ -10,7 +11,7 @@ require 'llx.types.list'
 require 'llx.types.table'
 require 'llx.types.string'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('functional combinators', function()
   describe('partial', function()
@@ -222,7 +223,7 @@ describe('functional combinators', function()
         function(x) return x - 1 end
       )
       local result = f(10)
-      expect(#result).to.be_equal_to(2)
+      expect(compat.len(result)).to.be_equal_to(2)
       expect(result[1]).to.be_equal_to(11)
       expect(result[2]).to.be_equal_to(9)
     end)
@@ -271,5 +272,5 @@ describe('functional combinators', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 local SchemaConstraintFailureException =
     require 'llx.exceptions.schema_exception'
@@ -28,7 +29,7 @@ end
 function String:__validate(schema, path, level, check_field)
   if schema.min_length then
     if #self < schema.min_length then
-      local failure_reason = string.format(
+      local failure_reason = compat.format(
           'expected string with minimum length of %s, got string of length %s',
            schema.min_length, #self)
       return false, SchemaConstraintFailureException(
@@ -37,7 +38,7 @@ function String:__validate(schema, path, level, check_field)
   end
   if schema.max_length then
     if #self > schema.max_length then
-      local failure_reason = string.format(
+      local failure_reason = compat.format(
           'expected string with maximum length of %s, got string of length %s',
            schema.max_length, #self)
       return false, SchemaConstraintFailureException(
@@ -46,7 +47,7 @@ function String:__validate(schema, path, level, check_field)
   end
   if schema.pattern then
     if not self:find(schema.pattern) then
-      local failure_reason = string.format(
+      local failure_reason = compat.format(
           'expected string that matched pattern `%s`, got %s',
            schema.pattern, self)
       return false, SchemaConstraintFailureException(
@@ -352,12 +353,12 @@ function string_metatable.__mul(str,i)
 end
 
 function string_metatable:__shl(n)
-  if n < 0 then return self >> n end
+  if n < 0 then return string_metatable.__shr(self, -n) end
   return self:sub(n + 1) .. self:sub(1, n)
 end
 
 function string_metatable:__shr(n)
-  if n < 0 then return self << n end
+  if n < 0 then return string_metatable.__shl(self, -n) end
   if n == 0 then return self end
   return self:sub(-n) .. self:sub(1, -n - 1)
 end

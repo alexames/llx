@@ -1,12 +1,14 @@
 local class_module = require 'llx.class'
+local compat = require 'llx.compat'
 local decorator = require 'llx.decorator'
 local unit = require 'llx.unit'
 local llx = require 'llx'
 
 local class = class_module.class
 local Decorator = decorator.Decorator
+local decorated = decorator.decorated
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('Decorator', function()
   describe('base class', function()
@@ -47,30 +49,30 @@ describe('Decorator', function()
     end)
   end)
 
-  describe('__bor operator', function()
+  describe('decorated', function()
     it('should create a decorator table when used with a string', function()
       local d = Decorator()
-      local result = 'func_name' | d
+      local result = decorated('func_name', d)
       expect(result).to_not.be_nil()
       expect(type(result)).to.be_equal_to('table')
     end)
 
     it('should set __isdecorator flag on result', function()
       local d = Decorator()
-      local result = 'func_name' | d
+      local result = decorated('func_name', d)
       expect(result.__isdecorator).to.be_true()
     end)
 
     it('should store the name from lhs', function()
       local d = Decorator()
-      local result = 'my_function' | d
+      local result = decorated('my_function', d)
       expect(result.name).to.be_equal_to('my_function')
     end)
 
     it('should store the decorator in decorator_table', function()
       local d = Decorator()
-      local result = 'func_name' | d
-      expect(#result.decorator_table).to.be_equal_to(1)
+      local result = decorated('func_name', d)
+      expect(compat.len(result.decorator_table)).to.be_equal_to(1)
       expect(result.decorator_table[1]).to.be_equal_to(d)
     end)
   end)
@@ -79,16 +81,16 @@ describe('Decorator', function()
     it('should allow chaining two decorators', function()
       local d1 = Decorator()
       local d2 = Decorator()
-      local result = 'func_name' | d1 | d2
+      local result = decorated('func_name', d1, d2)
       expect(result.__isdecorator).to.be_true()
       expect(result.name).to.be_equal_to('func_name')
-      expect(#result.decorator_table).to.be_equal_to(2)
+      expect(compat.len(result.decorator_table)).to.be_equal_to(2)
     end)
 
     it('should preserve decorator order when chaining', function()
       local d1 = Decorator()
       local d2 = Decorator()
-      local result = 'func_name' | d1 | d2
+      local result = decorated('func_name', d1, d2)
       expect(result.decorator_table[1]).to.be_equal_to(d1)
       expect(result.decorator_table[2]).to.be_equal_to(d2)
     end)
@@ -97,9 +99,9 @@ describe('Decorator', function()
       local d1 = Decorator()
       local d2 = Decorator()
       local d3 = Decorator()
-      local result = 'func_name' | d1 | d2 | d3
+      local result = decorated('func_name', d1, d2, d3)
       expect(result.__isdecorator).to.be_true()
-      expect(#result.decorator_table).to.be_equal_to(3)
+      expect(compat.len(result.decorator_table)).to.be_equal_to(3)
       expect(result.decorator_table[1]).to.be_equal_to(d1)
       expect(result.decorator_table[2]).to.be_equal_to(d2)
       expect(result.decorator_table[3]).to.be_equal_to(d3)
@@ -109,7 +111,7 @@ describe('Decorator', function()
       local d1 = Decorator()
       local d2 = Decorator()
       local d3 = Decorator()
-      local result = 'original_name' | d1 | d2 | d3
+      local result = decorated('original_name', d1, d2, d3)
       expect(result.name).to.be_equal_to('original_name')
     end)
   end)
@@ -128,14 +130,14 @@ describe('Decorator', function()
       expect(r_value).to.be_equal_to(123)
     end)
 
-    it('should work with __bor when subclassed', function()
+    it('should decorate with a subclass', function()
       local MyDecorator = class 'MyDecorator' : extends(Decorator) {
         decorate = function(self, target, name, value)
           return target, name, value
         end,
       }
       local d = MyDecorator()
-      local result = 'some_name' | d
+      local result = decorated('some_name', d)
       expect(result.__isdecorator).to.be_true()
       expect(result.name).to.be_equal_to('some_name')
       expect(result.decorator_table[1]).to.be_equal_to(d)
@@ -150,8 +152,8 @@ describe('Decorator', function()
       }
       local d1 = Decorator()
       local d2 = MyDecorator()
-      local result = 'func' | d1 | d2
-      expect(#result.decorator_table).to.be_equal_to(2)
+      local result = decorated('func', d1, d2)
+      expect(compat.len(result.decorator_table)).to.be_equal_to(2)
       expect(result.decorator_table[1]).to.be_equal_to(d1)
       expect(result.decorator_table[2]).to.be_equal_to(d2)
     end)
@@ -168,7 +170,7 @@ describe('Decorator', function()
       }
       local td = TestDecorator()
       local MyClass = class 'MyClass' {
-        ['my_method' | td] = function(self) return 42 end,
+        [decorated('my_method', td)] = function(self) return 42 end,
       }
       expect(applied).to.be_true()
     end)
@@ -182,7 +184,7 @@ describe('Decorator', function()
       }
       local rd = RedirectDecorator()
       local MyClass = class 'MyClass' {
-        ['my_method' | rd] = function() return 99 end,
+        [decorated('my_method', rd)] = function() return 99 end,
       }
       expect(custom_table.my_method).to_not.be_nil()
       expect(custom_table.my_method()).to.be_equal_to(99)
@@ -191,5 +193,5 @@ describe('Decorator', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

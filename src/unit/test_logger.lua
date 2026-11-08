@@ -3,6 +3,7 @@
 --
 -- @module unit.test_logger
 
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local class = llx.class
 local red = llx.debug.red
@@ -42,7 +43,7 @@ local TestLogger = class 'TestLogger' {
   test_end = function(
       test_suite, test_name, successful, err, elapsed)
     local time_str = elapsed
-      and string.format(' (%.3fs)', elapsed) or ''
+      and compat.format(' (%.3fs)', elapsed) or ''
     if successful then
       printf('%s[       OK ] %s%s.%s%s%s',
              color(green), color(bright_cyan),
@@ -205,7 +206,7 @@ local function print_tree(items, indent)
     elseif item.type == 'test' then
       local test = item.data
       local time_str = test.elapsed
-        and string.format(' (%.3fs)', test.elapsed)
+        and compat.format(' (%.3fs)', test.elapsed)
         or ''
       local slow_warning = (test.elapsed
         and test.elapsed > 0.1) and ' [SLOW]' or ''
@@ -438,14 +439,14 @@ local HierarchicalLogger = class 'HierarchicalLogger' {
     local skipped_count =
       current_hierarchical_logger.total_skipped or 0
     local skipped_str = skipped_count > 0
-      and string.format(', %s%d skipped%s',
+      and compat.format(', %s%d skipped%s',
         color(bright_cyan), skipped_count,
         reset())
       or ''
     local todo_count =
       current_hierarchical_logger.total_todo or 0
     local todo_str = todo_count > 0
-      and string.format(', %s%d todo%s',
+      and compat.format(', %s%d todo%s',
         color(bright_cyan), todo_count, reset())
       or ''
     printf('Tests:       %s%d %s%s%s, %d total',

@@ -3,6 +3,7 @@
 --
 -- @module unit.matchers
 
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local isinstance = llx.isinstance
 
@@ -10,7 +11,7 @@ local isinstance = llx.isinstance
 local function is_array_like(t)
   local n = #t
   if n == 0 then return next(t) == nil end
-  for k in pairs(t) do
+  for k in compat.pairs(t) do
     if type(k) ~= 'number' or k < 1 or k > n or math.floor(k) ~= k then
       return false
     end
@@ -54,7 +55,7 @@ local function value_to_string(val, depth, max_depth, visited)
     end
   else
     local keys = {}
-    for k in pairs(val) do
+    for k in compat.pairs(val) do
       table.insert(keys, k)
     end
     table.sort(keys, function(a, b)
@@ -107,7 +108,7 @@ end
 local function equals(expected)
   return function(actual)
     return {
-      pass = actual == expected,
+      pass = compat.equals(actual, expected),
       actual = value_to_string(actual),
       positive_message = 'be equal to',
       negative_message = 'be not equal to',
@@ -245,7 +246,7 @@ end
 --- Gathers keys from multiple tables.
 local function collect_keys(out, ...)
   for _, t in ipairs{...} do
-    for k in pairs(t) do
+    for k in compat.pairs(t) do
       out[k] = true
     end
   end
@@ -260,7 +261,7 @@ local function tablewise(predicate_generator, expected)
     local result = true
     local msg
     local keys = collect_keys({}, actual, expected)
-    for k in pairs(keys) do
+    for k in compat.pairs(keys) do
       local predicate = predicate_generator(expected[k])
       local local_result = predicate(actual[k])
       if type(local_result) ~= 'table' or local_result.pass == nil then
@@ -290,8 +291,8 @@ local function near(expected, epsilon)
     return {
       pass = diff <= epsilon,
       actual = tostring(actual),
-      positive_message = string.format('be within %s of', tostring(epsilon)),
-      negative_message = string.format(
+      positive_message = compat.format('be within %s of', tostring(epsilon)),
+      negative_message = compat.format(
         'not be within %s of',
         tostring(epsilon)),
       expected = tostring(expected)
@@ -345,13 +346,13 @@ local function is_between(min, max)
     return {
       pass = actual >= min and actual <= max,
       actual = tostring(actual),
-      positive_message = string.format(
+      positive_message = compat.format(
         'be between %s and %s',
         tostring(min), tostring(max)),
-      negative_message = string.format(
+      negative_message = compat.format(
         'not be between %s and %s',
         tostring(min), tostring(max)),
-      expected = string.format('[%s, %s]', tostring(min), tostring(max))
+      expected = compat.format('[%s, %s]', tostring(min), tostring(max))
     }
   end
 end
@@ -437,7 +438,7 @@ local function has_size(n)
   return function(actual)
     local size = 0
     if type(actual) == 'table' then
-      for _ in pairs(actual) do
+      for _ in compat.pairs(actual) do
         size = size + 1
       end
     end
@@ -456,8 +457,8 @@ local function contains_element(element)
   return function(actual)
     local contains = false
     if type(actual) == 'table' then
-      for _, v in pairs(actual) do
-        if v == element then
+      for _, v in compat.pairs(actual) do
+        if compat.equals(v, element) then
           contains = true
           break
         end
@@ -587,7 +588,7 @@ local function is_instance_of(expected_class)
 
     -- Fallback: check metatable
     local mt = getmetatable(actual)
-    local is_instance = mt == expected_class
+    local is_instance = compat.equals(mt, expected_class)
       or (mt and mt.__isinstance
         and mt:__isinstance(actual))
     return {
@@ -602,7 +603,7 @@ end
 
 --- Deep equality check for tables
 local function deep_equals(a, b, visited)
-  if a == b then return true end
+  if compat.equals(a, b) then return true end
   if type(a) ~= type(b) then return false end
   if type(a) ~= 'table' then return false end
 
@@ -611,14 +612,14 @@ local function deep_equals(a, b, visited)
   visited[a] = b
 
   -- Check all keys in a
-  for k, v in pairs(a) do
+  for k, v in compat.pairs(a) do
     if not deep_equals(v, b[k], visited) then
       return false
     end
   end
 
   -- Check for extra keys in b
-  for k in pairs(b) do
+  for k in compat.pairs(b) do
     if a[k] == nil then
       return false
     end
@@ -631,7 +632,7 @@ end
 local function table_diff(actual, expected)
   local diffs = {}
   -- Check for differing and extra keys in actual
-  for k, v in pairs(actual) do
+  for k, v in compat.pairs(actual) do
     if expected[k] == nil then
       table.insert(diffs,
         '  extra key: ' .. tostring(k)
@@ -645,7 +646,7 @@ local function table_diff(actual, expected)
     end
   end
   -- Check for missing keys
-  for k, v in pairs(expected) do
+  for k, v in compat.pairs(expected) do
     if actual[k] == nil then
       table.insert(diffs,
         '  missing key: ' .. tostring(k)
@@ -692,7 +693,7 @@ local function have_property(key, expected_value)
         actual = tostring(actual) .. ' (type: ' .. type(actual) .. ')',
         positive_message = 'have property',
         negative_message = 'not have property',
-        expected = string.format('%s = %s',
+        expected = compat.format('%s = %s',
           tostring(key),
           tostring(expected_value))
       }
@@ -705,13 +706,13 @@ local function have_property(key, expected_value)
     return {
       pass = has_key and value_matches,
       actual = has_key
-        and string.format('%s = %s',
+        and compat.format('%s = %s',
           tostring(key), tostring(actual[key]))
         or 'property not found',
       positive_message = 'have property',
       negative_message = 'not have property',
       expected = expected_value
-        and string.format('%s = %s',
+        and compat.format('%s = %s',
           tostring(key),
           tostring(expected_value))
         or tostring(key)
@@ -741,7 +742,7 @@ local function respond_to(method_name)
     return {
       pass = is_callable,
       actual = method
-        and string.format('has %s (%s)',
+        and compat.format('has %s (%s)',
           tostring(method_name), type(method))
         or 'method not found',
       positive_message = 'respond to',

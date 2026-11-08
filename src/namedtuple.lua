@@ -7,6 +7,7 @@
 -- collections.namedtuple.
 -- @module llx.namedtuple
 
+local compat = require 'llx.compat'
 local class_module = require 'llx.class'
 local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
@@ -43,9 +44,9 @@ function namedtuple(name, fields)
   local cls
   cls = class(name) {
     __new = function(...)
-      local args = table.pack(...)
+      local args = compat.pack(...)
       if args.n ~= n_fields then
-        error(string.format(
+        error(compat.format(
           '%s expects %d argument%s, got %d',
           name,
           n_fields,
@@ -89,7 +90,7 @@ function namedtuple(name, fields)
     __len = function() return n_fields end,
 
     __eq = function(self, other)
-      if #self ~= #other then return false end
+      if compat.len(self) ~= compat.len(other) then return false end
       local sv, ov = self.__values, other.__values
       for i = 1, n_fields do
         if sv[i] ~= ov[i] then return false end

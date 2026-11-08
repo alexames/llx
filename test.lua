@@ -54,10 +54,12 @@ local function checkout_searcher(name)
 end
 
 -- Insert right after package.preload so the checkout takes priority
--- over any previously installed copy of llx.
-table.insert(package.searchers, 2, checkout_searcher)
+-- over any previously installed copy of llx. Lua 5.1 names the list
+-- package.loaders; llx.compat cannot be used to find it, since it is
+-- what this searcher is about to load.
+table.insert(package.searchers or package.loaders, 2, checkout_searcher)
 
 local unit = require 'llx.unit'
 require 'llx.tests'
 
-os.exit(unit.run_unit_tests() == 0)
+os.exit(unit.run_unit_tests() == 0 and 0 or 1)

@@ -11,6 +11,7 @@
 -- method (older idiom).
 -- @module llx.contextlib
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
@@ -50,7 +51,7 @@ function with(resource, fn)
   if type(fn) ~= 'function' then
     error('with: fn must be a function', 2)
   end
-  local results = table.pack(pcall(fn, resource))
+  local results = compat.pack(pcall(fn, resource))
   local ok = results[1]
   local err = ok and nil or results[2]
 
@@ -68,7 +69,7 @@ function with(resource, fn)
   end
 
   if not ok then error(err, 0) end
-  return table.unpack(results, 2, results.n)
+  return compat.unpack(results, 2, results.n)
 end
 
 --- Wraps a value so its `close` method is called via __close

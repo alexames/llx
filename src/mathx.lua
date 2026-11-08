@@ -5,6 +5,7 @@
 -- in Lua's built-in math library.
 -- @module llx.mathx
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
@@ -111,7 +112,7 @@ end
 -- @return The LCM
 function lcm(a, b)
   if a == 0 or b == 0 then return 0 end
-  return math.abs(a) // gcd(a, b) * math.abs(b)
+  return compat.floordiv(math.abs(a), gcd(a, b)) * math.abs(b)
 end
 
 --- Computes the factorial of a non-negative integer.
@@ -153,7 +154,7 @@ end
 -- @param b Divisor
 -- @return quotient, remainder
 function divmod(a, b)
-  local q = a // b
+  local q = compat.floordiv(a, b)
   local r = a - q * b
   return q, r
 end

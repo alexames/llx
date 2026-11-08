@@ -18,6 +18,7 @@
 -- constructing a Path, or use `path.normalize` on raw strings.
 -- @module llx.path
 
+local compat = require 'llx.compat'
 local class_module = require 'llx.class'
 local environment = require 'llx.environment'
 
@@ -43,7 +44,7 @@ end
 -- @return Joined path string
 -- @usage join('/foo', 'bar', 'baz')  -- '/foo/bar/baz'
 function join(...)
-  local parts = table.pack(...)
+  local parts = compat.pack(...)
   local result = ''
   for i = 1, parts.n do
     local part = parts[i]

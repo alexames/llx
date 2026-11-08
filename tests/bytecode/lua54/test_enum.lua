@@ -4,7 +4,7 @@ local llx = require 'llx'
 local enum_module = require 'llx.bytecode.lua54.enum'
 local enum = enum_module.enum
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('bytecode enum', function()
   describe('creation', function()
@@ -167,5 +167,5 @@ describe('bytecode enum', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

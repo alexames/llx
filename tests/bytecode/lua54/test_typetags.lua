@@ -5,7 +5,7 @@ local typetags_module = require 'llx.bytecode.lua54.typetags'
 local typetags = typetags_module.typetags
 local makevariant = typetags_module.makevariant
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('bytecode typetags', function()
   describe('base type values', function()
@@ -227,5 +227,5 @@ describe('bytecode typetags', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

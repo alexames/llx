@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local class = require 'llx.class' . class
 local environment = require 'llx.environment'
 local Exception = require 'llx.exceptions.exception' . Exception
@@ -10,7 +11,7 @@ InvalidArgumentException =
     class 'InvalidArgumentException' : extends(Exception) {
   __init = function(self, argument_index, failure_reason, level)
     local what =
-        string.format('bad argument #%s:\n  %s', argument_index, failure_reason)
+        compat.format('bad argument #%s:\n  %s', argument_index, failure_reason)
     Exception.__init(self, what, (level or 1) + 1)
   end,
 
@@ -35,7 +36,7 @@ InvalidArgumentTypeException =
     class 'InvalidArgumentTypeException' : extends(InvalidArgumentException) {
   __init = function(self, argument_index, expected_type, actual_type, level)
     local failure_reason =
-        string.format(
+        compat.format(
           '%s expected, got %s',
           type_name_of(expected_type), type_name_of(actual_type))
     InvalidArgumentException.__init(

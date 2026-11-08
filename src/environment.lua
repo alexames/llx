@@ -63,6 +63,14 @@
 --
 --------------------------------------------------------------------------------
 
+local compat = require 'llx.compat'
+
+-- The globals a module environment falls back to. Lua 5.2+ binds _ENV
+-- to this chunk's globals; Lua 5.1 has no _ENV, so the name reads as
+-- an absent global there and the chunk's environment is asked for
+-- instead.
+local global_env = _ENV or compat.environment_of(1)
+
 local function make_module_metatable(module)
   return {
     __call = function(self, t)
@@ -72,17 +80,17 @@ local function make_module_metatable(module)
         -- Compare against nil, not truthiness: destructuring a field that
         -- legitimately holds `false` must yield false, not raise.
         if module_value == nil then
-          error(string.format("module does not contain field '%s'", v), 2)
+          error(compat.format("module does not contain field '%s'", v), 2)
         end
         result[i] = module_value
       end
-      return table.unpack(result)
+      return compat.unpack(result)
     end,
 
     __index = function(self, k)
       local result = rawget(module, k)
       if result == nil then
-        error(string.format("module does not contain field '%s'", k), 2)
+        error(compat.format("module does not contain field '%s'", k), 2)
       end
       return result
     end,
@@ -100,7 +108,7 @@ local function make_module_metatable(module)
       -- something more useful than `table: 0x...`. Internal __X
       -- fields are filtered out.
       local fields = {}
-      for k in pairs(module) do
+      for k in compat.pairs(module) do
         if type(k) == 'string'
             and not (k:sub(1, 2) == '__') then
           fields[#fields + 1] = k
@@ -109,7 +117,7 @@ local function make_module_metatable(module)
       table.sort(fields)
       if #fields == 0 then return 'module<empty>' end
       if #fields > 5 then
-        return string.format(
+        return compat.format(
           'module<%s, ... (%d total)>',
           table.concat({fields[1], fields[2], fields[3]}, ', '),
           #fields)
@@ -151,9 +159,9 @@ local function create_module_environment(using_modules)
   local using_table = {}
   if using_modules then
     for i, using_module in ipairs(using_modules) do
-      for k, v in pairs(using_module) do
+      for k, v in compat.pairs(using_module) do
         assert(using_table[k] == nil,
-               string.format('key collision in using statement (%s)', k), 2)
+               compat.format('key collision in using statement (%s)', k), 2)
         rawset(using_table, k, v)
       end
     end
@@ -169,14 +177,18 @@ local function create_module_environment(using_modules)
       if result ~= nil then return result end
       result = rawget(using_table, k)
       if result ~= nil then return result end
-      result = _ENV[k]
+      result = global_env[k]
       if result ~= nil then return result end
-      error(string.format("module does not contain field '%s'", k), 2)
+      error(compat.format("module does not contain field '%s'", k), 2)
     end,
     __newindex = function(self, k, v)
       rawset(module, k, v)
     end,
   })
+
+  -- Lua 5.1 has no _ENV, so the caller's `local _ENV = ...` is inert
+  -- there; this makes the environment the caller's instead.
+  compat.install_environment(environment, 2)
 
   return environment, module_proxy
 end
@@ -204,7 +216,7 @@ local function deprecated(name, fn, message)
   return function(...)
     if not warned then
       warned = true
-      io.stderr:write(string.format(
+      io.stderr:write(compat.format(
         '[DEPRECATED] %s: %s\n',
         tostring(name),
         message or 'this is deprecated and will be removed'))

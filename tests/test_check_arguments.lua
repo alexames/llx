@@ -1,4 +1,5 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local check_arguments_module = require 'llx.check_arguments'
 require 'llx.types'
@@ -15,7 +16,7 @@ local Boolean = llx.Boolean
 local Table = llx.Table
 local String = llx.String
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('check_arguments', function()
   describe('numbers', function()
@@ -55,20 +56,22 @@ describe('check_arguments', function()
     end)
   end)
 
+  -- 2.0 counts as a Float only where numbers have an integer subtype
+  -- (Lua 5.3+); elsewhere it is indistinguishable from 2.
   describe('integers and numbers', function()
     it('should succeed when last is integer', function()
       local success = pcall(function (i, f, n)
         check_arguments{i=Integer, f=Float, n=Number}
       end, 1, 2.0, 3)
       expect(success).to.be_true()
-    end)
+    end, not compat.has_integer_subtype)
 
     it('should succeed when last is float', function()
       local success = pcall(function (i, f, n)
         check_arguments{i=Integer, f=Float, n=Number}
       end, 1, 2.0, 3.0)
       expect(success).to.be_true()
-    end)
+    end, not compat.has_integer_subtype)
 
     it('should fail when float expected but integer provided', function()
       local success = pcall(function (i, f, n)
@@ -435,5 +438,5 @@ describe('check_arguments', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

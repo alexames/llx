@@ -1,23 +1,24 @@
 local unit = require 'llx.unit'
+local compat = require 'llx.compat'
 local llx = require 'llx'
 local heap_module = require 'llx.collections.heap'
 local Heap = heap_module.Heap
 local nlargest = heap_module.nlargest
 local nsmallest = heap_module.nsmallest
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('Heap', function()
   describe('construction', function()
     it('should create an empty min-heap', function()
       local h = Heap()
-      expect(#h).to.be_equal_to(0)
+      expect(compat.len(h)).to.be_equal_to(0)
       expect(h:is_empty()).to.be_true()
     end)
 
     it('should heapify an initial list', function()
       local h = Heap{5, 3, 1, 4, 2}
-      expect(#h).to.be_equal_to(5)
+      expect(compat.len(h)).to.be_equal_to(5)
       expect(h:peek()).to.be_equal_to(1)
     end)
 
@@ -44,7 +45,7 @@ describe('Heap', function()
       for _, v in ipairs({5, 1, 4, 2, 3}) do h:push(v) end
       local sorted = {}
       while not h:is_empty() do
-        sorted[#sorted + 1] = h:pop()
+        sorted[compat.len(sorted) + 1] = h:pop()
       end
       expect(table.concat(sorted, ',')).to.be_equal_to('1,2,3,4,5')
     end)
@@ -54,7 +55,7 @@ describe('Heap', function()
       for _, v in ipairs({5, 1, 4, 2, 3}) do h:push(v) end
       local sorted = {}
       while not h:is_empty() do
-        sorted[#sorted + 1] = h:pop()
+        sorted[compat.len(sorted) + 1] = h:pop()
       end
       expect(table.concat(sorted, ',')).to.be_equal_to('5,4,3,2,1')
     end)
@@ -67,7 +68,7 @@ describe('Heap', function()
     it('should peek without removing', function()
       local h = Heap{3, 1, 2}
       expect(h:peek()).to.be_equal_to(1)
-      expect(#h).to.be_equal_to(3)
+      expect(compat.len(h)).to.be_equal_to(3)
     end)
 
     it('should return nil from peek on empty heap', function()
@@ -95,13 +96,13 @@ describe('Heap', function()
       expect(top3[1]).to.be_equal_to(1)
       expect(top3[2]).to.be_equal_to(2)
       expect(top3[3]).to.be_equal_to(3)
-      expect(#h).to.be_equal_to(5)
+      expect(compat.len(h)).to.be_equal_to(5)
     end)
 
     it('should clamp n to length', function()
       local h = Heap{2, 1}
       local top10 = h:top_n(10)
-      expect(#top10).to.be_equal_to(2)
+      expect(compat.len(top10)).to.be_equal_to(2)
     end)
   end)
 
@@ -161,5 +162,5 @@ describe('Heap', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

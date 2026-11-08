@@ -7,6 +7,7 @@
 -- aggregate runner picks it up).
 
 local llx = require 'llx'
+local compat = require 'llx.compat'
 local unit = require 'llx.unit'
 
 local describe = unit.describe
@@ -20,8 +21,9 @@ local THIS_BASENAME = 'test_hygiene.lua'
 -- run_unit_tests() call exits 0 even when tests fail, so CI's
 -- per-file `lua <file> || exit 1` can never go red. The needle is
 -- split so this file's own source does not satisfy the check merely
--- by containing the string in this constant.
-local FOOTER_CALL = 'os.exit(unit.run_unit_' .. 'tests() == 0)'
+-- by containing the string in this constant. The status is a number
+-- because Lua 5.1's os.exit rejects a boolean.
+local FOOTER_CALL = 'os.exit(unit.run_unit_' .. 'tests() == 0 and 0 or 1)'
 
 -- Lists every test_*.lua file at or below the directory containing
 -- this file. Returns the list of paths (as reported by the shell) and
@@ -55,8 +57,8 @@ local function find_test_files()
   for line in handle:lines() do
     if line ~= '' then
       table.insert(files, line)
-      if line:sub(-#THIS_BASENAME) == THIS_BASENAME then
-        local head = line:sub(1, -#THIS_BASENAME - 1)
+      if line:sub(-compat.len(THIS_BASENAME)) == THIS_BASENAME then
+        local head = line:sub(1, -compat.len(THIS_BASENAME) - 1)
         if head == '' or head:match('[/\\]$') then
           prefix = head
         end
@@ -73,7 +75,7 @@ end
 
 -- Converts a found file path into its llx.tests.* module name.
 local function module_name(file, prefix)
-  local relative = file:sub(#prefix + 1)
+  local relative = file:sub(compat.len(prefix) + 1)
   return 'llx.tests.' .. relative:gsub('%.lua$', ''):gsub('[/\\]', '.')
 end
 
@@ -90,7 +92,7 @@ describe('test suite hygiene', function()
     for _, file in ipairs(files or {}) do
       local handle = io.open(file, 'r')
       expect(handle).to_not.be_nil()
-      local content = handle:read('a')
+      local content = handle:read('*a')
       handle:close()
       if not (content:find('main_file', 1, true)
           and content:find(FOOTER_CALL, 1, true)) then
@@ -105,7 +107,7 @@ describe('test suite hygiene', function()
     local init_path = (prefix or '') .. 'init.lua'
     local handle = io.open(init_path, 'r')
     expect(handle).to_not.be_nil()
-    local registry = handle:read('a')
+    local registry = handle:read('*a')
     handle:close()
     local unregistered = {}
     for _, file in ipairs(files or {}) do
@@ -119,5 +121,5 @@ describe('test suite hygiene', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

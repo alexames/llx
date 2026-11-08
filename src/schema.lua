@@ -1,5 +1,6 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 local exceptions = require 'llx.exceptions'
 local getclass_module = require 'llx.getclass'
@@ -40,7 +41,7 @@ local function check_constraints(value, schema, path, level)
       end
       return false, exceptions.SchemaConstraintFailureException(
           path,
-          string.format('value %s is not one of: %s',
+          compat.format('value %s is not one of: %s',
                         tostring(value), table.concat(parts, ', ')),
           level + 1)
     end
@@ -53,7 +54,7 @@ local function check_constraints(value, schema, path, level)
     if not result then
       return false, exceptions.SchemaConstraintFailureException(
           path,
-          msg or string.format('value %s failed predicate',
+          msg or compat.format('value %s failed predicate',
                                tostring(value)),
           level + 1)
     end
@@ -121,7 +122,7 @@ function Schema(definition)
   -- nested Schemas are shared by reference, which is fine because
   -- those are themselves immutable wrappers or value-typed.
   local wrapper = {}
-  for k, v in pairs(definition) do
+  for k, v in compat.pairs(definition) do
     wrapper[k] = v
   end
 

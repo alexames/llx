@@ -1,11 +1,12 @@
 -- Tests for llx.core module
 local core = require 'llx.core'
+local compat = require 'llx.compat'
 local unit = require 'llx.unit'
 local llx = require 'llx'
 
 require 'llx.functional'
 
-_ENV = unit.create_test_env(_ENV)
+local _ENV = unit.create_test_env(_ENV)
 
 describe('getmetafield', function()
   it('should return nil for tables without metatable', function()
@@ -281,7 +282,7 @@ describe('values', function()
       table.insert(vals, v)
     end
     table.sort(vals)
-    expect(#vals).to.be_equal_to(3)
+    expect(compat.len(vals)).to.be_equal_to(3)
     expect(vals[1]).to.be_equal_to(1)
     expect(vals[2]).to.be_equal_to(2)
     expect(vals[3]).to.be_equal_to(3)
@@ -304,7 +305,7 @@ describe('ivalues', function()
     for v in core.ivalues(t) do
       table.insert(values, v)
     end
-    expect(#values).to.be_equal_to(3)
+    expect(compat.len(values)).to.be_equal_to(3)
     expect(values[1]).to.be_equal_to('a')
     expect(values[2]).to.be_equal_to('b')
     expect(values[3]).to.be_equal_to('c')
@@ -325,7 +326,7 @@ describe('ivalues', function()
     for v in core.ivalues(t) do
       table.insert(values, v)
     end
-    expect(#values).to.be_equal_to(2)
+    expect(compat.len(values)).to.be_equal_to(2)
   end)
 end)
 
@@ -387,7 +388,7 @@ describe('times', function()
 
   it('should return empty list for n=0', function()
     local result = llx.times(0, function() return 1 end)
-    expect(#result).to.be_equal_to(0)
+    expect(compat.len(result)).to.be_equal_to(0)
   end)
 end)
 
@@ -419,7 +420,7 @@ describe('collect', function()
 
   it('should handle empty iterator', function()
     local result = llx.collect(llx.functional.range(1))
-    expect(#result).to.be_equal_to(0)
+    expect(compat.len(result)).to.be_equal_to(0)
   end)
 end)
 
@@ -450,5 +451,5 @@ describe('range_inclusive', function()
 end)
 
 if llx.main_file() then
-  os.exit(unit.run_unit_tests() == 0)
+  os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end
