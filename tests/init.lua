@@ -49,6 +49,9 @@ require 'llx.tests.test_tuple'
 require 'llx.tests.test_type_check_decorator'
 require 'llx.tests.test_typed_iterators'
 
+-- compat/ tests
+require 'llx.tests.compat.test_compat'
+
 -- debug/ tests
 require 'llx.tests.debug.test_debug'
 

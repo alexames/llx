@@ -6,7 +6,73 @@ local environment = require 'llx.environment'
 
 local _ENV = unit.create_test_env(_ENV)
 
+-- src/environment.lua, found from this file's own path so the
+-- aggregate runner and a standalone run load the same source.
+local function environment_source_path()
+  local source = debug.getinfo(1, 'S').source
+  local path = source:match('^@(.*)$') or source
+  return (path:match('^(.*[/\\])') or '') .. '../src/environment.lua'
+end
+
+-- A global table that raises on a name it does not hold, as a host
+-- that locks its global table makes it, reading through to _G for the
+-- names it does hold.
+local function refusing_globals(fields)
+  return setmetatable(fields, {
+    __index = function(_, name)
+      local value = _G[name]
+      if value == nil then
+        error("undefined global '" .. tostring(name) .. "'", 2)
+      end
+      return value
+    end,
+  })
+end
+
+-- Runs a fresh copy of llx.environment with `globals` as its globals,
+-- then a module built with its create_module_environment under the
+-- same globals. Returns the module, or nil and the error either raised.
+local function module_under(globals)
+  local load_environment, load_error =
+    compat.loadfile(environment_source_path(), 't', globals)
+  if not load_environment then return nil, load_error end
+  local ran, fresh_environment = pcall(load_environment)
+  if not ran then return nil, fresh_environment end
+  local build_module = assert(compat.load([[
+    local environment = ...
+    local _ENV, _M = environment.create_module_environment()
+    answer = 42
+    function read_host_global() return host_only end
+    function read_standard_global() return tostring end
+    function read_missing_global() return not_defined_anywhere end
+    return _M
+  ]], '=module', 't', globals))
+  local built, module = pcall(build_module, fresh_environment)
+  if not built then return nil, module end
+  return module
+end
+
 describe('environment', function()
+  describe('under a global table that refuses missing names', function()
+    it('should load and build a module', function()
+      local module, why_not = module_under(refusing_globals({}))
+      expect(tostring(why_not or '')).to.be_equal_to('')
+      expect(module.answer).to.be_equal_to(42)
+    end)
+
+    it('should fall back to the globals it was loaded with', function()
+      local module = module_under(refusing_globals({host_only = 'host'}))
+      expect(module.read_host_global()).to.be_equal_to('host')
+      expect(module.read_standard_global()).to.be_equal_to(tostring)
+    end)
+
+    it('should raise on a name neither the module nor the globals hold',
+        function()
+      local module = module_under(refusing_globals({}))
+      expect(pcall(module.read_missing_global)).to.be_false()
+    end)
+  end)
+
   describe('create_module_environment', function()
     it('should return two values: environment and module proxy', function()
       local env, proxy = environment.create_module_environment()

@@ -65,11 +65,10 @@
 
 local compat = require 'llx.compat'
 
--- The globals a module environment falls back to. Lua 5.2+ binds _ENV
--- to this chunk's globals; Lua 5.1 has no _ENV, so the name reads as
--- an absent global there and the chunk's environment is asked for
--- instead.
-local global_env = _ENV or compat.environment_of(1)
+-- The globals a module environment falls back to: this chunk's own.
+-- Not a bare `_ENV`, which on Lua 5.1 is a global read, and a host
+-- whose global table refuses missing names raises on it.
+local global_env = compat.defining_environment(function() return _ENV end)
 
 local function make_module_metatable(module)
   return {

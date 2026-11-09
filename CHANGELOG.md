@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `llx.compat.defining_environment(function() return _ENV end)`: the
+  environment of the chunk that writes it, on every version and
+  without the debug library.
 - Support for Lua 5.1, 5.2 and LuaJIT 2.x alongside 5.3-5.5. The
   `llx` rock now declares `lua >= 5.1, < 5.6`, and the new
   `llx-luajit` rockspec ships the same modules against LuaJIT.
@@ -41,6 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `llx.environment` loads on Lua 5.1 and LuaJIT under a global table
+  that raises on a missing name. It read `_ENV`, which is a global
+  there, so every module built with `create_module_environment` failed
+  to load in such a host.
+- `llx.compat.environment_of(level)` answered one frame too high on
+  LuaJIT.
 - Rotating a string by a negative count (`s << -n`, `s >> -n`) recursed
   forever instead of rotating the other way.
 

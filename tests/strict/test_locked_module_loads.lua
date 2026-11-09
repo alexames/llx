@@ -150,21 +150,16 @@ local function globals_written_by(name, path)
   return written
 end
 
--- Requires llx.unit from scratch with the global table locked.
--- Returns true, or false and the error it raised.
+-- Runs `run` with the llx section of package.loaded emptied, so that a
+-- require in it runs the module bodies rather than having the cache
+-- handed back, then restores that section and every global. The
+-- framework running this test holds closures over its own copies of
+-- these modules, and a second set of classes swapped in underneath
+-- would not compare equal to them.
 --
--- Every name the framework's own modules write is cleared from _G
--- first. Without that the check passes whether or not the leak is
--- fixed: this file's header required llx.unit unlocked, so a leaked
--- name is already present, and a write to a name _G holds never
--- reaches __newindex.
---
--- The llx section of package.loaded is emptied so the module bodies
--- run rather than the cache being handed back, then restored along
--- with _G. The framework running this test holds closures over its own
--- copies of these modules, and a second set of classes swapped in
--- underneath would not compare equal to them.
-local function require_unit_under_lock(paths)
+-- `run` returns whether its require succeeded and what it raised;
+-- this returns true, or false and that error as a string.
+local function with_llx_unloaded(run)
   local loaded_before = {}
   for module_name, module in compat.pairs(package.loaded) do
     if module_name == 'llx' or module_name:find('^llx%.') then
@@ -176,30 +171,11 @@ local function require_unit_under_lock(paths)
     globals_before[name] = value
   end
 
-  -- Collected before package.loaded is emptied, because a module body
-  -- run here requires its own dependencies, which refills the cache
-  -- this is about to clear.
-  local framework_globals = {}
-  for module_name, path in compat.pairs(paths) do
-    if module_name == 'llx.unit'
-        or module_name:find('^llx%.unit%.') then
-      local written = globals_written_by(module_name, path) or {}
-      for _, name in ipairs(written) do
-        framework_globals[compat.len(framework_globals) + 1] = name
-      end
-    end
-  end
-
   for module_name in compat.pairs(loaded_before) do
     package.loaded[module_name] = nil
   end
-  for _, name in ipairs(framework_globals) do
-    _G[name] = nil
-  end
 
-  local lock = strict.lock_global_table()
-  local loaded, result = pcall(require, 'llx.unit')
-  getmetatable(lock).__close(lock)
+  local loaded, result = run()
 
   for name in compat.pairs(_G) do
     if globals_before[name] == nil then
@@ -222,6 +198,61 @@ local function require_unit_under_lock(paths)
     return true
   end
   return false, tostring(result)
+end
+
+-- Requires llx.unit from scratch with the global table locked.
+-- Returns true, or false and the error it raised.
+--
+-- Every name the framework's own modules write is cleared from _G
+-- first. Without that the check passes whether or not the leak is
+-- fixed: this file's header required llx.unit unlocked, so a leaked
+-- name is already present, and a write to a name _G holds never
+-- reaches __newindex.
+local function require_unit_under_lock(paths)
+  -- Collected before package.loaded is emptied, because a module body
+  -- run here requires its own dependencies, which refills the cache
+  -- that is about to be cleared.
+  local framework_globals = {}
+  for module_name, path in compat.pairs(paths) do
+    if module_name == 'llx.unit'
+        or module_name:find('^llx%.unit%.') then
+      local written = globals_written_by(module_name, path) or {}
+      for _, name in ipairs(written) do
+        framework_globals[compat.len(framework_globals) + 1] = name
+      end
+    end
+  end
+
+  return with_llx_unloaded(function()
+    for _, name in ipairs(framework_globals) do
+      _G[name] = nil
+    end
+    local lock = strict.lock_global_table()
+    local loaded, result = pcall(require, 'llx.unit')
+    getmetatable(lock).__close(lock)
+    return loaded, result
+  end)
+end
+
+-- Requires `module_name` from scratch while reading a name the global
+-- table does not hold raises, as it does in a host that locks its
+-- global table against reads as well as writes. Returns true, or false
+-- and the error it raised.
+local function require_with_missing_globals_refused(module_name)
+  return with_llx_unloaded(function()
+    local metatable = getmetatable(_G)
+    local refusing = {}
+    for key, value in compat.pairs(metatable or {}) do
+      refusing[key] = value
+    end
+    refusing.__index = function(_, name)
+      error("undefined global '" .. tostring(name) .. "'", 2)
+    end
+    setmetatable(_G, refusing)
+    local loaded, result = pcall(require, module_name)
+    setmetatable(_G, metatable)
+    return loaded, result
+  end)
 end
 
 describe('module global hygiene', function()
@@ -290,6 +321,20 @@ describe('loading with the global table locked', function()
     local paths = shipped_modules()
     expect(paths).to_not.be_nil()
     local loaded, load_error = require_unit_under_lock(paths or {})
+    expect(load_error or '').to.be_equal_to('')
+    expect(loaded).to.be_true()
+  end)
+
+  it('should require llx with reads of missing globals refused', function()
+    local loaded, load_error = require_with_missing_globals_refused('llx')
+    expect(load_error or '').to.be_equal_to('')
+    expect(loaded).to.be_true()
+  end)
+
+  it('should require llx.unit with reads of missing globals refused',
+      function()
+    local loaded, load_error =
+      require_with_missing_globals_refused('llx.unit')
     expect(load_error or '').to.be_equal_to('')
     expect(loaded).to.be_true()
   end)
