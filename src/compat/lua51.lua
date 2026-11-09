@@ -89,7 +89,25 @@ end
 --   environment_of.
 -- @return The function's environment table.
 function M.environment_of(level)
-  return getfenv(level + 1)
+  -- Not `return getfenv(level + 1)`: LuaJIT drops this frame for a C
+  -- function called in tail position, and getfenv would count from the
+  -- caller instead.
+  local environment = getfenv(level + 1)
+  return environment
+end
+
+--- The environment of the chunk that defines `read_env`: the table
+-- `_ENV` names there on Lua 5.2+.
+--
+-- `read_env` is not called. Lua 5.1 has no _ENV, so its body would
+-- read a global of that name, which a global table that refuses
+-- missing names raises on. Its own environment, inherited from the
+-- chunk, is the answer instead.
+-- @param read_env A function written `function() return _ENV end` in
+--   the chunk whose environment is wanted.
+-- @return The chunk's environment table.
+function M.defining_environment(read_env)
+  return getfenv(read_env)
 end
 
 --- Iterates a value, honouring a __pairs metamethod as Lua 5.2+ does.

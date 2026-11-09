@@ -31,8 +31,8 @@ end
 --- The environment of a running function: the value of its _ENV
 -- upvalue, or nil when it has none.
 --
--- Needs the debug library. llx calls it only on Lua 5.1, where _ENV
--- does not exist; it is here so the function is defined everywhere.
+-- Needs the debug library. A chunk asking for its own environment can
+-- use defining_environment, which does not.
 -- @param level Counted as for error(): 1 is the function that calls
 --   environment_of.
 -- @return The environment table, or nil.
@@ -45,6 +45,16 @@ function M.environment_of(level)
     if name == '_ENV' then return value end
     index = index + 1
   end
+end
+
+--- The environment of the chunk that defines `read_env`: the table
+-- `_ENV` names there, which `read_env` returns. Unlike
+-- environment_of, it needs no debug library.
+-- @param read_env A function written `function() return _ENV end` in
+--   the chunk whose environment is wanted.
+-- @return The chunk's environment table.
+function M.defining_environment(read_env)
+  return read_env()
 end
 
 --- The number of fixed parameters a function declares and whether it

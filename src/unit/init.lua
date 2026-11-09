@@ -25,7 +25,9 @@ local matchers = require 'llx.unit.matchers'
 -- Written `local _ENV = unit.create_test_env(_ENV)`. On Lua 5.1 that
 -- declaration is inert and `_ENV` reads as nil, so the caller's own
 -- environment is the fallback and the new one is installed as the
--- caller's.
+-- caller's. Under a global table that raises on a missing name, that
+-- read of `_ENV` raises instead; `unit.create_test_env()`, with no
+-- argument, falls back to the caller's environment on every version.
 -- @param fallback_env The environment to fall back to for undefined
 --   variables; nil means the caller's environment.
 -- @return A new environment table
