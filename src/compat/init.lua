@@ -23,9 +23,17 @@
 --
 -- @module llx.compat
 
--- rawget, so a host whose global table raises on a missing name can
--- still load llx on an interpreter without `jit`.
-local luajit = type(rawget(_G, 'jit')) == 'table'
+local optional_global = require('llx.compat.portable').optional_global
+
+-- A host that sandboxes its scripts may leave the global `jit` out
+-- while LuaJIT itself has loaded it, so package.loaded is asked too.
+local function find_jit()
+  local jit_library = optional_global(function() return jit end)
+  if type(jit_library) == 'table' then return jit_library end
+  return optional_global(function() return package.loaded.jit end)
+end
+
+local luajit = type(find_jit()) == 'table'
 local version = _VERSION:match('^Lua (%d+%.%d+)$') or _VERSION
 
 -- Each layer's chain, base first; the last entry is the one loaded.

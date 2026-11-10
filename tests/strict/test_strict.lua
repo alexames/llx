@@ -153,6 +153,82 @@ describe('lock_global_table', function()
   end)
 end)
 
+-- tests/support/host_globals.lua, found from this file's own path.
+local function host_globals_path()
+  local source = debug.getinfo(1, 'S').source
+  local path = source:match('^@(.*)$') or source
+  return (path:match('^(.*[/\\])') or '') .. '../support/host_globals.lua'
+end
+
+local host_globals = dofile(host_globals_path())
+
+-- llx.strict loaded into a new world built with `options`, and the world.
+local function strict_in_world(options)
+  local world = host_globals.new(options)
+  local ok, result = host_globals.require(world, 'llx.strict')
+  if not ok then error(tostring(result), 0) end
+  return result, world
+end
+
+-- Whether a write through the world's global table raises the host's
+-- own message rather than llx's.
+local function host_refuses_writes(world)
+  local ok, err = pcall(function()
+    world.globals.__test_strict_host_write = true
+  end)
+  return not ok and tostring(err):find(host_globals.WRITE_REFUSED, 1, true)
+      ~= nil
+end
+
+describe('lock_global_table under a host that already locks _G', function()
+  it('should leave a protected metatable as it is', function()
+    local world_strict, world = strict_in_world()
+    local newindex = world.metatable.__newindex
+    local ok, lock = pcall(world_strict.lock_global_table)
+    expect(ok).to.be_true()
+    expect(getmetatable(world.globals)).to.be_equal_to(host_globals.PROTECTED)
+    expect(world.metatable.__newindex).to.be_equal_to(newindex)
+    expect(host_refuses_writes(world)).to.be_true()
+    getmetatable(lock).__close(lock)
+    expect(world.metatable.__newindex).to.be_equal_to(newindex)
+    expect(host_refuses_writes(world)).to.be_true()
+  end)
+
+  it("should leave an unprotected metatable's __newindex as it is",
+      function()
+    local world_strict, world = strict_in_world({unprotected = true})
+    local newindex = world.metatable.__newindex
+    local lock = world_strict.lock_global_table()
+    expect(getmetatable(world.globals)).to.be_equal_to(world.metatable)
+    expect(world.metatable.__newindex).to.be_equal_to(newindex)
+    expect(host_refuses_writes(world)).to.be_true()
+    getmetatable(lock).__close(lock)
+    expect(world.metatable.__newindex).to.be_equal_to(newindex)
+    expect(host_refuses_writes(world)).to.be_true()
+  end)
+
+  it('should guard a metatable that has no __newindex, and keep its '
+      .. '__index', function()
+    local original = getmetatable(_G)
+    local index = function() return nil end
+    local metatable = {__index = index}
+    setmetatable(_G, metatable)
+    local lock = strict.lock_global_table()
+    local guarded = not pcall(function()
+      _G.__test_strict_partial_metatable = true
+    end)
+    local newindex_while_locked = rawget(metatable, '__newindex')
+    getmetatable(lock).__close(lock)
+    local newindex_after = rawget(metatable, '__newindex')
+    local index_after = rawget(metatable, '__index')
+    setmetatable(_G, original)
+    expect(guarded).to.be_true()
+    expect(newindex_while_locked).to_not.be_nil()
+    expect(newindex_after).to.be_nil()
+    expect(index_after).to.be_equal_to(index)
+  end)
+end)
+
 if llx.main_file() then
   os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

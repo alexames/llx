@@ -24,6 +24,44 @@ M.integer_bits = 32
 --- Whether numbers carry a separate integer subtype (`3` vs `3.0`).
 M.has_integer_subtype = false
 
+--- Reads a global that the host may have left out, answering nil where
+-- the global table raises for a missing name rather than answering nil.
+--
+-- Not `rawget(_G, name)`: a host that locks its global table can make
+-- `_G` an empty proxy that reads the globals through from a table
+-- beneath it, and rawget on the proxy finds none of them.
+-- @param read A function written `function() return name end` in the
+--   chunk whose globals are read, so that the read resolves `name`
+--   against that chunk's environment.
+-- @return The global's value, or nil when it is absent or reading it
+--   raised.
+function M.optional_global(read)
+  local ok, value = pcall(read)
+  if ok then return value end
+  return nil
+end
+
+--- The debug library, or nil when the host did not open it, as a
+-- sandbox usually does not.
+--
+-- What llx.compat reads through it degrades without it: metatables are
+-- read with getmetatable, which answers a `__metatable` field in place
+-- of the real metatable, so the compat `pairs`, `len` and `equals`
+-- cannot see the metamethods of a value whose metatable is protected.
+local debug_library = M.optional_global(function() return debug end)
+if type(debug_library) ~= 'table' then debug_library = nil end
+M.debug_library = debug_library
+
+--- The metatable of a value, read past a `__metatable` field where the
+-- debug library is available.
+--
+-- Without it this is getmetatable, which answers the `__metatable`
+-- field of a protected metatable instead (see `debug_library`).
+-- @param value Any value.
+-- @return The value's metatable, or nil when it has none.
+M.raw_getmetatable = debug_library and debug_library.getmetatable
+    or getmetatable
+
 -- Builds a bitwise operator that works four bits at a time from a
 -- 16 x 16 table of nibble results, so a 32-bit operation takes eight
 -- table lookups rather than thirty-two bit tests.
@@ -122,7 +160,7 @@ function M.u32_mul(a, b)
   return (cross * TWO_16 + a_low * b_low) % TWO_32
 end
 
-local raw_getmetatable = debug and debug.getmetatable or getmetatable
+local raw_getmetatable = M.raw_getmetatable
 
 --- Compares two values with `==` as Lua 5.3+ does: when they are
 -- tables (or both userdata) and not the same object, the __eq of
@@ -170,12 +208,12 @@ end
 -- tostring's result for a table or userdata with its metatable set
 -- aside, so a __tostring cannot answer: 'table: 0x...'.
 local function raw_tostring(value, metatable)
-  if not (debug and debug.setmetatable) then
+  if not (debug_library and debug_library.setmetatable) then
     return type(value)
   end
-  debug.setmetatable(value, nil)
+  debug_library.setmetatable(value, nil)
   local text = tostring(value)
-  debug.setmetatable(value, metatable)
+  debug_library.setmetatable(value, metatable)
   return text
 end
 

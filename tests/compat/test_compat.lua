@@ -91,6 +91,93 @@ describe('compat.defining_environment', function()
   end)
 end)
 
+-- tests/support/host_globals.lua, found from this file's own path.
+local function host_globals_path()
+  local source = debug.getinfo(1, 'S').source
+  local path = source:match('^@(.*)$') or source
+  return (path:match('^(.*[/\\])') or '') .. '../support/host_globals.lua'
+end
+
+local host_globals = dofile(host_globals_path())
+
+-- The interpreter as this suite's own plain global table reports it.
+local RUNNING_LUAJIT = type(rawget(_G, 'jit')) == 'table'
+
+-- Requires `name` in a new world built with `options`, raising what the
+-- require raised.
+local function require_in_world(options, name)
+  local world = host_globals.new(options)
+  local ok, result = host_globals.require(world, name)
+  if not ok then error(tostring(result), 0) end
+  return result, world
+end
+
+local WORLDS = {
+  {label = 'with the debug library', options = {}},
+  {label = 'in a sandbox without the debug library',
+   options = {sandbox = true}},
+  {label = 'in a sandbox without the global jit',
+   options = {sandbox = true, hide_jit = true}},
+}
+
+describe('llx.compat under a locked global table', function()
+  it('should answer the luajit flag the plain global table answers',
+      function()
+    expect(compat.luajit).to.be_equal_to(RUNNING_LUAJIT)
+  end)
+
+  for _, world in ipairs(WORLDS) do
+    describe(world.label, function()
+      it("should load the running interpreter's layer", function()
+        local world_compat = require_in_world(world.options, 'llx.compat')
+        expect(world_compat.layer).to.be_equal_to(compat.layer)
+        expect(world_compat.luajit).to.be_equal_to(RUNNING_LUAJIT)
+      end)
+
+      it('should load all of llx', function()
+        local loaded = require_in_world(world.options, 'llx')
+        expect(loaded.class).to_not.be_nil()
+      end)
+
+      it('should honour __pairs', function()
+        local world_compat = require_in_world(world.options, 'llx.compat')
+        local object = setmetatable({}, {
+          __pairs = function()
+            return next, {answer = 42}, nil
+          end,
+        })
+        local seen = {}
+        for key, value in world_compat.pairs(object) do
+          seen[key] = value
+        end
+        expect(seen.answer).to.be_equal_to(42)
+      end)
+    end)
+  end
+
+  it('should count parameters with the debug library', function()
+    local world_compat = require_in_world({}, 'llx.compat')
+    local count, variadic =
+        world_compat.function_parameters(function(a, b, ...) end)
+    expect(count).to.be_equal_to(2)
+    expect(variadic).to.be_true()
+  end)
+
+  it('should report the debug library only where the world has it',
+      function()
+    local with_debug = require_in_world({}, 'llx.compat')
+    local without_debug = require_in_world({sandbox = true}, 'llx.compat')
+    expect(with_debug.debug_library).to.be_equal_to(debug)
+    expect(without_debug.debug_library).to.be_nil()
+  end)
+
+  it('should leave the loaders out where the world has none', function()
+    local world_compat = require_in_world({sandbox = true}, 'llx.compat')
+    expect(world_compat.load).to.be_nil()
+    expect(world_compat.loadfile).to.be_nil()
+  end)
+end)
+
 if llx.main_file() then
   os.exit(unit.run_unit_tests() == 0 and 0 or 1)
 end

@@ -36,9 +36,12 @@ local matchers = require 'llx.types.matchers'
 
 local _ENV, _M = environment.create_module_environment()
 
+local debug_library = compat.debug_library
+
 -- This module's chunk source, used by check_boundary to re-anchor an
--- exception's traceback at the first frame outside the module.
-local module_source = debug.getinfo(1, 'S').source
+-- exception's traceback at the first frame outside the module. Without
+-- the debug library there is no traceback to re-anchor.
+local module_source = debug_library and debug_library.getinfo(1, 'S').source
 
 local check_returns_exact = check_arguments_module.check_returns_exact
 local class = class_module.class
@@ -80,7 +83,7 @@ local function check_boundary(expected_types, values)
                         values.n or #values)
   exit_type_var_scope()
   if not ok then
-    if type(err) == 'table' and err.traceback ~= nil then
+    if debug_library and type(err) == 'table' and err.traceback ~= nil then
       -- The exception captured its traceback at construction, deep
       -- inside the check machinery (behind this pcall), which is not
       -- where the blame lies. Re-anchor it at the code driving the
@@ -92,14 +95,14 @@ local function check_boundary(expected_types, values)
       -- tail call replaced one of them; it is walked past too.
       local level = 2  -- 1 is this function; start at its caller.
       while true do
-        local info = debug.getinfo(level, 'S')
+        local info = debug_library.getinfo(level, 'S')
         if info == nil
             or (info.source ~= module_source and info.what ~= 'tail') then
           break
         end
         level = level + 1
       end
-      err.traceback = debug.traceback('', level)
+      err.traceback = debug_library.traceback('', level)
     end
     error(err, 0)
   end

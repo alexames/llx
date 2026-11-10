@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `llx.compat.optional_global(function() return name end)`: a global
+  the host may have left out, or nil, also under a global table that
+  raises on a missing name. `llx.compat.debug_library` is the debug
+  library or nil, and `llx.compat.raw_getmetatable` reads a metatable
+  past `__metatable` where the debug library is available.
 - `llx.compat.defining_environment(function() return _ENV end)`: the
   environment of the chunk that writes it, on every version and
   without the debug library.
@@ -30,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `llx.strict.lock_global_table` leaves the global table as it is when
+  its metatable already has a `__newindex` or is protected by
+  `__metatable`: the host already decides what a global write does.
+  It no longer swaps a host's `__newindex` while llx loads, and no
+  longer raises on a protected metatable.
+- `llx.compat.load` and `llx.compat.loadfile` are nil where the host
+  left out the loaders they wrap.
 - A decorated class field is keyed by `decorated(name, d1, d2, ...)`
   (`llx.decorator.decorated`). The `'name' | d1 | d2` operator form is
   removed: `Decorator` no longer defines `__bor`.
@@ -44,6 +56,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `llx.compat` detects LuaJIT where `_G` is a proxy over the globals, as
+  a host's locked global table can make it. It read `rawget(_G, 'jit')`,
+  which found nothing there, and loaded the Lua 5.1 layer, whose
+  `function_parameters` raises on LuaJIT bytecode. It also finds LuaJIT
+  through `package.loaded.jit` when the global `jit` is left out.
+- llx loads without the debug library under a global table that raises
+  on a missing name, as a sandboxed host's is. `llx.compat` read
+  `debug`, and on Lua 5.2+ `load` and `loadfile`, as globals when it
+  loaded. Without the debug library the compat `pairs`, `len` and
+  `equals` read metatables with `getmetatable`, so they cannot see past
+  a `__metatable` field, and `function_parameters` (except on Lua 5.1)
+  and `environment_of` (on 5.2+) raise.
 - `llx.environment` loads on Lua 5.1 and LuaJIT under a global table
   that raises on a missing name. It read `_ENV`, which is a global
   there, so every module built with `create_module_environment` failed

@@ -15,7 +15,12 @@ for name, value in pairs(portable) do
   M[name] = value
 end
 
-local raw_getmetatable = debug and debug.getmetatable or getmetatable
+local debug_library = portable.debug_library
+local raw_getmetatable = portable.raw_getmetatable
+local optional_global = portable.optional_global
+local load_function = optional_global(function() return load end)
+local loadstring_function = optional_global(function() return loadstring end)
+local loadfile_function = optional_global(function() return loadfile end)
 
 -- The metamethod a value's metatable holds under `name`, read the way
 -- Lua 5.2's pairs and # read it: from the real metatable, bypassing a
@@ -34,7 +39,8 @@ function M.pack(...)
   return {n = select('#', ...), ...}
 end
 
---- Loads a chunk with Lua 5.2's load signature.
+--- Loads a chunk with Lua 5.2's load signature. nil where the host
+-- left out `loadstring`, as a sandbox does.
 -- @param chunk A string, or a function returning successive pieces.
 -- @param chunkname The name error messages report for the chunk.
 -- @param mode Ignored: Lua 5.1 cannot refuse text or binary chunks.
@@ -43,9 +49,11 @@ end
 function M.load(chunk, chunkname, mode, env)
   local loaded, err
   if type(chunk) == 'string' then
-    loaded, err = loadstring(chunk, chunkname)
+    loaded, err = loadstring_function(chunk, chunkname)
+  elseif load_function then
+    loaded, err = load_function(chunk, chunkname)
   else
-    loaded, err = load(chunk, chunkname)
+    return nil, 'loading a chunk from a function needs load'
   end
   if loaded and env ~= nil then
     setfenv(loaded, env)
@@ -53,18 +61,22 @@ function M.load(chunk, chunkname, mode, env)
   return loaded, err
 end
 
---- Loads a file with Lua 5.2's loadfile signature.
+--- Loads a file with Lua 5.2's loadfile signature. nil where the host
+-- left out `loadfile`, as a sandbox does.
 -- @param path The file to load; nil reads standard input.
 -- @param mode Ignored: Lua 5.1 cannot refuse text or binary chunks.
 -- @param env The chunk's environment; nil keeps the global one.
 -- @return The compiled function, or nil and an error message.
 function M.loadfile(path, mode, env)
-  local loaded, err = loadfile(path)
+  local loaded, err = loadfile_function(path)
   if loaded and env ~= nil then
     setfenv(loaded, env)
   end
   return loaded, err
 end
+
+if not loadstring_function then M.load = nil end
+if not loadfile_function then M.loadfile = nil end
 
 --- Makes `env` the environment of a running chunk, which is what
 -- `local _ENV = env` at a chunk's top level does lexically on Lua 5.2+.
@@ -78,7 +90,8 @@ end
 -- @param level The function to change, counted as for error(): 1 is
 --   the function that calls install_environment.
 function M.install_environment(env, level)
-  local info = debug and debug.getinfo and debug.getinfo(level + 1, 'S')
+  local info = debug_library and debug_library.getinfo
+      and debug_library.getinfo(level + 1, 'S')
   if info == nil or info.what == 'main' then
     setfenv(level + 1, env)
   end
