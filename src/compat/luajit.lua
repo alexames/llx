@@ -46,12 +46,16 @@ end
 
 --- The number of fixed parameters a function declares and whether it
 -- is variadic, which LuaJIT's debug.getinfo(f, 'u') reports as Lua
--- 5.2's does.
+-- 5.2's does. Raises where the host left the debug library out.
 -- @param func The function to inspect.
 -- @return The fixed parameter count and whether the function is
 --   variadic.
 function M.function_parameters(func)
-  local info = debug.getinfo(func, 'u')
+  local debug_library = lua51.debug_library
+  if not debug_library then
+    error('llx.compat.function_parameters needs the debug library', 2)
+  end
+  local info = debug_library.getinfo(func, 'u')
   return info.nparams, info.isvararg
 end
 

@@ -1,6 +1,7 @@
 -- Copyright 2024 Alexander Ames <Alexander.Ames@gmail.com>
 
 local class = require 'llx.class' . class
+local compat = require 'llx.compat'
 local environment = require 'llx.environment'
 
 local _ENV, _M = environment.create_module_environment()
@@ -8,7 +9,9 @@ local _ENV, _M = environment.create_module_environment()
 Exception = class 'Exception' {
   __init = function(self, what, level)
     self.what = what
-    self.traceback = debug.traceback('', (level or 1) + 1)
+    local debug_library = compat.debug_library
+    self.traceback = debug_library
+        and debug_library.traceback('', (level or 1) + 1) or ''
   end,
 
   --- Returns the short form: "ClassName: what" with no traceback.

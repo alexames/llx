@@ -21,7 +21,7 @@ local _ENV, _M = environment.create_module_environment()
 -- local mt = getmetafield(obj, '__tostring')
 -- if mt then print('Object has custom tostring') end
 function getmetafield(t, k)
-  local metatable = debug.getmetatable(t)
+  local metatable = compat.raw_getmetatable(t)
   return metatable and rawget(metatable, k)
 end
 

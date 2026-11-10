@@ -22,7 +22,7 @@ local _ENV, _M = environment.create_module_environment()
 -- and finally to nothing.
 local function cleanup_function(resource)
   if type(resource) == 'table' or type(resource) == 'userdata' then
-    local mt = debug.getmetatable(resource)
+    local mt = compat.raw_getmetatable(resource)
     if mt and type(mt.__close) == 'function' then
       return function(err) return mt.__close(resource, err) end
     end

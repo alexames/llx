@@ -14,10 +14,20 @@ for name, value in pairs(portable) do
   M[name] = value
 end
 
+-- Raises, naming the function, when the host left the debug library out.
+local function require_debug(function_name)
+  local debug_library = portable.debug_library
+  if not debug_library then
+    error('llx.compat.' .. function_name .. ' needs the debug library', 3)
+  end
+  return debug_library
+end
+
 M.pack = table.pack
 M.format = string.format
-M.load = load
-M.loadfile = loadfile
+-- nil where the host left them out, as a sandbox does.
+M.load = portable.optional_global(function() return load end)
+M.loadfile = portable.optional_global(function() return loadfile end)
 M.pairs = pairs
 M.package_searchers = package.searchers
 M.order_metamethods_mix_types = true
@@ -31,16 +41,17 @@ end
 --- The environment of a running function: the value of its _ENV
 -- upvalue, or nil when it has none.
 --
--- Needs the debug library. A chunk asking for its own environment can
--- use defining_environment, which does not.
+-- Needs the debug library, and raises without it. A chunk asking for
+-- its own environment can use defining_environment, which does not.
 -- @param level Counted as for error(): 1 is the function that calls
 --   environment_of.
 -- @return The environment table, or nil.
 function M.environment_of(level)
-  local info = debug.getinfo(level + 1, 'f')
+  local debug_library = require_debug('environment_of')
+  local info = debug_library.getinfo(level + 1, 'f')
   local index = 1
   while true do
-    local name, value = debug.getupvalue(info.func, index)
+    local name, value = debug_library.getupvalue(info.func, index)
     if name == nil then return nil end
     if name == '_ENV' then return value end
     index = index + 1
@@ -58,12 +69,13 @@ function M.defining_environment(read_env)
 end
 
 --- The number of fixed parameters a function declares and whether it
--- is variadic, as debug.getinfo(f, 'u') reports them.
+-- is variadic, as debug.getinfo(f, 'u') reports them. Raises where the
+-- host left the debug library out.
 -- @param func The function to inspect.
 -- @return The fixed parameter count and whether the function is
 --   variadic.
 function M.function_parameters(func)
-  local info = debug.getinfo(func, 'u')
+  local info = require_debug('function_parameters').getinfo(func, 'u')
   return info.nparams, info.isvararg
 end
 
@@ -80,19 +92,20 @@ M.unpack = portable.make_unpack(table.unpack, M.len)
 
 -- bit32 is standard in 5.2 and present in 5.3 only when it is built
 -- with LUA_COMPAT_BITLIB; the 5.3 layer replaces these anyway.
-local bit32 = rawget(_G, 'bit32')
-if bit32 then
-  M.band = bit32.band
-  M.bor = bit32.bor
-  M.bxor = bit32.bxor
-  M.bnot = bit32.bnot
+local bit32_library =
+    portable.optional_global(function() return bit32 end)
+if bit32_library then
+  M.band = bit32_library.band
+  M.bor = bit32_library.bor
+  M.bxor = bit32_library.bxor
+  M.bnot = bit32_library.bnot
   M.lshift = function(a, n)
     if n >= 32 or n <= -32 then return 0 end
-    return bit32.lshift(a, n)
+    return bit32_library.lshift(a, n)
   end
   M.rshift = function(a, n)
     if n >= 32 or n <= -32 then return 0 end
-    return bit32.rshift(a, n)
+    return bit32_library.rshift(a, n)
   end
 end
 

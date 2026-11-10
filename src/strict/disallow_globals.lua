@@ -12,22 +12,46 @@ local function disallow_writes(t, k, v)
   error(error_string, 2)
 end
 
-function lock_global_table()
-  local old_global_metatable = getmetatable(_G)
-  local new_global_metatable = old_global_metatable or {}
-
-  local old_global_newindex = new_global_metatable.__newindex
-  local new_global_newindex = disallow_writes
-
-  new_global_metatable.__newindex = new_global_newindex
-  setmetatable(_G, new_global_metatable)
-
+-- A lock whose __close runs `release`.
+local function lock_released_by(release)
   return setmetatable({}, {
     __close = function()
-      new_global_metatable.__newindex = old_global_newindex
-      setmetatable(_G, old_global_metatable)
+      release()
     end,
   })
+end
+
+--- Makes a write of a new global name raise until the returned lock is
+-- closed, so that an accidental global assignment fails where it is
+-- made.
+--
+-- The guard is a `__newindex` on `_G`'s metatable. A host that has
+-- already set one, or protected that metatable with a `__metatable`
+-- field, has already decided what a global write does: its metatable is
+-- left as it is, and closing the returned lock does nothing.
+-- @return A lock whose `__close` metamethod removes the guard. Lua 5.4+
+--   calls it for a `<close>` variable; on earlier versions call
+--   `getmetatable(lock).__close(lock)`.
+function lock_global_table()
+  local globals = _G
+  local metatable = getmetatable(globals)
+  if metatable == nil then
+    setmetatable(globals, {__newindex = disallow_writes})
+    return lock_released_by(function()
+      setmetatable(globals, nil)
+    end)
+  end
+  -- setmetatable to the metatable globals already has changes nothing,
+  -- unless that metatable is protected, which makes it raise.
+  if type(metatable) ~= 'table'
+      or rawget(metatable, '__newindex') ~= nil
+      or not pcall(setmetatable, globals, metatable) then
+    return lock_released_by(function() end)
+  end
+  rawset(metatable, '__newindex', disallow_writes)
+  return lock_released_by(function()
+    rawset(metatable, '__newindex', nil)
+  end)
 end
 
 return _M

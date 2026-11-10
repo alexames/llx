@@ -742,6 +742,10 @@ local lock <close> = strict.lock_global_table()
 -- typos in global names now error at use time
 ```
 
+A host that already governs global writes -- `_G`'s metatable has a
+`__newindex`, or is protected with `__metatable` -- keeps its own rule:
+`lock_global_table` leaves it in place and its lock does nothing.
+
 ### Bytecode reader
 
 Low-level inspection of compiled Lua bytecode for both Lua 5.4 and
